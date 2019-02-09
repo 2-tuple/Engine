@@ -305,7 +305,6 @@ RegisterLoadInitialResources(game_state* GameState)
   // SET MISC GL STATE
   {
     glEnable(GL_DEPTH_TEST);
-    glClearColor(0.3f, 0.4f, 0.7f, 1.0f);
     glEnable(GL_CULL_FACE);
     glDepthFunc(GL_LEQUAL);
   }
@@ -315,6 +314,13 @@ void
 SetGameStatePODFields(game_state* GameState)
 {
   GameState->SelectionMode = SELECT_Mesh;
+
+  // PARTICLE SYSTEM INITIALIZATION
+  {
+      GameState->ParticleMode = true;
+      GameState->EffectsEntropy = RandomSeed(1234);
+      GameState->UpdateParticles = true;
+  }
 
   // CAMERA FIELD INITIALIZATION
   {
@@ -401,6 +407,12 @@ SetGameStatePODFields(game_state* GameState)
       GameState->R.FogGradient = 3.0f;
       GameState->R.FogColor    = 0.5f;
     }
+
+    // Clear Color
+    {
+        GameState->R.DefaultClearColor = vec4{0.3f, 0.4f, 0.7f, 1.0f};
+        GameState->R.CurrentClearColor = GameState->R.DefaultClearColor;
+    }
   }
 
   GameState->DrawCubemap              = true;
@@ -415,6 +427,21 @@ SetGameStatePODFields(game_state* GameState)
   // GameState->EditorBoneRotationSpeed = 45.0f;
   GameState->CurrentMaterialID = { 0 };
   GameState->PlayerEntityIndex = -1;
+
+  if(GameState->ParticleMode)
+  {
+     GameState->LastCameraPosition = GameState->Camera.Position;
+     GameState->Camera.Position = vec3{ 0, 1, 3 };
+     GameState->LastDrawCubemap = GameState->DrawCubemap;
+     GameState->DrawCubemap = false;
+     GameState->R.CurrentClearColor = vec4{0.0f, 0.0f, 0.0f, 1.0f};
+  }
+  else
+  {
+     GameState->Camera.Position = GameState->LastCameraPosition;
+     GameState->DrawCubemap = GameState->LastDrawCubemap;
+     GameState->R.CurrentClearColor = GameState->R.DefaultClearColor;
+  }
 
   GameState->Physics.Params.Beta                       = (1.0f / (FRAME_TIME_MS / 1000.0f)) / 2.0f;
   GameState->Physics.Params.Mu                         = 1.0f;

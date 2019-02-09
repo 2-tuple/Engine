@@ -7,6 +7,7 @@
 #include "debug_drawing.h"
 #include "mesh.h"
 #include "profile.h"
+#include "math_engine.h"
 
 #define MAX_CONTACT_POINTS 50
 
@@ -1090,20 +1091,6 @@ CreateFaceContact(sat_contact_manifold* Manifold, face_query QueryA, const mat4 
     Manifold->Points[Manifold->PointCount].Penetration = Penetration;
     ++Manifold->PointCount;
   }
-}
-
-float
-Clamp(float N, float Min, float Max)
-{
-  if(N < Min)
-  {
-    return Min;
-  }
-  if(N > Max)
-  {
-    return Max;
-  }
-  return N;
 }
 
 void

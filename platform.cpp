@@ -92,6 +92,10 @@ ProcessInput(const game_input* OldInput, game_input* NewInput, SDL_Event* Event,
         {
           NewInput->p.EndedDown = true;
         }
+        if(Event->key.keysym.sym == SDLK_q)
+        {
+          NewInput->q.EndedDown = true;
+        }
         if(Event->key.keysym.sym == SDLK_r)
         {
           NewInput->r.EndedDown = true;
@@ -207,6 +211,10 @@ ProcessInput(const game_input* OldInput, game_input* NewInput, SDL_Event* Event,
         if(Event->key.keysym.sym == SDLK_p)
         {
           NewInput->p.EndedDown = false;
+        }
+        if(Event->key.keysym.sym == SDLK_q)
+        {
+          NewInput->q.EndedDown = false;
         }
         if(Event->key.keysym.sym == SDLK_r)
         {

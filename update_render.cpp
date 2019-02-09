@@ -30,6 +30,7 @@
 #include "edit_mode_interaction.h"
 #include "rendering.h"
 #include "post_processing.h"
+#include "particles.h"
 
 #define ASSET_HOT_RELOADING 0
 
@@ -196,6 +197,11 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
   END_TIMED_BLOCK(AnimationSystem);
   END_TIMED_BLOCK(Update);
 
+  //---------------------PARTICLES---------------------
+  BEGIN_TIMED_BLOCK(Particles);
+  ParticleSystem(GameState, (game_input*)Input);
+  END_TIMED_BLOCK(Particles);
+
   //---------------------RENDERING----------------------------
   BEGIN_TIMED_BLOCK(Render);
 
@@ -253,7 +259,10 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
   {
     glBindFramebuffer(GL_FRAMEBUFFER, GameState->R.HdrFBOs[0]);
-    glClearColor(0.3f, 0.4f, 0.7f, 1.0f);
+    {
+        vec4 ClearColor = GameState->R.CurrentClearColor;
+        glClearColor(ClearColor.R, ClearColor.G, ClearColor.B, ClearColor.A);
+    }
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     RenderMainSceneObjects(GameState);

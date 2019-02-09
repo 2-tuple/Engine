@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 
+#define Assert(Expression) if(!(Expression)) {*(int *)0 = 0;}
 #define ArrayCount(Array) sizeof((Array)) / sizeof(Array[0])
 
 #define Kibibytes(Count) (1024 * (Count))
@@ -12,6 +13,24 @@
 #define SLOW_MOTION_COEFFICIENT 0.2f
 #define SCREEN_WIDTH 1920
 #define SCREEN_HEIGHT 1080
+
+typedef int8_t s8;
+typedef int8_t s08;
+typedef int16_t s16;
+typedef int32_t s32;
+typedef int64_t s64;
+typedef s32 b32;
+
+typedef uint8_t u8;
+typedef uint8_t u08;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
+
+typedef float r32;
+typedef double r64;
+typedef float f32;
+typedef double f64;
 
 struct game_button_state
 {
@@ -44,7 +63,7 @@ struct game_input
   bool ToggledEditorMode;
 
   union {
-    game_button_state Buttons[32];
+    game_button_state Buttons[33];
     struct
     {
       game_button_state a;
@@ -60,6 +79,7 @@ struct game_input
       game_button_state n;
       game_button_state o;
       game_button_state p;
+      game_button_state q;
       game_button_state r;
       game_button_state s;
       game_button_state t;

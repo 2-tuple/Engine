@@ -20,6 +20,8 @@
 #include "resource_manager.h"
 #include "dynamics.h"
 
+#include "random.h"
+
 const int32_t ENTITY_MAX_COUNT           = 400;
 const int32_t ENTITY_SELECTION_MAX_COUNT = 400;
 const int32_t MESH_SELECTION_MAX_COUNT   = 400;
@@ -37,9 +39,16 @@ static const char* g_SelectionEnumStrings[SELECT_EnumCount] = { FOR_ALL_NAMES(GE
 #undef GENERATE_ENUM
 #undef GENERATE_STRING
 
+struct particle
+{
+    vec3 P;
+    vec3 dP;
+    vec4 Color;
+    vec4 dColor;
+};
+
 struct game_state
 {
-
   Memory::stack_allocator* PersistentMemStack;
   Memory::stack_allocator* TemporaryMemStack;
   Memory::heap_allocator   HeapAllocator;
@@ -96,6 +105,16 @@ struct game_state
   uint32_t IndexFBO;
   uint32_t DepthRBO;
   uint32_t IDTexture;
+
+  vec3 LastCameraPosition;
+  bool LastDrawCubemap;
+
+  // Particle system test
+  bool ParticleMode;
+  bool UpdateParticles;
+  uint32_t NextParticle;
+  particle Particles[256];
+  random_series EffectsEntropy;
 };
 
 inline mat4

@@ -502,6 +502,10 @@ struct render_data
   vec3 LightAmbientColor;
   vec3 LightDiffuseColor;
   vec3 LightSpecularColor;
+
+  // OpenGL Clear Color
+  vec4 DefaultClearColor;
+  vec4 CurrentClearColor;
 };
 
 inline material

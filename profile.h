@@ -72,6 +72,7 @@ enum
   TIMER_NAME_ReloadModified,
   TIMER_NAME_ReadEntireFile,
   TIMER_NAME_WriteEntireFile,
+  TIMER_NAME_Particles,
   TIMER_NAME_Count,
 };
 
@@ -123,6 +124,7 @@ const char TIMER_NAME_TABLE[][TIMER_NAME_Count] = {
   "ReloadModified",
   "ReadEntireFile",
   "WriteEntireFile",
+  "Particles",
 };
 
 const float TIMER_UI_COLOR_TABLE[TIMER_NAME_Count][3] = {
@@ -137,7 +139,7 @@ const float TIMER_UI_COLOR_TABLE[TIMER_NAME_Count][3] = {
   { 0, 1, 1 },          { 1, 0, 0 },          { 1, 0.5, 1 },        { 0.5f, 0.5f, 0 },
   { 1, 0.6f, 0.6f },    { 1, 0.6f, 0 },       { 0.5f, 1, 0.5f },    { 0.2f, 0.7f, 0.5f },
   { 0, 0, 1 },          { 0.1f, 0.8f, 0.2f }, { 0, 0, 1 },          { 1, 1, 0 },
-  { 0.5f, 0.2f, 0.5f }, { 0.6f, 0.5f, 0.3f }, { 1, 0.2f, 0.3f },
+  { 0.5f, 0.2f, 0.5f }, { 0.6f, 0.5f, 0.3f }, { 1, 0.2f, 0.3f },    { 0, 0.5f, 1 },
 };
 
 struct frame_endpoints

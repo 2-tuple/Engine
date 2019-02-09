@@ -206,7 +206,7 @@ namespace UI
               UI::SameLine();
               {
                 char CountBuffer[40];
-                sprintf(CountBuffer, ": %lu",
+                sprintf(CountBuffer, ": %llu",
                         GLOBAL_TIMER_FRAME_SUMMARY_TABLE[s_CurrentModifiableFrameIndex]
                                                         [s_BlockIndexForSummary]
                                                           .CycleCount);
@@ -226,7 +226,7 @@ namespace UI
             UI::SameLine();
             {
               char CountBuffer[40];
-              sprintf(CountBuffer, ": %lu",
+              sprintf(CountBuffer, ": %llu",
                       GLOBAL_TIMER_FRAME_SUMMARY_TABLE[s_CurrentModifiableFrameIndex][i]
                         .CycleCount);
               UI::Text(CountBuffer);
