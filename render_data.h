@@ -505,6 +505,7 @@ struct render_data
 
   // OpenGL Clear Color
   vec4 DefaultClearColor;
+  vec4 ParticleSystemClearColor;
   vec4 CurrentClearColor;
 };
 

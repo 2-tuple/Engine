@@ -315,13 +315,6 @@ SetGameStatePODFields(game_state* GameState)
 {
   GameState->SelectionMode = SELECT_Mesh;
 
-  // PARTICLE SYSTEM INITIALIZATION
-  {
-      GameState->ParticleMode = true;
-      GameState->EffectsEntropy = RandomSeed(1234);
-      GameState->UpdateParticles = true;
-  }
-
   // CAMERA FIELD INITIALIZATION
   {
     GameState->Camera.Position      = { 0, 2, 0 };
@@ -411,6 +404,7 @@ SetGameStatePODFields(game_state* GameState)
     // Clear Color
     {
         GameState->R.DefaultClearColor = vec4{0.3f, 0.4f, 0.7f, 1.0f};
+        GameState->R.ParticleSystemClearColor = vec4{0.15f, 0.15f, 0.15f, 1.0f};
         GameState->R.CurrentClearColor = GameState->R.DefaultClearColor;
     }
   }
@@ -428,13 +422,74 @@ SetGameStatePODFields(game_state* GameState)
   GameState->CurrentMaterialID = { 0 };
   GameState->PlayerEntityIndex = -1;
 
+  // PARTICLE SYSTEM INITIALIZATION
+  {
+      GameState->ParticleMode = true;
+      GameState->EffectsEntropy = RandomSeed(1234);
+      GameState->UpdateParticles = true;
+      GameState->DrawParticleCelGrid = false;
+
+      GameState->SquareGridColor = vec4{0.5f, 0.5f, 0.85f, 1.0f};
+      GameState->SquareGridLineCount = 0;
+      GameState->SquareGridStep = 2.0f;
+      GameState->SquareGridRange = 10.0f;
+      float Limit = GameState->SquareGridRange + 0.5f * GameState->SquareGridStep;
+      for(float Coordinate = -GameState->SquareGridRange;
+          Coordinate < Limit;
+          Coordinate += GameState->SquareGridStep)
+      {
+          GameState->SquareGridLines[GameState->SquareGridLineCount++] = grid_line{
+            vec3{Coordinate, 0.0f, -GameState->SquareGridRange},
+            vec3{Coordinate, 0.0f, GameState->SquareGridRange}
+          };
+          GameState->SquareGridLines[GameState->SquareGridLineCount++] = grid_line{
+            vec3{-GameState->SquareGridRange, 0.0f, Coordinate},
+            vec3{GameState->SquareGridRange, 0.0f, Coordinate}
+          };
+      }
+      Assert(GameState->SquareGridLineCount < MAX_SQUARE_GRID_LINE_COUNT);
+
+      GameState->ParticleCelGridScale = 0.25f;
+      GameState->ParticleCelGridOrigin =
+          vec3{-0.5f * PARTICLE_CEL_DIM * GameState->ParticleCelGridScale,
+               0.0f,
+               -0.5f * PARTICLE_CEL_DIM * GameState->ParticleCelGridScale};
+      GameState->ParticleCelGridColor = vec4{0.85f, 0.3f, 0.3f, 0.1f};
+      GameState->ParticleCelGridLineCount = 0;
+      vec3 GridOrigin = GameState->ParticleCelGridOrigin;
+      for(u32 i = 0; i < PARTICLE_CEL_DIM + 1; ++i)
+      {
+          r32 Plane = i * GameState->ParticleCelGridScale;
+          for(u32 j = 0; j < PARTICLE_CEL_DIM + 1; ++j)
+          {
+              r32 PlaneLine = j * GameState->ParticleCelGridScale;
+              r32 LineLength = PARTICLE_CEL_DIM * GameState->ParticleCelGridScale;
+              // X
+              GameState->ParticleCelGridLines[GameState->ParticleCelGridLineCount++] = grid_line{
+                  vec3{GridOrigin.X, GridOrigin.Y + Plane, GridOrigin.Z + PlaneLine},
+                  vec3{GridOrigin.X + LineLength, GridOrigin.Y + Plane, GridOrigin.Z + PlaneLine}
+              };
+              // Z
+              GameState->ParticleCelGridLines[GameState->ParticleCelGridLineCount++] = grid_line{
+                  vec3{GridOrigin.X + PlaneLine, GridOrigin.Y + Plane, GridOrigin.Z},
+                  vec3{GridOrigin.X + PlaneLine, GridOrigin.Y + Plane, GridOrigin.Z + LineLength}
+              };
+              // Y
+              GameState->ParticleCelGridLines[GameState->ParticleCelGridLineCount++] = grid_line{
+                  vec3{GridOrigin.X + Plane, GridOrigin.Y, GridOrigin.Z + PlaneLine},
+                  vec3{GridOrigin.X + Plane, GridOrigin.Y + LineLength, GridOrigin.Z + PlaneLine}
+              };
+          }
+      }
+  }
+
   if(GameState->ParticleMode)
   {
      GameState->LastCameraPosition = GameState->Camera.Position;
-     GameState->Camera.Position = vec3{ 0, 1, 3 };
+     GameState->Camera.Position = vec3{ 0, 1, 7 };
      GameState->LastDrawCubemap = GameState->DrawCubemap;
      GameState->DrawCubemap = false;
-     GameState->R.CurrentClearColor = vec4{0.0f, 0.0f, 0.0f, 1.0f};
+     GameState->R.CurrentClearColor = GameState->R.ParticleSystemClearColor;
   }
   else
   {

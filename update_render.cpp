@@ -294,10 +294,6 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
   //---------------DEBUG DRAWING------------------
   BEGIN_TIMED_BLOCK(DebugDrawingSubmission);
-  if(GameState->DrawDebugSpheres)
-  {
-    Debug::DrawWireframeSpheres(GameState);
-  }
   glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
   if(GameState->DrawGizmos)
   {
@@ -306,6 +302,10 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
   if(GameState->DrawDebugLines)
   {
     Debug::DrawLines(GameState);
+  }
+  if(GameState->DrawDebugSpheres)
+  {
+    Debug::DrawWireframeSpheres(GameState);
   }
   Debug::DrawQuads(GameState);
   Debug::ClearDrawArrays();
