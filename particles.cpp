@@ -93,13 +93,12 @@ ParticleSystemDrawParticleCels(game_state* GameState)
 /*
  * NOTE(rytis): OK, so, I did this particle simulation the way Casey Muratori did on
  * the Handmade Hero, but (at least so far) he focused more on the physics side of
- * the simulation (meaning, the created particle "fountain" is using more physics
- * calculations, thus being a more accurate simulation).
- * Yet I don't think this is the way the "effects" system should be working? In my case,
- * it doesn't really matter if the simulation is physically accurate, since the accuracy
- * might not be the thing that the artist might want (meaning the required physical properties
- * of the simulation might be radically different for every effect).
- * Customization is the key here.
+ * the simulation (meaning, the created particle "fountain" is using more accurate
+ * physics calculations, thus being a more realistic simulation).
+ * I don't know if the density calculations are needed for this project. Destiny
+ * particle system, which is a big inspiration for this project, uses attractors and
+ * repulsors (which, I believe, are based on Newtonian gravity calculations) and
+ * I don't know if I need anything fancier than that.
  */
 void
 ParticleSystem(game_state* GameState, game_input* Input)
@@ -171,6 +170,11 @@ ParticleSystem(game_state* GameState, game_input* Input)
         ParticleSystemDrawParticleCels(GameState);
     }
 
+    v3 Attractor = v3{-3.0f * sinf(0.25f * PI * GameState->R.CumulativeTime), 1.0f, 1.0f};
+    v4 AttractorColor = v4{1.0f, 0.0f, 0.0f, 1.0f};
+
+    Debug::PushWireframeSphere(Attractor, 0.05f, AttractorColor);
+
     for(u32 ParticleIndex = 0; ParticleIndex < ArrayCount(GameState->Particles); ++ParticleIndex)
     {
         particle* Particle = GameState->Particles + ParticleIndex;
@@ -207,7 +211,12 @@ ParticleSystem(game_state* GameState, game_input* Input)
             Dispersion += Dc * (CelCenter->Density - CelLeft->Density) * vec3{-1.0f, 0.0f, 0.0f};
             Dispersion += Dc * (CelCenter->Density - CelRight->Density) * vec3{1.0f, 0.0f, 0.0f};
 
-            v3 ddP = Particle->ddP + Dispersion;
+            r32 Strength = 10.0f;
+            v3 Direction = Attractor - Particle->P;
+            r32 Distance = Math::Length(Direction);
+            v3 ddPAttraction = Strength * Math::Normalized(Direction) / (Distance * Distance);
+
+            v3 ddP = Particle->ddP + Dispersion + ddPAttraction;
 
             // NOTE(rytis): Simulate the particle forward in time
             Particle->P += 0.5f * Square(Input->dt) * ddP + Input->dt * Particle->dP;

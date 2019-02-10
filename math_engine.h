@@ -1,5 +1,7 @@
 #pragma once
 
+#define PI 3.1415926535
+
 inline float
 AbsoluteValue(float A)
 {
