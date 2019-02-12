@@ -14,24 +14,6 @@
 #define SCREEN_WIDTH 1920
 #define SCREEN_HEIGHT 1080
 
-typedef int8_t s8;
-typedef int8_t s08;
-typedef int16_t s16;
-typedef int32_t s32;
-typedef int64_t s64;
-typedef s32 b32;
-
-typedef uint8_t u8;
-typedef uint8_t u08;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
-
-typedef float r32;
-typedef double r64;
-typedef float f32;
-typedef double f64;
-
 struct game_button_state
 {
   uint8_t EndedDown;

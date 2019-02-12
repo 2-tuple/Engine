@@ -20,7 +20,7 @@
 #include "resource_manager.h"
 #include "dynamics.h"
 
-#include "random.h"
+#include "offbeat.h"
 
 const int32_t ENTITY_MAX_COUNT           = 400;
 const int32_t ENTITY_SELECTION_MAX_COUNT = 400;
@@ -38,30 +38,6 @@ static const char* g_SelectionEnumStrings[SELECT_EnumCount] = { FOR_ALL_NAMES(GE
 #undef FOR_ALL_NAMES
 #undef GENERATE_ENUM
 #undef GENERATE_STRING
-
-#define MAX_SQUARE_GRID_LINE_COUNT 50
-#define PARTICLE_CEL_DIM 16
-
-struct grid_line
-{
-    vec3 A;
-    vec3 B;
-};
-
-struct particle_cel
-{
-    r32 Density;
-    vec3 VelocityTimesDensity;
-};
-
-struct particle
-{
-    vec3 P;
-    vec3 dP;
-    vec3 ddP;
-    vec4 Color;
-    vec4 dColor;
-};
 
 struct game_state
 {
@@ -126,27 +102,9 @@ struct game_state
   bool LastDrawCubemap;
 
   // Particle system test
-  vec4 SquareGridColor;
-  u32 SquareGridLineCount;
-  float SquareGridStep;
-  float SquareGridRange;
-  grid_line SquareGridLines[MAX_SQUARE_GRID_LINE_COUNT];
-
   bool ParticleMode;
-  bool UpdateParticles;
-  random_series EffectsEntropy;
-
-  u32 NextParticle;
-  particle Particles[256];
-
-  vec3 ParticleCelGridOrigin;
-  particle_cel ParticleCels[PARTICLE_CEL_DIM][PARTICLE_CEL_DIM][PARTICLE_CEL_DIM];
-
-  bool DrawParticleCelGrid;
-  float ParticleCelGridScale;
-  vec4 ParticleCelGridColor;
-  u32 ParticleCelGridLineCount;
-  grid_line ParticleCelGridLines[3 * (PARTICLE_CEL_DIM + 1) * (PARTICLE_CEL_DIM + 1)];
+  uint64_t OffbeatMemorySize;
+  offbeat_state* OffbeatState;
 };
 
 inline mat4

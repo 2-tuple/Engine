@@ -30,7 +30,6 @@
 #include "edit_mode_interaction.h"
 #include "rendering.h"
 #include "post_processing.h"
-#include "particles.h"
 
 #define ASSET_HOT_RELOADING 0
 
@@ -198,9 +197,32 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
   END_TIMED_BLOCK(Update);
 
   //---------------------PARTICLES---------------------
-  BEGIN_TIMED_BLOCK(Particles);
-  ParticleSystem(GameState, (game_input*)Input);
-  END_TIMED_BLOCK(Particles);
+  if(Input->p.EndedDown && Input->p.Changed)
+  {
+    GameState->ParticleMode = !GameState->ParticleMode;
+
+    if(GameState->ParticleMode)
+    {
+        GameState->LastCameraPosition = GameState->Camera.Position;
+        GameState->Camera.Position = v3{ 0, 1, 7 };
+        GameState->LastDrawCubemap = GameState->DrawCubemap;
+        GameState->DrawCubemap = false;
+        GameState->R.CurrentClearColor = GameState->R.ParticleSystemClearColor;
+    }
+    else
+    {
+        GameState->Camera.Position = GameState->LastCameraPosition;
+        GameState->DrawCubemap = GameState->LastDrawCubemap;
+        GameState->R.CurrentClearColor = GameState->R.DefaultClearColor;
+    }
+  }
+
+  if(GameState->ParticleMode)
+  {
+    BEGIN_TIMED_BLOCK(Particles);
+    OffbeatParticleSystem(GameState->OffbeatState, (game_input*)Input);
+    END_TIMED_BLOCK(Particles);
+  }
 
   //---------------------RENDERING----------------------------
   BEGIN_TIMED_BLOCK(Render);

@@ -7,7 +7,6 @@
 #include "debug_drawing.h"
 #include "mesh.h"
 #include "profile.h"
-#include "math_engine.h"
 
 #define MAX_CONTACT_POINTS 50
 

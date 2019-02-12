@@ -1,7 +1,6 @@
 #pragma once
 
-#include "common.h"
-#include "math_engine.h"
+#include "offbeat_math.h"
 
 #define MinRandomNumber 0x0000cc93
 #define MaxRandomNumber 0x3b8a2a26
