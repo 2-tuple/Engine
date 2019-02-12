@@ -26,10 +26,19 @@ typedef vec4 v4;
 typedef mat3 m3;
 typedef mat4 m4;
 
+#include "offbeat_math.h"
 #include "offbeat_random.h"
 
 #define MAX_SQUARE_GRID_LINE_COUNT 50
 #define PARTICLE_CEL_DIM 16
+
+enum offbeat_emitter_shape
+{
+    OFFBEAT_EmitterPoint,
+    OFFBEAT_EmitterRing,
+
+    OFFBEAT_EmitterCount,
+};
 
 struct offbeat_grid_line
 {
@@ -50,6 +59,13 @@ struct offbeat_particle
     v3 ddP;
     v4 Color;
     v4 dColor;
+};
+
+struct offbeat_emitter
+{
+    v3 Location;
+    offbeat_emitter_shape Shape;
+    float Radius;
 };
 
 struct offbeat_state

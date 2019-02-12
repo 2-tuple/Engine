@@ -1,6 +1,5 @@
 #include "debug_drawing.h"
 #include "offbeat.h"
-#include "offbeat_math.h"
 
 static void
 OffbeatHandleInput(offbeat_state* OffbeatState, game_input* Input)
@@ -123,6 +122,34 @@ OffbeatInit(void* Memory, u64 MemorySize)
     return OffbeatState;
 }
 
+static v3
+OffbeatParticlePosition(random_series* EffectsEntropy, offbeat_emitter* Emitter)
+{
+    v3 Result = {};
+
+    switch(Emitter->Shape)
+    {
+        case OFFBEAT_EmitterPoint:
+        {
+            Result = Emitter->Location;
+        } break;
+
+        case OFFBEAT_EmitterRing:
+        {
+            r32 RandomValue = 2.0f * PI * RandomUnilateral(EffectsEntropy);
+            Result = Emitter->Location;
+            Result.X += Emitter->Radius * sinf(RandomValue);
+            Result.Z += Emitter->Radius * cosf(RandomValue);
+        } break;
+
+        default:
+        {
+        } break;
+    }
+
+    return Result;
+}
+
 /*
  * NOTE(rytis): OK, so, I did this particle simulation the way Casey Muratori did on
  * the Handmade Hero, but (at least so far) he focused more on the physics side of
@@ -143,6 +170,9 @@ OffbeatParticleSystem(offbeat_state* OffbeatState, game_input* Input)
 
     if(OffbeatState->UpdateParticles)
     {
+        offbeat_emitter Emitter = {};
+        Emitter.Shape = OFFBEAT_EmitterRing;
+        Emitter.Radius = 1.0f;
         for(u32 ParticleSpawnIndex = 0; ParticleSpawnIndex < 4; ++ParticleSpawnIndex)
         {
             offbeat_particle* Particle = OffbeatState->Particles + OffbeatState->NextParticle++;
@@ -151,9 +181,8 @@ OffbeatParticleSystem(offbeat_state* OffbeatState, game_input* Input)
                 OffbeatState->NextParticle = 0;
             }
 
-            Particle->P = v3{RandomBetween(&OffbeatState->EffectsEntropy, -0.05f, 0.05f),
-                             0,
-                             RandomBetween(&OffbeatState->EffectsEntropy, -0.05f, 0.05f)};
+            Particle->P = OffbeatParticlePosition(&OffbeatState->EffectsEntropy, &Emitter);
+            Debug::PushWireframeSphere(Particle->P, 0.02f, v4{0.8f, 0.0f, 0.0f, 1.0f});
             Particle->dP = v3{RandomBetween(&OffbeatState->EffectsEntropy, -0.01f, 0.01f),
                               7.0f * RandomBetween(&OffbeatState->EffectsEntropy, 0.7f, 1.0f),
                               RandomBetween(&OffbeatState->EffectsEntropy, -0.01f, 0.01f)};
