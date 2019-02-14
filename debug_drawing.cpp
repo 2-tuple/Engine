@@ -1,7 +1,7 @@
 #include "debug_drawing.h"
 #include "basic_data_structures.h"
 
-#define SPHERE_MAX_COUNT 300
+#define SPHERE_MAX_COUNT 3000
 #define GIZMO_MAX_COUNT 300
 #define TEXTURED_QUAD_MAX_COUNT 300
 #define COLORED_QUAD_MAX_COUNT 500

@@ -563,12 +563,12 @@ inline r32 RandomBilateral(random_series* Series)
 
 inline r32 RandomBetween(random_series* Series, r32 Min, r32 Max)
 {
-    Assert(Max > Min);
+    OffbeatAssert(Max > Min);
     return Lerp(Min, RandomUnilateral(Series), Max);
 }
 
 inline s32 RandomBetween(random_series* Series, s32 Min, s32 Max)
 {
-    Assert(Max > Min);
+    OffbeatAssert(Max > Min);
     return (Min + (RandomNextRandomUInt32(Series) % (Max - Min)));
 }

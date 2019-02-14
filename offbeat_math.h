@@ -2,26 +2,26 @@
 
 #define PI 3.1415926535
 
-inline float
-AbsoluteValue(float A)
+inline r32
+AbsoluteValue(r32 A)
 {
     return A < 0.0f ? -A : A;
 }
 
-inline float
-Square(float A)
+inline r32
+Square(r32 A)
 {
     return A * A;
 }
 
-inline float
-Lerp(float A, float t, float B)
+inline r32
+Lerp(r32 A, r32 t, r32 B)
 {
     return (1.0f - t) * A + t * B;
 }
 
-inline float
-Clamp(float N, float Min, float Max)
+inline r32
+Clamp(r32 N, r32 Min, r32 Max)
 {
     if(N < Min)
     {
@@ -34,18 +34,18 @@ Clamp(float N, float Min, float Max)
     return N;
 }
 
-inline float
-Clamp01(float Value)
+inline r32
+Clamp01(r32 Value)
 {
     return Clamp(Value, 0.0f, 1.0f);
 }
 
-inline float
-Clamp01MapToRange(float Min, float t, float Max)
+inline r32
+Clamp01MapToRange(r32 Min, r32 t, r32 Max)
 {
-    float Result = 0.0f;
+    r32 Result = 0.0f;
 
-    float Range = Max - Min;
+    r32 Range = Max - Min;
     if(Range != 0.0f)
     {
         Result = Clamp01((t - Min) / Range);
