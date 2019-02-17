@@ -550,18 +550,18 @@ inline u32 RandomChoice(random_series* Series, u32 ChoiceCount)
     return RandomNextRandomUInt32(Series) % ChoiceCount;
 }
 
-inline r32 RandomUnilateral(random_series* Series)
+inline f32 RandomUnilateral(random_series* Series)
 {
-    r32 Divisor = 1.0f / (r32)MaxRandomNumber;
-    return (Divisor * (r32)RandomNextRandomUInt32(Series));
+    f32 Divisor = 1.0f / (f32)MaxRandomNumber;
+    return (Divisor * (f32)RandomNextRandomUInt32(Series));
 }
 
-inline r32 RandomBilateral(random_series* Series)
+inline f32 RandomBilateral(random_series* Series)
 {
     return (2.0f * RandomUnilateral(Series) - 1.0f);
 }
 
-inline r32 RandomBetween(random_series* Series, r32 Min, r32 Max)
+inline f32 RandomBetween(random_series* Series, f32 Min, f32 Max)
 {
     OffbeatAssert(Max > Min);
     return Lerp(Min, RandomUnilateral(Series), Max);

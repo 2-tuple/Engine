@@ -46,12 +46,6 @@ struct offbeat_grid_line
     v3 B;
 };
 
-struct offbeat_particle_cel
-{
-    r32 Density;
-    v3 VelocityTimesDensity;
-};
-
 struct offbeat_particle
 {
     v3 P;
@@ -70,11 +64,19 @@ enum offbeat_emission_shape
     OFFBEAT_EmissionCount,
 };
 
+enum offbeat_emission_velocity_type
+{
+    OFFBEAT_VelocityCone,
+    OFFBEAT_VelocityRandom,
+
+    OFFBEAT_VelocityCount,
+};
+
 struct offbeat_emission
 {
     v3 Location;
-    r32 EmissionRate;
-    r32 ParticleLifetime;
+    f32 EmissionRate;
+    f32 ParticleLifetime;
     offbeat_emission_shape Shape;
     union
     {
@@ -84,28 +86,75 @@ struct offbeat_emission
 
         struct
         {
-            float Radius;
+            f32 Radius;
         } Ring;
     };
+    f32 InitialVelocityScale;
+    offbeat_emission_velocity_type VelocityType;
+    union
+    {
+        struct
+        {
+            v3 Direction;
+            f32 Height;
+            f32 EndRadius;
+        } Cone;
+
+        struct
+        {
+        } Random;
+    };
+};
+
+enum offbeat_motion_primitive
+{
+    OFFBEAT_MotionNone,
+    OFFBEAT_MotionPoint,
+
+    OFFBEAT_MotionCount,
+};
+
+struct offbeat_motion
+{
+    v3 Gravity;
+    offbeat_motion_primitive Primitive;
+    union
+    {
+        struct
+        {
+            v3 Position;
+            f32 Strength;
+        } Point;
+    };
+};
+
+struct offbeat_appearance
+{
+    v4 Color;
+    v3 Scale;
+    u32 TextureID;
 };
 
 struct offbeat_particle_system
 {
     offbeat_emission Emission;
+    offbeat_motion Motion;
+    offbeat_appearance Appearance;
+
     u32 NextParticle;
     offbeat_particle Particles[512];
 };
 
 struct offbeat_state
 {
-    r32 dt;
-    r32 t; // NOTE(rytis): Accumulated time.
-    r32 tSpawn;
+    f32 dt;
+    f32 t; // NOTE(rytis): Accumulated time.
+    f32 tSpawn;
 
     v4 SquareGridColor;
     u32 SquareGridLineCount;
-    r32 SquareGridStep;
-    r32 SquareGridRange;
+    f32 SquareGridStep;
+    f32 SquareGridRange;
     offbeat_grid_line SquareGridLines[MAX_SQUARE_GRID_LINE_COUNT];
 
     b32 UpdateParticles;
@@ -113,15 +162,6 @@ struct offbeat_state
 
     u32 ParticleSystemCount;
     offbeat_particle_system ParticleSystems[10];
-
-    v3 ParticleCelGridOrigin;
-    offbeat_particle_cel ParticleCels[PARTICLE_CEL_DIM][PARTICLE_CEL_DIM][PARTICLE_CEL_DIM];
-
-    b32 DrawParticleCelGrid;
-    r32 ParticleCelGridScale;
-    v4 ParticleCelGridColor;
-    u32 ParticleCelGridLineCount;
-    offbeat_grid_line ParticleCelGridLines[3 * (PARTICLE_CEL_DIM + 1) * (PARTICLE_CEL_DIM + 1)];
 };
 
 void OffbeatSetAllocatorFunctions(void* (*Malloc)(u64), void (*Free)(void*));

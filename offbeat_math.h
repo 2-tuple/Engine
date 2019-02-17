@@ -1,27 +1,27 @@
 #pragma once
 
-#define PI 3.1415926535
+#define PI 3.1415926535f
 
-inline r32
-AbsoluteValue(r32 A)
+inline f32
+AbsoluteValue(f32 A)
 {
     return A < 0.0f ? -A : A;
 }
 
-inline r32
-Square(r32 A)
+inline f32
+Square(f32 A)
 {
     return A * A;
 }
 
-inline r32
-Lerp(r32 A, r32 t, r32 B)
+inline f32
+Lerp(f32 A, f32 t, f32 B)
 {
     return (1.0f - t) * A + t * B;
 }
 
-inline r32
-Clamp(r32 N, r32 Min, r32 Max)
+inline f32
+Clamp(f32 N, f32 Min, f32 Max)
 {
     if(N < Min)
     {
@@ -34,18 +34,18 @@ Clamp(r32 N, r32 Min, r32 Max)
     return N;
 }
 
-inline r32
-Clamp01(r32 Value)
+inline f32
+Clamp01(f32 Value)
 {
     return Clamp(Value, 0.0f, 1.0f);
 }
 
-inline r32
-Clamp01MapToRange(r32 Min, r32 t, r32 Max)
+inline f32
+Clamp01MapToRange(f32 Min, f32 t, f32 Max)
 {
-    r32 Result = 0.0f;
+    f32 Result = 0.0f;
 
-    r32 Range = Max - Min;
+    f32 Range = Max - Min;
     if(Range != 0.0f)
     {
         Result = Clamp01((t - Min) / Range);
