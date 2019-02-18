@@ -51,7 +51,7 @@ OffbeatInit(void* Memory, u64 MemorySize)
             v3{OffbeatState->SquareGridRange, 0.0f, Coordinate}
           };
         }
-        OffbeatAssert(OffbeatState->SquareGridLineCount < MAX_SQUARE_GRID_LINE_COUNT);
+        OffbeatAssert(OffbeatState->SquareGridLineCount < OFFBEAT_MAX_SQUARE_GRID_LINE_COUNT);
 
         offbeat_emission TestEmission = {};
         TestEmission.Location = v3{0.0f, 0.0f, 0.0f};
@@ -60,7 +60,7 @@ OffbeatInit(void* Memory, u64 MemorySize)
         TestEmission.Shape = OFFBEAT_EmissionRing;
         TestEmission.Ring.Radius = 0.5f;
 
-        TestEmission.InitialVelocityScale = 2.0f;
+        TestEmission.InitialVelocityScale = 1.0f;
         TestEmission.VelocityType = OFFBEAT_VelocityCone;
         TestEmission.Cone.Direction = v3{0.0f, 1.0f, 0.0f};
         TestEmission.Cone.Height = 5.0f;
@@ -77,6 +77,7 @@ OffbeatInit(void* Memory, u64 MemorySize)
                                   RandomBetween(&OffbeatState->EffectsEntropy, 0.5f, 0.8f),
                                   RandomBetween(&OffbeatState->EffectsEntropy, 0.8f, 1.0f),
                                   1.0f};
+        TestAppearance.Size = 0.05f;
 
         offbeat_particle_system TestSystem = {};
         TestSystem.Emission = TestEmission;
@@ -91,7 +92,7 @@ OffbeatInit(void* Memory, u64 MemorySize)
 }
 
 static void
-OffbeatHandleInput(offbeat_state* OffbeatState, game_input* Input)
+OffbeatHandleInput(offbeat_state* OffbeatState, game_input* Input, offbeat_camera Camera)
 {
     if(OffbeatState->UpdateParticles)
     {
@@ -104,6 +105,8 @@ OffbeatHandleInput(offbeat_state* OffbeatState, game_input* Input)
     {
         OffbeatState->UpdateParticles = !OffbeatState->UpdateParticles;
     }
+
+    OffbeatState->Camera = Camera;
 }
 
 static void
@@ -153,6 +156,9 @@ OffbeatParticleInitialPosition(random_series* Entropy, offbeat_emission* Emissio
 
         case OFFBEAT_EmissionRing:
         {
+            // TODO(rytis): This currently uses Y axis as the up direction. In future this
+            // should be changed to either be independent from a specific coordinate system
+            // or use a clearly defined internal coordinate system.
             f32 RandomValue = 2.0f * PI * RandomUnilateral(Entropy);
             Result = Emission->Location;
             Result.X += Emission->Ring.Radius * sinf(RandomValue);
@@ -253,11 +259,67 @@ OffbeatUpdateParticleddP(offbeat_motion* Motion, offbeat_particle* Particle)
     return Result;
 }
 
-void
-OffbeatUpdateAndRenderParticleSystem(offbeat_particle_system* ParticleSystem, f32 dt, b32 UpdateFlag)
+static void
+OffbeatConstructQuad(offbeat_draw_list* DrawList, offbeat_camera* Camera, offbeat_appearance* Appearance, v3 ParticlePosition)
+{
+    OffbeatAssert(DrawList->IndexCount + 6 < OFFBEAT_MAX_INDEX_COUNT);
+    OffbeatAssert(DrawList->VertexCount + 4 < OFFBEAT_MAX_VERTEX_COUNT);
+    // TODO(rytis): For now this uses a global Y axis for reference (for now we assume that Y is up).
+    // This HAS to be fixed.
+    // Also, this might be not perspective correct. Particles always seem to be facing the camera,
+    // even though it should probably be facing the PLANE camera is on. That's a big FIXME ASAP!
+    v3 Normal = Math::Normalized(Camera->Position - ParticlePosition);
+    v3 Vertical = Math::Normalized(Camera->Up);
+    v3 Horizontal = Math::Normalized(Math::Cross(Normal, Vertical));
+
+    // NOTE(rytis): Vertices (from camera perspective)
+    v3 TopLeft = ParticlePosition + 0.5f * Appearance->Size * (Horizontal + Vertical);
+    v3 TopRight = ParticlePosition + 0.5f * Appearance->Size * (-Horizontal + Vertical);
+    v3 BottomLeft = ParticlePosition + 0.5f * Appearance->Size * (Horizontal - Vertical);
+    v3 BottomRight = ParticlePosition + 0.5f * Appearance->Size * (-Horizontal - Vertical);
+
+    // NOTE(rytis): UVs
+    v2 TopLeftUV = v2{0.0f, 1.0f};
+    v2 TopRightUV = v2{1.0f, 1.0f};
+    v2 BottomLeftUV = v2{0.0f, 0.0f};
+    v2 BottomRightUV = v2{1.0f, 0.0f};
+
+    u32 VertexIndex = DrawList->VertexCount;
+    // NOTE(rytis): Updating draw list vertex array
+    DrawList->Vertices[DrawList->VertexCount++] = offbeat_draw_vertex{TopLeft,
+                                                                      TopLeftUV,
+                                                                      Appearance->Color};
+    DrawList->Vertices[DrawList->VertexCount++] = offbeat_draw_vertex{TopRight,
+                                                                      TopRightUV,
+                                                                      Appearance->Color};
+    DrawList->Vertices[DrawList->VertexCount++] = offbeat_draw_vertex{BottomLeft,
+                                                                      BottomLeftUV,
+                                                                      Appearance->Color};
+    DrawList->Vertices[DrawList->VertexCount++] = offbeat_draw_vertex{BottomRight,
+                                                                      BottomRightUV,
+                                                                      Appearance->Color};
+
+    // NOTE(rytis): Updating draw list index array
+    // NOTE(rytis): Top left triangle
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex;
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 2;
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 1;
+    // NOTE(rytis): Bottom right triangle
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 1;
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 2;
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 3;
+
+    ++DrawList->ElementCount;
+}
+
+static void
+OffbeatUpdateAndRenderParticleSystem(offbeat_draw_list* DrawList, offbeat_particle_system* ParticleSystem, f32 dt, b32 UpdateFlag, offbeat_camera* Camera)
 {
     offbeat_motion* Motion = &ParticleSystem->Motion;
     offbeat_appearance* Appearance = &ParticleSystem->Appearance;
+
+    *DrawList = {};
+    DrawList->TextureID = Appearance->TextureID;
 
     for(u32 ParticleIndex = 0; ParticleIndex < ArrayCount(ParticleSystem->Particles); ++ParticleIndex)
     {
@@ -303,24 +365,19 @@ OffbeatRender:
         Color.B = Clamp01(Particle->Color.B);
         Color.A = Clamp01(Particle->Color.A);
 
-        if(Color.A > 0.9f)
-        {
-            Color.A = 0.9f * Clamp01MapToRange(1.0f, Color.A, 0.9f);
-        }
-
-        // NOTE(rytis): Render the particle (as a debug output for now)
-        Debug::PushWireframeSphere(Particle->P, 0.01f, Color);
+        OffbeatConstructQuad(DrawList, Camera, Appearance, Particle->P);
     }
 }
 
 void
-OffbeatParticleSystem(offbeat_state* OffbeatState, game_input* Input)
+OffbeatParticleSystem(offbeat_state* OffbeatState, game_input* Input, offbeat_camera Camera)
 {
-    OffbeatHandleInput(OffbeatState, Input);
+    OffbeatHandleInput(OffbeatState, Input, Camera);
     OffbeatDrawGrid(OffbeatState);
 
     glEnable(GL_BLEND);
 
+    OffbeatState->DrawData.DrawListCount = OffbeatState->ParticleSystemCount;
     for(u32 i = 0; i < OffbeatState->ParticleSystemCount; ++i)
     {
         if(OffbeatState->UpdateParticles)
@@ -330,7 +387,7 @@ OffbeatParticleSystem(offbeat_state* OffbeatState, game_input* Input)
         }
 
         // NOTE(rytis): Particle system update and render
-        OffbeatUpdateAndRenderParticleSystem(&OffbeatState->ParticleSystems[i], OffbeatState->dt, OffbeatState->UpdateParticles);
+        OffbeatUpdateAndRenderParticleSystem(&OffbeatState->DrawData.DrawLists[i], &OffbeatState->ParticleSystems[i], OffbeatState->dt, OffbeatState->UpdateParticles, &OffbeatState->Camera);
 
         // NOTE(rytis): Motion primitive position render
         v3 Point = OffbeatState->ParticleSystems[i].Motion.Point.Position = v3{-3.0f * sinf(0.25f * PI * OffbeatState->t), 1.0f, 1.0f};
@@ -339,4 +396,10 @@ OffbeatParticleSystem(offbeat_state* OffbeatState, game_input* Input)
     }
 
     glDisable(GL_BLEND);
+}
+
+offbeat_draw_data*
+OffbeatGetDrawData(offbeat_state* OffbeatState)
+{
+    return &OffbeatState->DrawData;
 }

@@ -456,3 +456,57 @@ RenderMaterialPreviewToTexture(game_state* GameState)
 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
+
+void
+RenderParticleEffects(game_state* GameState)
+{
+    GLuint OffbeatShaderID = GameState->Resources.GetShader(GameState->R.ShaderOffbeat);
+    glUseProgram(OffbeatShaderID);
+    glUniformMatrix4fv(glGetUniformLocation(OffbeatShaderID, "Projection"), 1, GL_FALSE,
+                       GameState->Camera.ProjectionMatrix.e);
+    glUniformMatrix4fv(glGetUniformLocation(OffbeatShaderID, "View"), 1, GL_FALSE,
+                       GameState->Camera.ViewMatrix.e);
+
+    GLuint VAO = 0;
+    GLuint VBO = 0;
+    GLuint EBO = 0;
+
+    glGenVertexArrays(1, &VAO);
+    glBindVertexArray(VAO);
+
+    glGenBuffers(1, &VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+    glGenBuffers(1, &EBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(offbeat_draw_vertex), (GLvoid*)(offsetof(offbeat_draw_vertex, Position)));
+
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(offbeat_draw_vertex), (GLvoid*)(offsetof(offbeat_draw_vertex, UV)));
+
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(offbeat_draw_vertex), (GLvoid*)(offsetof(offbeat_draw_vertex, Color)));
+
+    offbeat_draw_data* DrawData = OffbeatGetDrawData(GameState->OffbeatState);
+    for(int i = 0; i < DrawData->DrawListCount; ++i)
+    {
+        glBufferData(GL_ARRAY_BUFFER,
+                     DrawData->DrawLists[i].VertexCount * sizeof(offbeat_draw_vertex),
+                     DrawData->DrawLists[i].Vertices,
+                     GL_STREAM_DRAW);
+
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                     DrawData->DrawLists[i].IndexCount * sizeof(uint32_t),
+                     DrawData->DrawLists[i].Indices,
+                     GL_STREAM_DRAW);
+
+        glDrawElements(GL_TRIANGLES, DrawData->DrawLists[i].IndexCount, GL_UNSIGNED_INT, 0);
+    }
+
+    glDeleteBuffers(1, &VBO);
+    glDeleteBuffers(1, &EBO);
+    glDeleteVertexArrays(1, &VAO);
+    glBindVertexArray(0);
+}

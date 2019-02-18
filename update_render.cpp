@@ -219,9 +219,13 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
   if(GameState->ParticleMode)
   {
-    BEGIN_TIMED_BLOCK(Particles);
-    OffbeatParticleSystem(GameState->OffbeatState, (game_input*)Input);
-    END_TIMED_BLOCK(Particles);
+    BEGIN_TIMED_BLOCK(Offbeat);
+    offbeat_camera OffbeatCamera = {};
+    OffbeatCamera.Position = GameState->Camera.Position;
+    OffbeatCamera.Up = GameState->Camera.Up;
+
+    OffbeatParticleSystem(GameState->OffbeatState, (game_input*)Input, OffbeatCamera);
+    END_TIMED_BLOCK(Offbeat);
   }
 
   //---------------------RENDERING----------------------------
@@ -333,6 +337,10 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
   Debug::ClearDrawArrays();
   Text::ClearTextRequestCounts();
   END_TIMED_BLOCK(DebugDrawingSubmission);
+
+  BEGIN_TIMED_BLOCK(Particles);
+  RenderParticleEffects(GameState);
+  END_TIMED_BLOCK(Particles);
 
   END_TIMED_BLOCK(Render);
   READ_GPU_QUERY_TIMERS();

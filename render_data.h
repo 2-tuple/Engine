@@ -392,6 +392,8 @@ struct render_data
   rid ShaderLightWave;
   rid ShaderVolumetricScattering;
 
+  rid ShaderOffbeat;
+
   // Post-processing shaders
   rid PostDefaultShader;
   rid PostBlurH;

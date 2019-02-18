@@ -37,8 +37,16 @@ typedef mat4 m4;
 #include "offbeat_math.h"
 #include "offbeat_random.h"
 
-#define MAX_SQUARE_GRID_LINE_COUNT 50
-#define PARTICLE_CEL_DIM 16
+#define OFFBEAT_MAX_SQUARE_GRID_LINE_COUNT 50
+
+#define OFFBEAT_MAX_PARTICLE_COUNT 512
+#define OFFBEAT_MAX_DRAW_COMMAND_COUNT OFFBEAT_MAX_PARTICLE_COUNT
+
+#define OFFBEAT_MAX_INDEX_COUNT 6000
+#define OFFBEAT_MAX_VERTEX_COUNT 4000
+
+#define OFFBEAT_MAX_SYSTEM_COUNT 10
+#define OFFBEAT_MAX_DRAW_LIST_COUNT OFFBEAT_MAX_SYSTEM_COUNT
 
 struct offbeat_grid_line
 {
@@ -131,6 +139,7 @@ struct offbeat_motion
 struct offbeat_appearance
 {
     v4 Color;
+    f32 Size;
     v3 Scale;
     u32 TextureID;
 };
@@ -142,28 +151,64 @@ struct offbeat_particle_system
     offbeat_appearance Appearance;
 
     u32 NextParticle;
-    offbeat_particle Particles[512];
+    offbeat_particle Particles[OFFBEAT_MAX_PARTICLE_COUNT];
+};
+
+struct offbeat_camera
+{
+    v3 Position;
+    v3 Up;
+};
+
+struct offbeat_draw_vertex
+{
+    v3 Position;
+    v2 UV;
+    v4 Color;
+};
+
+struct offbeat_draw_list
+{
+    u32 TextureID;
+    u32 ElementCount;
+
+    u32 IndexCount;
+    u32 Indices[OFFBEAT_MAX_INDEX_COUNT];
+
+    u32 VertexCount;
+    offbeat_draw_vertex Vertices[OFFBEAT_MAX_VERTEX_COUNT];
+};
+
+struct offbeat_draw_data
+{
+    u32 DrawListCount;
+    offbeat_draw_list DrawLists[OFFBEAT_MAX_DRAW_LIST_COUNT];
 };
 
 struct offbeat_state
 {
     f32 dt;
-    f32 t; // NOTE(rytis): Accumulated time.
+    f32 t;
     f32 tSpawn;
+
+    offbeat_camera Camera;
 
     v4 SquareGridColor;
     u32 SquareGridLineCount;
     f32 SquareGridStep;
     f32 SquareGridRange;
-    offbeat_grid_line SquareGridLines[MAX_SQUARE_GRID_LINE_COUNT];
+    offbeat_grid_line SquareGridLines[OFFBEAT_MAX_SQUARE_GRID_LINE_COUNT];
 
     b32 UpdateParticles;
     random_series EffectsEntropy;
 
     u32 ParticleSystemCount;
-    offbeat_particle_system ParticleSystems[10];
+    offbeat_particle_system ParticleSystems[OFFBEAT_MAX_SYSTEM_COUNT];
+
+    offbeat_draw_data DrawData;
 };
 
 void OffbeatSetAllocatorFunctions(void* (*Malloc)(u64), void (*Free)(void*));
 offbeat_state* OffbeatInit(void* Memory, u64 MemorySize);
-void OffbeatParticleSystem(offbeat_state* OffbeatState, game_input* Input);
+void OffbeatParticleSystem(offbeat_state* OffbeatState, game_input* Input, offbeat_camera Camera);
+offbeat_draw_data* OffbeatGetDrawData(offbeat_state* OffbeatState);
