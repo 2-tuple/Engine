@@ -28,7 +28,6 @@ OffbeatInit(void* Memory, u64 MemorySize)
     offbeat_state* OffbeatState = (offbeat_state*)Memory;
     {
         OffbeatState->t = 0.0f;
-        OffbeatState->tSpawn = 0.0f;
 
         OffbeatState->EffectsEntropy = RandomSeed(1234);
         OffbeatState->UpdateParticles = true;
@@ -80,10 +79,11 @@ OffbeatInit(void* Memory, u64 MemorySize)
         TestAppearance.Size = 0.05f;
 
         offbeat_particle_system TestSystem = {};
+        // TestSystem.t = 0.0f;
         TestSystem.Emission = TestEmission;
         TestSystem.Motion = TestMotion;
         TestSystem.Appearance = TestAppearance;
-        TestSystem.NextParticle = 0;
+        // TestSystem.NextParticle = 0;
 
         OffbeatState->ParticleSystemCount = 1;
         OffbeatState->ParticleSystems[0] = TestSystem;
@@ -98,7 +98,6 @@ OffbeatHandleInput(offbeat_state* OffbeatState, game_input* Input, offbeat_camer
     {
         OffbeatState->dt = Input->dt;
         OffbeatState->t += OffbeatState->dt;
-        OffbeatState->tSpawn += OffbeatState->dt;
     }
 
     if(Input->q.EndedDown && Input->q.Changed)
@@ -106,7 +105,10 @@ OffbeatHandleInput(offbeat_state* OffbeatState, game_input* Input, offbeat_camer
         OffbeatState->UpdateParticles = !OffbeatState->UpdateParticles;
     }
 
-    OffbeatState->Camera = Camera;
+    offbeat_quad_data QuadData = {};
+    QuadData.Horizontal = -Math::Normalized(Camera.Right);
+    QuadData.Vertical = Math::Normalized(Math::Cross(QuadData.Horizontal, -Camera.Forward));
+    OffbeatState->QuadData = QuadData;
 }
 
 static void
@@ -209,16 +211,17 @@ OffbeatParticleInitialVelocity(random_series* Entropy, offbeat_emission* Emissio
 }
 
 static void
-OffbeatSpawnParticles(offbeat_particle_system* ParticleSystem, random_series* Entropy, f32* tSpawn)
+OffbeatSpawnParticles(offbeat_particle_system* ParticleSystem, random_series* Entropy, f32 dt)
 {
     offbeat_emission* Emission = &ParticleSystem->Emission;
     offbeat_appearance* Appearance = &ParticleSystem->Appearance;
 
+    ParticleSystem->t += dt;
     f32 TimePerParticle = 1.0f / Emission->EmissionRate;
-    f32 RealParticleSpawn =  (*tSpawn) * Emission->EmissionRate;
+    f32 RealParticleSpawn =  ParticleSystem->t * Emission->EmissionRate;
     OffbeatAssert(RealParticleSpawn >= 0.0f);
     u32 ParticleSpawnCount = TruncateF32ToU32(RealParticleSpawn);
-    *tSpawn -= ParticleSpawnCount * TimePerParticle;
+    ParticleSystem->t -= ParticleSpawnCount * TimePerParticle;
 
     for(u32 ParticleSpawnIndex = 0; ParticleSpawnIndex < ParticleSpawnCount; ++ParticleSpawnIndex)
     {
@@ -260,23 +263,20 @@ OffbeatUpdateParticleddP(offbeat_motion* Motion, offbeat_particle* Particle)
 }
 
 static void
-OffbeatConstructQuad(offbeat_draw_list* DrawList, offbeat_camera* Camera, offbeat_appearance* Appearance, v3 ParticlePosition)
+OffbeatConstructQuad(offbeat_draw_list* DrawList, offbeat_quad_data* QuadData, offbeat_appearance* Appearance, v3 ParticlePosition)
 {
     OffbeatAssert(DrawList->IndexCount + 6 < OFFBEAT_MAX_INDEX_COUNT);
     OffbeatAssert(DrawList->VertexCount + 4 < OFFBEAT_MAX_VERTEX_COUNT);
-    // TODO(rytis): For now this uses a global Y axis for reference (for now we assume that Y is up).
-    // This HAS to be fixed.
-    // Also, this might be not perspective correct. Particles always seem to be facing the camera,
-    // even though it should probably be facing the PLANE camera is on. That's a big FIXME ASAP!
-    v3 Normal = Math::Normalized(Camera->Position - ParticlePosition);
-    v3 Vertical = Math::Normalized(Camera->Up);
-    v3 Horizontal = Math::Normalized(Math::Cross(Normal, Vertical));
 
     // NOTE(rytis): Vertices (from camera perspective)
-    v3 TopLeft = ParticlePosition + 0.5f * Appearance->Size * (Horizontal + Vertical);
-    v3 TopRight = ParticlePosition + 0.5f * Appearance->Size * (-Horizontal + Vertical);
-    v3 BottomLeft = ParticlePosition + 0.5f * Appearance->Size * (Horizontal - Vertical);
-    v3 BottomRight = ParticlePosition + 0.5f * Appearance->Size * (-Horizontal - Vertical);
+    v3 TopLeft = ParticlePosition +
+                 0.5f * Appearance->Size * (QuadData->Horizontal + QuadData->Vertical);
+    v3 TopRight = ParticlePosition +
+                  0.5f * Appearance->Size * (-QuadData->Horizontal + QuadData->Vertical);
+    v3 BottomLeft = ParticlePosition +
+                    0.5f * Appearance->Size * (QuadData->Horizontal - QuadData->Vertical);
+    v3 BottomRight = ParticlePosition +
+                     0.5f * Appearance->Size * (-QuadData->Horizontal - QuadData->Vertical);
 
     // NOTE(rytis): UVs
     v2 TopLeftUV = v2{0.0f, 1.0f};
@@ -313,7 +313,7 @@ OffbeatConstructQuad(offbeat_draw_list* DrawList, offbeat_camera* Camera, offbea
 }
 
 static void
-OffbeatUpdateAndRenderParticleSystem(offbeat_draw_list* DrawList, offbeat_particle_system* ParticleSystem, f32 dt, b32 UpdateFlag, offbeat_camera* Camera)
+OffbeatUpdateAndRenderParticleSystem(offbeat_draw_list* DrawList, offbeat_particle_system* ParticleSystem, f32 dt, b32 UpdateFlag, offbeat_quad_data* QuadData)
 {
     offbeat_motion* Motion = &ParticleSystem->Motion;
     offbeat_appearance* Appearance = &ParticleSystem->Appearance;
@@ -365,7 +365,7 @@ OffbeatRender:
         Color.B = Clamp01(Particle->Color.B);
         Color.A = Clamp01(Particle->Color.A);
 
-        OffbeatConstructQuad(DrawList, Camera, Appearance, Particle->P);
+        OffbeatConstructQuad(DrawList, QuadData, Appearance, Particle->P);
     }
 }
 
@@ -383,11 +383,11 @@ OffbeatParticleSystem(offbeat_state* OffbeatState, game_input* Input, offbeat_ca
         if(OffbeatState->UpdateParticles)
         {
             // NOTE(rytis): Particle spawn / emission
-            OffbeatSpawnParticles(&OffbeatState->ParticleSystems[i], &OffbeatState->EffectsEntropy, &OffbeatState->tSpawn);
+            OffbeatSpawnParticles(&OffbeatState->ParticleSystems[i], &OffbeatState->EffectsEntropy, OffbeatState->dt);
         }
 
         // NOTE(rytis): Particle system update and render
-        OffbeatUpdateAndRenderParticleSystem(&OffbeatState->DrawData.DrawLists[i], &OffbeatState->ParticleSystems[i], OffbeatState->dt, OffbeatState->UpdateParticles, &OffbeatState->Camera);
+        OffbeatUpdateAndRenderParticleSystem(&OffbeatState->DrawData.DrawLists[i], &OffbeatState->ParticleSystems[i], OffbeatState->dt, OffbeatState->UpdateParticles, &OffbeatState->QuadData);
 
         // NOTE(rytis): Motion primitive position render
         v3 Point = OffbeatState->ParticleSystems[i].Motion.Point.Position = v3{-3.0f * sinf(0.25f * PI * OffbeatState->t), 1.0f, 1.0f};

@@ -221,8 +221,8 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
   {
     BEGIN_TIMED_BLOCK(Offbeat);
     offbeat_camera OffbeatCamera = {};
-    OffbeatCamera.Position = GameState->Camera.Position;
-    OffbeatCamera.Up = GameState->Camera.Up;
+    OffbeatCamera.Forward = GameState->Camera.Forward;
+    OffbeatCamera.Right = GameState->Camera.Right;
 
     OffbeatParticleSystem(GameState->OffbeatState, (game_input*)Input, OffbeatCamera);
     END_TIMED_BLOCK(Offbeat);

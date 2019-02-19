@@ -146,6 +146,8 @@ struct offbeat_appearance
 
 struct offbeat_particle_system
 {
+    f32 t; // NOTE(rytis): Time of individual particle system to properly spawn particles.
+
     offbeat_emission Emission;
     offbeat_motion Motion;
     offbeat_appearance Appearance;
@@ -156,8 +158,14 @@ struct offbeat_particle_system
 
 struct offbeat_camera
 {
-    v3 Position;
-    v3 Up;
+    v3 Forward;
+    v3 Right;
+};
+
+struct offbeat_quad_data
+{
+    v3 Horizontal;
+    v3 Vertical;
 };
 
 struct offbeat_draw_vertex
@@ -189,9 +197,8 @@ struct offbeat_state
 {
     f32 dt;
     f32 t;
-    f32 tSpawn;
 
-    offbeat_camera Camera;
+    offbeat_quad_data QuadData;
 
     v4 SquareGridColor;
     u32 SquareGridLineCount;
