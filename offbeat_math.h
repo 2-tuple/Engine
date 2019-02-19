@@ -1,11 +1,21 @@
 #pragma once
 
+#include <math.h>
+#include <xmmintrin.h>
+
 #define PI 3.1415926535f
 
 inline f32
 AbsoluteValue(f32 A)
 {
     return A < 0.0f ? -A : A;
+}
+
+inline f32
+SquareRoot(f32 Value)
+{
+    f32 Result = _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(Value)));
+    return Result;
 }
 
 inline f32
@@ -52,4 +62,16 @@ Clamp01MapToRange(f32 Min, f32 t, f32 Max)
     }
     
     return Result;
+}
+
+inline f32
+Sin(f32 Angle)
+{
+    return sinf(Angle);
+}
+
+inline f32
+Cos(f32 Angle)
+{
+    return cosf(Angle);
 }

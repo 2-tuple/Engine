@@ -105,7 +105,7 @@ struct offbeat_emission
         {
             v3 Direction;
             f32 Height;
-            f32 EndRadius;
+            f32 Radius;
         } Cone;
 
         struct

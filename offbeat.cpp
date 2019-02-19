@@ -56,14 +56,22 @@ OffbeatInit(void* Memory, u64 MemorySize)
         TestEmission.Location = v3{0.0f, 0.0f, 0.0f};
         TestEmission.EmissionRate = 60.0f;
         TestEmission.ParticleLifetime = 1.5f;
+#if 1
         TestEmission.Shape = OFFBEAT_EmissionRing;
         TestEmission.Ring.Radius = 0.5f;
+#else
+        TestEmission.Shape = OFFBEAT_EmissionPoint;
+#endif
 
         TestEmission.InitialVelocityScale = 1.0f;
+#if 1
         TestEmission.VelocityType = OFFBEAT_VelocityCone;
         TestEmission.Cone.Direction = v3{0.0f, 1.0f, 0.0f};
         TestEmission.Cone.Height = 5.0f;
-        TestEmission.Cone.EndRadius = 3.0f;
+        TestEmission.Cone.Radius = 3.0f;
+#else
+        TestEmission.VelocityType = OFFBEAT_VelocityRandom;
+#endif
 
         offbeat_motion TestMotion = {};
         TestMotion.Gravity = v3{0.0f, 0.0f, 0.0f};
@@ -163,8 +171,8 @@ OffbeatParticleInitialPosition(random_series* Entropy, offbeat_emission* Emissio
             // or use a clearly defined internal coordinate system.
             f32 RandomValue = 2.0f * PI * RandomUnilateral(Entropy);
             Result = Emission->Location;
-            Result.X += Emission->Ring.Radius * sinf(RandomValue);
-            Result.Z += Emission->Ring.Radius * cosf(RandomValue);
+            Result.X += Emission->Ring.Radius * Sin(RandomValue);
+            Result.Z += Emission->Ring.Radius * Cos(RandomValue);
         } break;
 
         default:
@@ -184,21 +192,51 @@ OffbeatParticleInitialVelocity(random_series* Entropy, offbeat_emission* Emissio
     {
         case OFFBEAT_VelocityCone:
         {
-            v3 RandomVector = v3{RandomBilateral(Entropy),
-                                 RandomBilateral(Entropy),
-                                 RandomBilateral(Entropy)};
-            v3 AxisVector = Math::Normalized(Emission->Cone.Direction) * Emission->Cone.Height;
-            f32 Length = Emission->Cone.EndRadius * RandomUnilateral(Entropy);
-            v3 PerpVector = Math::Normalized(Math::Cross(AxisVector, Math::Normalized(RandomVector))) * Length;
-            Result = Math::Normalized(AxisVector + PerpVector);
+            f32 Denom = SquareRoot(Square(Emission->Cone.Height) + Square(Emission->Cone.Radius));
+            f32 CosTheta = Emission->Cone.Height / Denom;
+
+            f32 Phi = RandomBetween(Entropy, 0.0f, 2.0f * PI);
+            f32 Z = RandomBetween(Entropy, CosTheta, 1.0f);
+
+            // NOTE(rytis): Vector generated around axis (0, 0, 1)
+            v3 RandomVector = {};
+            RandomVector.X = SquareRoot(1.0f - Square(Z)) * Cos(Phi);
+            RandomVector.Y = SquareRoot(1.0f - Square(Z)) * Sin(Phi);
+            RandomVector.Z = Z;
+
+            // TODO(rytis): This is a temporary solution for the rotation. Would probably be much
+            // better to sit down properly and think this through. For now though, it's based
+            // on quaternion rotation (vector + angle).
+            //
+            // Based on:
+            // https://gamedev.stackexchange.com/questions/28395/rotating-vector3-by-a-quaternion
+            // https://www.opengl-tutorial.org/intermediate-tutorials/tutorial-17-quaternions/#how-do-i-find-the-rotation-between-2-vectors-
+            v3 ZAxis = v3{0.0f, 0.0f, 1.0f};
+            v3 RotationAxis = Math::Normalized(Math::Cross(ZAxis, Emission->Cone.Direction));
+            f32 CosRotation = Math::Dot(ZAxis, Emission->Cone.Direction);
+            f32 S = SquareRoot((1 + CosRotation) * 2.0f);
+            f32 InvS = 1.0f / S;
+
+            v3 QuatVectorPart = v3{RotationAxis.X * InvS,
+                                   RotationAxis.Y * InvS,
+                                   RotationAxis.Z * InvS};
+            f32 QuatScalarPart = 0.5f * S;
+
+            Result = 2.0f * Math::Dot(QuatVectorPart, RandomVector) * QuatVectorPart +
+                     (Square(QuatScalarPart) - Math::Dot(QuatVectorPart, QuatVectorPart)) *
+                     RandomVector +
+                     2.0f * QuatScalarPart * Math::Cross(QuatVectorPart, RandomVector);
         } break;
 
         case OFFBEAT_VelocityRandom:
         {
-            Result.X = RandomBilateral(Entropy);
-            Result.Y = RandomBilateral(Entropy);
-            Result.Z = RandomBilateral(Entropy);
-            Result = Math::Normalized(Result);
+            f32 Theta = RandomBetween(Entropy, 0.0f, 2.0f * PI);
+            f32 Z = RandomBilateral(Entropy);
+            Result.X = SquareRoot(1.0f - Square(Z)) * Cos(Theta);
+            Result.Y = SquareRoot(1.0f - Square(Z)) * Sin(Theta);
+            Result.Z = Z;
+            // NOTE(rytis): This generates a vector in a unit sphere, so no normalization is required.
+            // Result = Math::Normalized(Result);
         } break;
 
         default:
