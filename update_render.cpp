@@ -220,9 +220,13 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
   if(GameState->ParticleMode)
   {
     BEGIN_TIMED_BLOCK(Offbeat);
-    offbeat_camera OffbeatCamera = {};
-    OffbeatCamera.Forward = GameState->Camera.Forward;
-    OffbeatCamera.Right = GameState->Camera.Right;
+    ob_camera OffbeatCamera = {};
+    OffbeatCamera.Forward = ov3{GameState->Camera.Forward.X,
+                                GameState->Camera.Forward.Y,
+                                GameState->Camera.Forward.Z};
+    OffbeatCamera.Right = ov3{GameState->Camera.Right.X,
+                              GameState->Camera.Right.Y,
+                              GameState->Camera.Right.Z};
 
     OffbeatParticleSystem(GameState->OffbeatState, (game_input*)Input, OffbeatCamera);
     END_TIMED_BLOCK(Offbeat);

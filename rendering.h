@@ -481,19 +481,19 @@ RenderParticleEffects(game_state* GameState)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(offbeat_draw_vertex), (GLvoid*)(offsetof(offbeat_draw_vertex, Position)));
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex), (GLvoid*)(offsetof(ob_draw_vertex, Position)));
 
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(offbeat_draw_vertex), (GLvoid*)(offsetof(offbeat_draw_vertex, UV)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex), (GLvoid*)(offsetof(ob_draw_vertex, UV)));
 
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(offbeat_draw_vertex), (GLvoid*)(offsetof(offbeat_draw_vertex, Color)));
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex), (GLvoid*)(offsetof(ob_draw_vertex, Color)));
 
-    offbeat_draw_data* DrawData = OffbeatGetDrawData(GameState->OffbeatState);
+    ob_draw_data* DrawData = OffbeatGetDrawData(GameState->OffbeatState);
     for(int i = 0; i < DrawData->DrawListCount; ++i)
     {
         glBufferData(GL_ARRAY_BUFFER,
-                     DrawData->DrawLists[i].VertexCount * sizeof(offbeat_draw_vertex),
+                     DrawData->DrawLists[i].VertexCount * sizeof(ob_draw_vertex),
                      DrawData->DrawLists[i].Vertices,
                      GL_STREAM_DRAW);
 

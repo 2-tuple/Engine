@@ -5,33 +5,109 @@
 
 #define PI 3.1415926535f
 
+// TODO(rytis): SIMD-ize!!!
+
+// NOTE(rytis): Linear types
+
+union ov2
+{
+    struct
+    {
+        f32 x, y;
+    };
+    struct
+    {
+        f32 u, v;
+    };
+};
+
+union ov3
+{
+    struct
+    {
+        f32 x, y, z;
+    };
+};
+
+union ov4
+{
+    struct
+    {
+        f32 x, y, z, w;
+    };
+    struct
+    {
+        f32 r, g, b, a;
+    };
+};
+
+// NOTE(rytis): Matrices are ROW MAJOR (E[ROW][COLUMN])!!!
+union om3
+{
+    struct
+    {
+        f32 _11, _12, _13;
+        f32 _21, _22, _23;
+        f32 _31, _32, _33;
+    };
+    f32 E[3][3];
+};
+
+union om4
+{
+    struct
+    {
+        f32 _11, _12, _13, _14;
+        f32 _21, _22, _23, _24;
+        f32 _31, _32, _33, _34;
+        f32 _41, _42, _43, _44;
+    };
+    f32 E[4][4];
+};
+
+// NOTE(rytis): Intrinsic operations
+
 inline f32
-AbsoluteValue(f32 A)
+ObAbsoluteValue(f32 A)
 {
     return A < 0.0f ? -A : A;
 }
 
 inline f32
-SquareRoot(f32 Value)
+ObSquare(f32 A)
+{
+    return A * A;
+}
+
+inline f32
+ObSquareRoot(f32 Value)
 {
     f32 Result = _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(Value)));
     return Result;
 }
 
 inline f32
-Square(f32 A)
+ObSin(f32 Angle)
 {
-    return A * A;
+    return sinf(Angle);
 }
 
 inline f32
-Lerp(f32 A, f32 t, f32 B)
+ObCos(f32 Angle)
+{
+    return cosf(Angle);
+}
+
+// NOTE(rytis): Scalar operations
+
+inline f32
+ObLerp(f32 A, f32 t, f32 B)
 {
     return (1.0f - t) * A + t * B;
 }
 
 inline f32
-Clamp(f32 N, f32 Min, f32 Max)
+ObClamp(f32 N, f32 Min, f32 Max)
 {
     if(N < Min)
     {
@@ -45,33 +121,366 @@ Clamp(f32 N, f32 Min, f32 Max)
 }
 
 inline f32
-Clamp01(f32 Value)
+ObClamp01(f32 Value)
 {
-    return Clamp(Value, 0.0f, 1.0f);
+    return ObClamp(Value, 0.0f, 1.0f);
 }
 
 inline f32
-Clamp01MapToRange(f32 Min, f32 t, f32 Max)
+ObClamp01MapToRange(f32 Min, f32 t, f32 Max)
 {
     f32 Result = 0.0f;
 
     f32 Range = Max - Min;
     if(Range != 0.0f)
     {
-        Result = Clamp01((t - Min) / Range);
+        Result = ObClamp01((t - Min) / Range);
     }
     
     return Result;
 }
 
-inline f32
-Sin(f32 Angle)
+// NOTE(rytis): v3 operations
+
+inline ov3
+operator*(f32 A, ov3 B)
 {
-    return sinf(Angle);
+    ov3 Result;
+    Result.x = A * B.x;
+    Result.y = A * B.y;
+    Result.z = A * B.z;
+    return Result;
+}
+
+inline ov3
+operator*(ov3 B, f32 A)
+{
+    ov3 Result = A * B;
+    return Result;
+}
+
+inline ov3&
+operator*=(ov3& B, f32 A)
+{
+    B = A * B;
+    return B;
+}
+
+inline ov3
+operator/(f32 A, ov3 B)
+{
+    ov3 Result = (1.0f / A) * B;
+    return Result;
+}
+
+inline ov3
+operator/(ov3 B, f32 A)
+{
+    ov3 Result = A / B;
+    return Result;
+}
+
+inline ov3&
+operator/=(ov3& B, f32 A)
+{
+    B = B / A;
+    return B;
+}
+
+inline ov3
+operator-(ov3 A)
+{
+    ov3 Result;
+    Result.x = -A.x;
+    Result.y = -A.y;
+    Result.z = -A.z;
+    return Result;
+}
+
+inline ov3
+operator+(ov3 A, ov3 B)
+{
+    ov3 Result;
+    Result.x = A.x + B.x;
+    Result.y = A.y + B.y;
+    Result.z = A.z + B.z;
+    return Result;
+}
+
+inline ov3&
+operator+=(ov3& A, ov3 B)
+{
+    A = A + B;
+    return A;
+}
+
+inline ov3
+operator-(ov3 A, ov3 B)
+{
+    ov3 Result;
+    Result.x = A.x - B.x;
+    Result.y = A.y - B.y;
+    Result.z = A.z - B.z;
+    return Result;
+}
+
+inline ov3&
+operator-=(ov3& A, ov3 B)
+{
+    A = A - B;
+    return A;
 }
 
 inline f32
-Cos(f32 Angle)
+ObInner(ov3 A, ov3 B)
 {
-    return cosf(Angle);
+    f32 Result = A.x * B.x + A.y * B.y + A.z * B.z;
+    return Result;
+}
+
+inline f32
+ObLengthSq(ov3 A)
+{
+    f32 Result = ObInner(A, A);
+    return Result;
+}
+
+inline f32
+ObLength(ov3 A)
+{
+    f32 Result = ObSquareRoot(ObLengthSq(A));
+    return Result;
+}
+
+inline ov3
+ObNormalize(ov3 A)
+{
+    ov3 Result = A / ObLength(A);
+    return Result;
+}
+
+inline ov3
+ObCross(ov3 A, ov3 B)
+{
+    ov3 Result;
+    Result.x = A.y * B.z - A.z * B.y;
+    Result.y = A.z * B.x - A.x * B.z;
+    Result.z = A.x * B.y - A.y * B.x;
+    return Result;
+}
+
+inline ov3
+ObClamp01(ov3 A)
+{
+    ov3 Result;
+    Result.x = ObClamp01(A.x);
+    Result.y = ObClamp01(A.y);
+    Result.z = ObClamp01(A.z);
+    return Result;
+}
+
+inline ov3
+ObLerp(ov3 A, f32 t, ov3 B)
+{
+    ov3 Result = (1.0f - t) * A + t * B;
+    return Result;
+}
+
+// NOTE(rytis): v4 operations
+
+inline ov4
+operator*(f32 A, ov4 B)
+{
+    ov4 Result;
+    Result.x = A * B.x;
+    Result.y = A * B.y;
+    Result.z = A * B.z;
+    Result.w = A * B.w;
+    return Result;
+}
+
+inline ov4
+operator*(ov4 B, f32 A)
+{
+    ov4 Result = A * B;
+    return Result;
+}
+
+inline ov4&
+operator*=(ov4& B, f32 A)
+{
+    B = A * B;
+    return B;
+}
+
+inline ov4
+operator/(f32 A, ov4 B)
+{
+    ov4 Result = (1.0f / A) * B;
+    return Result;
+}
+
+inline ov4
+operator/(ov4 B, f32 A)
+{
+    ov4 Result = A / B;
+    return Result;
+}
+
+inline ov4&
+operator/=(ov4& B, f32 A)
+{
+    B = B / A;
+    return B;
+}
+
+inline ov4
+operator-(ov4 A)
+{
+    ov4 Result;
+    Result.x = -A.x;
+    Result.y = -A.y;
+    Result.z = -A.z;
+    Result.w = -A.w;
+    return Result;
+}
+
+inline ov4
+operator+(ov4 A, ov4 B)
+{
+    ov4 Result;
+    Result.x = A.x + B.x;
+    Result.y = A.y + B.y;
+    Result.z = A.z + B.z;
+    Result.w = A.w + B.w;
+    return Result;
+}
+
+inline ov4&
+operator+=(ov4& A, ov4 B)
+{
+    A = A + B;
+    return A;
+}
+
+inline ov4
+operator-(ov4 A, ov4 B)
+{
+    ov4 Result;
+    Result.x = A.x - B.x;
+    Result.y = A.y - B.y;
+    Result.z = A.z - B.z;
+    Result.w = A.w - B.w;
+    return Result;
+}
+
+inline ov4&
+operator-=(ov4& A, ov4 B)
+{
+    A = A - B;
+    return A;
+}
+
+inline f32
+ObInner(ov4 A, ov4 B)
+{
+    f32 Result = A.x * B.x + A.y * B.y + A.z * B.z + A.w * B.w;
+    return Result;
+}
+
+inline f32
+ObLengthSq(ov4 A)
+{
+    f32 Result = ObInner(A, A);
+    return Result;
+}
+
+inline f32
+ObLength(ov4 A)
+{
+    f32 Result = ObSquareRoot(ObLengthSq(A));
+    return Result;
+}
+
+inline ov4
+ObNormalize(ov4 A)
+{
+    ov4 Result = A / ObLength(A);
+    return Result;
+}
+
+inline ov4
+ObClamp01(ov4 A)
+{
+    ov4 Result;
+    Result.x = ObClamp01(A.x);
+    Result.y = ObClamp01(A.y);
+    Result.z = ObClamp01(A.z);
+    Result.w = ObClamp01(A.w);
+    return Result;
+}
+
+inline ov4
+ObLerp(ov4 A, f32 t, ov4 B)
+{
+    ov4 Result = (1.0f - t) * A + t * B;
+    return Result;
+}
+
+// NOTE(rytis: m3 operations
+
+static ov3
+ObTransform(om3 A, ov3 B)
+{
+    ov3 Result;
+    Result.x = B.x * A._11 + B.y * A._12 + B.z * A._13;
+    Result.y = B.x * A._21 + B.y * A._22 + B.z * A._23;
+    Result.z = B.x * A._31 + B.y * A._32 + B.z * A._33;
+    return Result;
+}
+
+inline ov3
+operator*(om3 A, ov3 B)
+{
+    ov3 Result = ObTransform(A, B);
+    return Result;
+}
+
+inline om3
+ObIdentity()
+{
+    om3 Result = {};
+    Result._11 = 1.0f;
+    Result._22 = 1.0f;
+    Result._33 = 1.0f;
+    return Result;
+}
+
+// NOTE(rytis): Credit goes to Inigo Quilez:
+// http://www.iquilezles.org/www/articles/noacos/noacos.htm
+static om3
+ObRotationAlign(ov3 Start, ov3 Destination)
+{
+    Start = ObNormalize(Start);
+    Destination = ObNormalize(Destination);
+
+    ov3 Axis = ObCross(Start, Destination);
+    f32 CosTheta = ObInner(Start, Destination);
+    f32 K = 1.0f / (1.0f + CosTheta);
+
+    om3 Result = {};
+
+    Result._11 = Axis.x * Axis.x * K + CosTheta;
+    Result._12 = Axis.y * Axis.x * K - Axis.z;
+    Result._13 = Axis.z * Axis.x * K + Axis.y;
+
+    Result._21 = Axis.x * Axis.y * K + Axis.z;
+    Result._22 = Axis.y * Axis.y * K + CosTheta;
+    Result._23 = Axis.z * Axis.y * K - Axis.x;
+
+    Result._31 = Axis.x * Axis.z * K - Axis.y;
+    Result._32 = Axis.y * Axis.z * K + Axis.x;
+    Result._33 = Axis.z * Axis.z * K + CosTheta;
+
+    return Result;
 }

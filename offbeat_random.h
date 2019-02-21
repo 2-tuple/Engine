@@ -2,10 +2,10 @@
 
 #include "offbeat_math.h"
 
-#define MinRandomNumber 0x0000cc93
-#define MaxRandomNumber 0x3b8a2a26
+#define OffbeatMinRandomNumber 0x0000cc93
+#define OffbeatMaxRandomNumber 0x3b8a2a26
 
-static u32 RandomNumberTable[] =
+static u32 OffbeatRandomNumberTable[] =
 {
     0x1e141301, 0x049c6780, 0x1b22f183, 0x3110ef88, 0x1af4586f, 0x0bd0aaab, 0x27db6d56, 0x3151c776,
     0x0edebe60, 0x2c2cd46c, 0x0b460385, 0x02ab412b, 0x0b6d557c, 0x23c11396, 0x2daf45e3, 0x0b82c1e0,
@@ -521,54 +521,54 @@ static u32 RandomNumberTable[] =
     0x30fb20d6, 0x1d56532f, 0x23348f55, 0x04e59a66, 0x39c507dd, 0x198e7845, 0x040cb61a, 0x29a98df4,
 };
 
-struct random_series
+struct ob_random_series
 {
     u32 Index;
 };
 
-inline random_series RandomSeed(u32 Value)
+inline ob_random_series ObRandomSeed(u32 Value)
 {
-    random_series Series;
+    ob_random_series Series;
 
-    Series.Index = Value % ArrayCount(RandomNumberTable);
+    Series.Index = Value % ArrayCount(OffbeatRandomNumberTable);
 
     return Series;
 }
 
-inline u32 RandomNextRandomUInt32(random_series* Series)
+inline u32 ObRandomNextRandomUInt32(ob_random_series* Series)
 {
-    u32 Result = RandomNumberTable[Series->Index++];
-    if(Series->Index >= ArrayCount(RandomNumberTable))
+    u32 Result = OffbeatRandomNumberTable[Series->Index++];
+    if(Series->Index >= ArrayCount(OffbeatRandomNumberTable))
     {
         Series->Index = 0;
     }
     return Result;
 }
 
-inline u32 RandomChoice(random_series* Series, u32 ChoiceCount)
+inline u32 ObRandomChoice(ob_random_series* Series, u32 ChoiceCount)
 {
-    return RandomNextRandomUInt32(Series) % ChoiceCount;
+    return ObRandomNextRandomUInt32(Series) % ChoiceCount;
 }
 
-inline f32 RandomUnilateral(random_series* Series)
+inline f32 ObRandomUnilateral(ob_random_series* Series)
 {
-    f32 Divisor = 1.0f / (f32)MaxRandomNumber;
-    return (Divisor * (f32)RandomNextRandomUInt32(Series));
+    f32 Divisor = 1.0f / (f32)OffbeatMaxRandomNumber;
+    return (Divisor * (f32)ObRandomNextRandomUInt32(Series));
 }
 
-inline f32 RandomBilateral(random_series* Series)
+inline f32 ObRandomBilateral(ob_random_series* Series)
 {
-    return (2.0f * RandomUnilateral(Series) - 1.0f);
+    return (2.0f * ObRandomUnilateral(Series) - 1.0f);
 }
 
-inline f32 RandomBetween(random_series* Series, f32 Min, f32 Max)
+inline f32 ObRandomBetween(ob_random_series* Series, f32 Min, f32 Max)
 {
     OffbeatAssert(Max > Min);
-    return Lerp(Min, RandomUnilateral(Series), Max);
+    return ObLerp(Min, ObRandomUnilateral(Series), Max);
 }
 
-inline s32 RandomBetween(random_series* Series, s32 Min, s32 Max)
+inline s32 ObRandomBetween(ob_random_series* Series, s32 Min, s32 Max)
 {
     OffbeatAssert(Max > Min);
-    return (Min + (RandomNextRandomUInt32(Series) % (Max - Min)));
+    return (Min + (ObRandomNextRandomUInt32(Series) % (Max - Min)));
 }

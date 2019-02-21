@@ -104,7 +104,7 @@ struct game_state
   // Particle system test
   bool ParticleMode;
   uint64_t OffbeatMemorySize;
-  offbeat_state* OffbeatState;
+  ob_state* OffbeatState;
 };
 
 inline mat4

@@ -48,23 +48,26 @@ typedef mat4 m4;
 #define OFFBEAT_MAX_SYSTEM_COUNT 10
 #define OFFBEAT_MAX_DRAW_LIST_COUNT OFFBEAT_MAX_SYSTEM_COUNT
 
-struct offbeat_grid_line
+struct ob_grid_line
 {
-    v3 A;
-    v3 B;
+    ov3 A;
+    ov3 B;
 };
 
-struct offbeat_particle
+struct ob_particle
 {
-    v3 P;
-    v3 dP;
-    v3 ddP;
-    v4 Color;
-    v4 dColor;
-    float Age;
+    ov3 P;
+    ov3 dP;
+    ov3 ddP;
+    ov4 Color;
+    ov4 dColor;
+    f32 Age;
+    // TODO(rytis): Change the uniform size to be per-particle and the
+    // non-uniform scale per-particle-system.
+    f32 Size;
 };
 
-enum offbeat_emission_shape
+enum ob_emission_shape
 {
     OFFBEAT_EmissionPoint,
     OFFBEAT_EmissionRing,
@@ -72,7 +75,7 @@ enum offbeat_emission_shape
     OFFBEAT_EmissionCount,
 };
 
-enum offbeat_emission_velocity_type
+enum ob_emission_velocity_type
 {
     OFFBEAT_VelocityCone,
     OFFBEAT_VelocityRandom,
@@ -80,12 +83,12 @@ enum offbeat_emission_velocity_type
     OFFBEAT_VelocityCount,
 };
 
-struct offbeat_emission
+struct ob_emission
 {
-    v3 Location;
+    ov3 Location;
     f32 EmissionRate;
     f32 ParticleLifetime;
-    offbeat_emission_shape Shape;
+    ob_emission_shape Shape;
     union
     {
         struct
@@ -98,14 +101,15 @@ struct offbeat_emission
         } Ring;
     };
     f32 InitialVelocityScale;
-    offbeat_emission_velocity_type VelocityType;
+    ob_emission_velocity_type VelocityType;
     union
     {
         struct
         {
-            v3 Direction;
+            ov3 Direction;
             f32 Height;
             f32 Radius;
+            om3 Rotation;
         } Cone;
 
         struct
@@ -114,7 +118,7 @@ struct offbeat_emission
     };
 };
 
-enum offbeat_motion_primitive
+enum ob_motion_primitive
 {
     OFFBEAT_MotionNone,
     OFFBEAT_MotionPoint,
@@ -122,60 +126,60 @@ enum offbeat_motion_primitive
     OFFBEAT_MotionCount,
 };
 
-struct offbeat_motion
+struct ob_motion
 {
-    v3 Gravity;
-    offbeat_motion_primitive Primitive;
+    ov3 Gravity;
+    ob_motion_primitive Primitive;
     union
     {
         struct
         {
-            v3 Position;
+            ov3 Position;
             f32 Strength;
         } Point;
     };
 };
 
-struct offbeat_appearance
+struct ob_appearance
 {
-    v4 Color;
+    ov4 Color;
     f32 Size;
-    v3 Scale;
+    ov3 Scale;
     u32 TextureID;
 };
 
-struct offbeat_particle_system
+struct ob_particle_system
 {
     f32 t; // NOTE(rytis): Time of individual particle system to properly spawn particles.
 
-    offbeat_emission Emission;
-    offbeat_motion Motion;
-    offbeat_appearance Appearance;
+    ob_emission Emission;
+    ob_motion Motion;
+    ob_appearance Appearance;
 
     u32 NextParticle;
-    offbeat_particle Particles[OFFBEAT_MAX_PARTICLE_COUNT];
+    ob_particle Particles[OFFBEAT_MAX_PARTICLE_COUNT];
 };
 
-struct offbeat_camera
+struct ob_camera
 {
-    v3 Forward;
-    v3 Right;
+    ov3 Forward;
+    ov3 Right;
 };
 
-struct offbeat_quad_data
+struct ob_quad_data
 {
-    v3 Horizontal;
-    v3 Vertical;
+    ov3 Horizontal;
+    ov3 Vertical;
 };
 
-struct offbeat_draw_vertex
+struct ob_draw_vertex
 {
-    v3 Position;
-    v2 UV;
-    v4 Color;
+    ov3 Position;
+    ov2 UV;
+    ov4 Color;
 };
 
-struct offbeat_draw_list
+struct ob_draw_list
 {
     u32 TextureID;
     u32 ElementCount;
@@ -184,38 +188,38 @@ struct offbeat_draw_list
     u32 Indices[OFFBEAT_MAX_INDEX_COUNT];
 
     u32 VertexCount;
-    offbeat_draw_vertex Vertices[OFFBEAT_MAX_VERTEX_COUNT];
+    ob_draw_vertex Vertices[OFFBEAT_MAX_VERTEX_COUNT];
 };
 
-struct offbeat_draw_data
+struct ob_draw_data
 {
     u32 DrawListCount;
-    offbeat_draw_list DrawLists[OFFBEAT_MAX_DRAW_LIST_COUNT];
+    ob_draw_list DrawLists[OFFBEAT_MAX_DRAW_LIST_COUNT];
 };
 
-struct offbeat_state
+struct ob_state
 {
     f32 dt;
     f32 t;
 
-    offbeat_quad_data QuadData;
+    ob_quad_data QuadData;
 
-    v4 SquareGridColor;
+    ov4 SquareGridColor;
     u32 SquareGridLineCount;
     f32 SquareGridStep;
     f32 SquareGridRange;
-    offbeat_grid_line SquareGridLines[OFFBEAT_MAX_SQUARE_GRID_LINE_COUNT];
+    ob_grid_line SquareGridLines[OFFBEAT_MAX_SQUARE_GRID_LINE_COUNT];
 
     b32 UpdateParticles;
-    random_series EffectsEntropy;
+    ob_random_series EffectsEntropy;
 
     u32 ParticleSystemCount;
-    offbeat_particle_system ParticleSystems[OFFBEAT_MAX_SYSTEM_COUNT];
+    ob_particle_system ParticleSystems[OFFBEAT_MAX_SYSTEM_COUNT];
 
-    offbeat_draw_data DrawData;
+    ob_draw_data DrawData;
 };
 
 void OffbeatSetAllocatorFunctions(void* (*Malloc)(u64), void (*Free)(void*));
-offbeat_state* OffbeatInit(void* Memory, u64 MemorySize);
-void OffbeatParticleSystem(offbeat_state* OffbeatState, game_input* Input, offbeat_camera Camera);
-offbeat_draw_data* OffbeatGetDrawData(offbeat_state* OffbeatState);
+ob_state* OffbeatInit(void* Memory, u64 MemorySize);
+void OffbeatParticleSystem(ob_state* OffbeatState, game_input* Input, ob_camera Camera);
+ob_draw_data* OffbeatGetDrawData(ob_state* OffbeatState);

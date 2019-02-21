@@ -21,18 +21,18 @@ OffbeatSetAllocatorFunctions(void* (*Malloc)(u64), void (*Free)(void*))
     GlobalOffbeatFree = Free;
 }
 
-offbeat_state*
+ob_state*
 OffbeatInit(void* Memory, u64 MemorySize)
 {
-    OffbeatAssert(MemorySize >= sizeof(offbeat_state));
-    offbeat_state* OffbeatState = (offbeat_state*)Memory;
+    OffbeatAssert(MemorySize >= sizeof(ob_state));
+    ob_state* OffbeatState = (ob_state*)Memory;
     {
         OffbeatState->t = 0.0f;
 
-        OffbeatState->EffectsEntropy = RandomSeed(1234);
+        OffbeatState->EffectsEntropy = ObRandomSeed(1234);
         OffbeatState->UpdateParticles = true;
 
-        OffbeatState->SquareGridColor = v4{0.5f, 0.5f, 0.85f, 1.0f};
+        OffbeatState->SquareGridColor = ov4{0.5f, 0.5f, 0.85f, 1.0f};
         OffbeatState->SquareGridLineCount = 0;
         OffbeatState->SquareGridStep = 2.0f;
         OffbeatState->SquareGridRange = 10.0f;
@@ -41,19 +41,19 @@ OffbeatInit(void* Memory, u64 MemorySize)
           Coordinate < Limit;
           Coordinate += OffbeatState->SquareGridStep)
         {
-          OffbeatState->SquareGridLines[OffbeatState->SquareGridLineCount++] = offbeat_grid_line{
-            v3{Coordinate, 0.0f, -OffbeatState->SquareGridRange},
-            v3{Coordinate, 0.0f, OffbeatState->SquareGridRange}
+          OffbeatState->SquareGridLines[OffbeatState->SquareGridLineCount++] = ob_grid_line{
+            ov3{Coordinate, 0.0f, -OffbeatState->SquareGridRange},
+            ov3{Coordinate, 0.0f, OffbeatState->SquareGridRange}
           };
-          OffbeatState->SquareGridLines[OffbeatState->SquareGridLineCount++] = offbeat_grid_line{
-            v3{-OffbeatState->SquareGridRange, 0.0f, Coordinate},
-            v3{OffbeatState->SquareGridRange, 0.0f, Coordinate}
+          OffbeatState->SquareGridLines[OffbeatState->SquareGridLineCount++] = ob_grid_line{
+            ov3{-OffbeatState->SquareGridRange, 0.0f, Coordinate},
+            ov3{OffbeatState->SquareGridRange, 0.0f, Coordinate}
           };
         }
         OffbeatAssert(OffbeatState->SquareGridLineCount < OFFBEAT_MAX_SQUARE_GRID_LINE_COUNT);
 
-        offbeat_emission TestEmission = {};
-        TestEmission.Location = v3{0.0f, 0.0f, 0.0f};
+        ob_emission TestEmission = {};
+        TestEmission.Location = ov3{0.0f, 0.0f, 0.0f};
         TestEmission.EmissionRate = 60.0f;
         TestEmission.ParticleLifetime = 1.5f;
 #if 1
@@ -66,32 +66,32 @@ OffbeatInit(void* Memory, u64 MemorySize)
         TestEmission.InitialVelocityScale = 1.0f;
 #if 1
         TestEmission.VelocityType = OFFBEAT_VelocityCone;
-        TestEmission.Cone.Direction = v3{0.0f, 1.0f, 0.0f};
+        TestEmission.Cone.Direction = ov3{0.0f, 1.0f, 0.0f};
         TestEmission.Cone.Height = 5.0f;
         TestEmission.Cone.Radius = 3.0f;
+        TestEmission.Cone.Rotation = ObRotationAlign(ov3{0.0f, 0.0f, 1.0f},
+                                                     TestEmission.Cone.Direction);
 #else
         TestEmission.VelocityType = OFFBEAT_VelocityRandom;
 #endif
 
-        offbeat_motion TestMotion = {};
-        TestMotion.Gravity = v3{0.0f, 0.0f, 0.0f};
+        ob_motion TestMotion = {};
+        TestMotion.Gravity = ov3{0.0f, 0.0f, 0.0f};
         TestMotion.Primitive = OFFBEAT_MotionPoint;
-        TestMotion.Point.Position = v3{-3.0f * sinf(0.25f * PI * OffbeatState->t), 1.0f, 1.0f};
+        TestMotion.Point.Position = ov3{-3.0f * sinf(0.25f * PI * OffbeatState->t), 1.0f, 1.0f};
         TestMotion.Point.Strength = 10.0f;
 
-        offbeat_appearance TestAppearance = {};
-        TestAppearance.Color = v4{RandomBetween(&OffbeatState->EffectsEntropy, 0.45f, 0.5f),
-                                  RandomBetween(&OffbeatState->EffectsEntropy, 0.5f, 0.8f),
-                                  RandomBetween(&OffbeatState->EffectsEntropy, 0.8f, 1.0f),
-                                  1.0f};
+        ob_appearance TestAppearance = {};
+        TestAppearance.Color = ov4{ObRandomBetween(&OffbeatState->EffectsEntropy, 0.45f, 0.5f),
+                                   ObRandomBetween(&OffbeatState->EffectsEntropy, 0.5f, 0.8f),
+                                   ObRandomBetween(&OffbeatState->EffectsEntropy, 0.8f, 1.0f),
+                                   1.0f};
         TestAppearance.Size = 0.05f;
 
-        offbeat_particle_system TestSystem = {};
-        // TestSystem.t = 0.0f;
+        ob_particle_system TestSystem = {};
         TestSystem.Emission = TestEmission;
         TestSystem.Motion = TestMotion;
         TestSystem.Appearance = TestAppearance;
-        // TestSystem.NextParticle = 0;
 
         OffbeatState->ParticleSystemCount = 1;
         OffbeatState->ParticleSystems[0] = TestSystem;
@@ -100,7 +100,7 @@ OffbeatInit(void* Memory, u64 MemorySize)
 }
 
 static void
-OffbeatHandleInput(offbeat_state* OffbeatState, game_input* Input, offbeat_camera Camera)
+OffbeatHandleInput(ob_state* OffbeatState, game_input* Input, ob_camera Camera)
 {
     if(OffbeatState->UpdateParticles)
     {
@@ -113,20 +113,28 @@ OffbeatHandleInput(offbeat_state* OffbeatState, game_input* Input, offbeat_camer
         OffbeatState->UpdateParticles = !OffbeatState->UpdateParticles;
     }
 
-    offbeat_quad_data QuadData = {};
-    QuadData.Horizontal = -Math::Normalized(Camera.Right);
-    QuadData.Vertical = Math::Normalized(Math::Cross(QuadData.Horizontal, -Camera.Forward));
+    ob_quad_data QuadData = {};
+    QuadData.Horizontal = -ObNormalize(Camera.Right);
+    QuadData.Vertical = ObNormalize(ObCross(QuadData.Horizontal, -Camera.Forward));
     OffbeatState->QuadData = QuadData;
 }
 
 static void
-OffbeatDrawGrid(offbeat_state* OffbeatState)
+OffbeatDrawGrid(ob_state* OffbeatState)
 {
     for(u32 i = 0; i < OffbeatState->SquareGridLineCount; ++i)
     {
-        Debug::PushLine(OffbeatState->SquareGridLines[i].A,
-                        OffbeatState->SquareGridLines[i].B,
-                        OffbeatState->SquareGridColor);
+        v3 A = v3{OffbeatState->SquareGridLines[i].A.x,
+                  OffbeatState->SquareGridLines[i].A.y,
+                  OffbeatState->SquareGridLines[i].A.z};
+        v3 B = v3{OffbeatState->SquareGridLines[i].B.x,
+                  OffbeatState->SquareGridLines[i].B.y,
+                  OffbeatState->SquareGridLines[i].B.z};
+        v4 GridColor = v4{OffbeatState->SquareGridColor.r,
+                          OffbeatState->SquareGridColor.g,
+                          OffbeatState->SquareGridColor.b,
+                          OffbeatState->SquareGridColor.a};
+        Debug::PushLine(A, B, GridColor);
     }
 }
 
@@ -152,10 +160,10 @@ TruncateF32ToU32(f32 F32)
     return (u32)F32;
 }
 
-static v3
-OffbeatParticleInitialPosition(random_series* Entropy, offbeat_emission* Emission)
+static ov3
+OffbeatParticleInitialPosition(ob_random_series* Entropy, ob_emission* Emission)
 {
-    v3 Result = {};
+    ov3 Result = {};
 
     switch(Emission->Shape)
     {
@@ -169,10 +177,10 @@ OffbeatParticleInitialPosition(random_series* Entropy, offbeat_emission* Emissio
             // TODO(rytis): This currently uses Y axis as the up direction. In future this
             // should be changed to either be independent from a specific coordinate system
             // or use a clearly defined internal coordinate system.
-            f32 RandomValue = 2.0f * PI * RandomUnilateral(Entropy);
+            f32 RandomValue = 2.0f * PI * ObRandomUnilateral(Entropy);
             Result = Emission->Location;
-            Result.X += Emission->Ring.Radius * Sin(RandomValue);
-            Result.Z += Emission->Ring.Radius * Cos(RandomValue);
+            Result.x += Emission->Ring.Radius * ObSin(RandomValue);
+            Result.z += Emission->Ring.Radius * ObCos(RandomValue);
         } break;
 
         default:
@@ -183,60 +191,39 @@ OffbeatParticleInitialPosition(random_series* Entropy, offbeat_emission* Emissio
     return Result;
 }
 
-static v3
-OffbeatParticleInitialVelocity(random_series* Entropy, offbeat_emission* Emission)
+static ov3
+OffbeatParticleInitialVelocity(ob_random_series* Entropy, ob_emission* Emission)
 {
-    v3 Result = {};
+    ov3 Result = {};
 
     switch(Emission->VelocityType)
     {
         case OFFBEAT_VelocityCone:
         {
-            f32 Denom = SquareRoot(Square(Emission->Cone.Height) + Square(Emission->Cone.Radius));
+            f32 Denom = ObSquareRoot(ObSquare(Emission->Cone.Height) + ObSquare(Emission->Cone.Radius));
             f32 CosTheta = Emission->Cone.Height / Denom;
 
-            f32 Phi = RandomBetween(Entropy, 0.0f, 2.0f * PI);
-            f32 Z = RandomBetween(Entropy, CosTheta, 1.0f);
+            f32 Phi = ObRandomBetween(Entropy, 0.0f, 2.0f * PI);
+            f32 Z = ObRandomBetween(Entropy, CosTheta, 1.0f);
 
             // NOTE(rytis): Vector generated around axis (0, 0, 1)
-            v3 RandomVector = {};
-            RandomVector.X = SquareRoot(1.0f - Square(Z)) * Cos(Phi);
-            RandomVector.Y = SquareRoot(1.0f - Square(Z)) * Sin(Phi);
-            RandomVector.Z = Z;
+            ov3 RandomVector = {};
+            RandomVector.x = ObSquareRoot(1.0f - ObSquare(Z)) * ObCos(Phi);
+            RandomVector.y = ObSquareRoot(1.0f - ObSquare(Z)) * ObSin(Phi);
+            RandomVector.z = Z;
 
-            // TODO(rytis): This is a temporary solution for the rotation. Would probably be much
-            // better to sit down properly and think this through. For now though, it's based
-            // on quaternion rotation (vector + angle).
-            //
-            // Based on:
-            // https://gamedev.stackexchange.com/questions/28395/rotating-vector3-by-a-quaternion
-            // https://www.opengl-tutorial.org/intermediate-tutorials/tutorial-17-quaternions/#how-do-i-find-the-rotation-between-2-vectors-
-            v3 ZAxis = v3{0.0f, 0.0f, 1.0f};
-            v3 RotationAxis = Math::Normalized(Math::Cross(ZAxis, Emission->Cone.Direction));
-            f32 CosRotation = Math::Dot(ZAxis, Emission->Cone.Direction);
-            f32 S = SquareRoot((1 + CosRotation) * 2.0f);
-            f32 InvS = 1.0f / S;
-
-            v3 QuatVectorPart = v3{RotationAxis.X * InvS,
-                                   RotationAxis.Y * InvS,
-                                   RotationAxis.Z * InvS};
-            f32 QuatScalarPart = 0.5f * S;
-
-            Result = 2.0f * Math::Dot(QuatVectorPart, RandomVector) * QuatVectorPart +
-                     (Square(QuatScalarPart) - Math::Dot(QuatVectorPart, QuatVectorPart)) *
-                     RandomVector +
-                     2.0f * QuatScalarPart * Math::Cross(QuatVectorPart, RandomVector);
+            Result = Emission->Cone.Rotation * RandomVector;
         } break;
 
         case OFFBEAT_VelocityRandom:
         {
-            f32 Theta = RandomBetween(Entropy, 0.0f, 2.0f * PI);
-            f32 Z = RandomBilateral(Entropy);
-            Result.X = SquareRoot(1.0f - Square(Z)) * Cos(Theta);
-            Result.Y = SquareRoot(1.0f - Square(Z)) * Sin(Theta);
-            Result.Z = Z;
+            f32 Theta = ObRandomBetween(Entropy, 0.0f, 2.0f * PI);
+            f32 Z = ObRandomBilateral(Entropy);
+
             // NOTE(rytis): This generates a vector in a unit sphere, so no normalization is required.
-            // Result = Math::Normalized(Result);
+            Result.x = ObSquareRoot(1.0f - ObSquare(Z)) * ObCos(Theta);
+            Result.y = ObSquareRoot(1.0f - ObSquare(Z)) * ObSin(Theta);
+            Result.z = Z;
         } break;
 
         default:
@@ -249,10 +236,10 @@ OffbeatParticleInitialVelocity(random_series* Entropy, offbeat_emission* Emissio
 }
 
 static void
-OffbeatSpawnParticles(offbeat_particle_system* ParticleSystem, random_series* Entropy, f32 dt)
+OffbeatSpawnParticles(ob_particle_system* ParticleSystem, ob_random_series* Entropy, f32 dt)
 {
-    offbeat_emission* Emission = &ParticleSystem->Emission;
-    offbeat_appearance* Appearance = &ParticleSystem->Appearance;
+    ob_emission* Emission = &ParticleSystem->Emission;
+    ob_appearance* Appearance = &ParticleSystem->Appearance;
 
     ParticleSystem->t += dt;
     f32 TimePerParticle = 1.0f / Emission->EmissionRate;
@@ -263,7 +250,7 @@ OffbeatSpawnParticles(offbeat_particle_system* ParticleSystem, random_series* En
 
     for(u32 ParticleSpawnIndex = 0; ParticleSpawnIndex < ParticleSpawnCount; ++ParticleSpawnIndex)
     {
-        offbeat_particle* Particle = ParticleSystem->Particles + ParticleSystem->NextParticle++;
+        ob_particle* Particle = ParticleSystem->Particles + ParticleSystem->NextParticle++;
         if(ParticleSystem->NextParticle >= ArrayCount(ParticleSystem->Particles))
         {
             ParticleSystem->NextParticle = 0;
@@ -273,22 +260,23 @@ OffbeatSpawnParticles(offbeat_particle_system* ParticleSystem, random_series* En
         Particle->dP = OffbeatParticleInitialVelocity(Entropy, Emission);
         Particle->Color = Appearance->Color;
         Particle->Age = 0.0f;
-        Debug::PushWireframeSphere(Particle->P, 0.02f, v4{0.8f, 0.0f, 0.0f, 1.0f});
+        v3 P = v3{Particle->P.x, Particle->P.y, Particle->P.z};
+        Debug::PushWireframeSphere(P, 0.02f, v4{0.8f, 0.0f, 0.0f, 1.0f});
     }
 }
 
-static v3
-OffbeatUpdateParticleddP(offbeat_motion* Motion, offbeat_particle* Particle)
+static ov3
+OffbeatUpdateParticleddP(ob_motion* Motion, ob_particle* Particle)
 {
-    v3 Result = Motion->Gravity;
+    ov3 Result = Motion->Gravity;
     switch(Motion->Primitive)
     {
         case OFFBEAT_MotionPoint:
         {
             f32 Strength = Motion->Point.Strength;
-            v3 Direction = Motion->Point.Position - Particle->P;
-            f32 Distance = Math::Length(Direction);
-            Result += Strength * Math::Normalized(Direction) / (Distance * Distance);
+            ov3 Direction = Motion->Point.Position - Particle->P;
+            f32 Distance = ObLength(Direction);
+            Result += Strength * ObNormalize(Direction) / (Distance * Distance);
         } break;
 
         case OFFBEAT_MotionNone:
@@ -301,41 +289,41 @@ OffbeatUpdateParticleddP(offbeat_motion* Motion, offbeat_particle* Particle)
 }
 
 static void
-OffbeatConstructQuad(offbeat_draw_list* DrawList, offbeat_quad_data* QuadData, offbeat_appearance* Appearance, v3 ParticlePosition)
+OffbeatConstructQuad(ob_draw_list* DrawList, ob_quad_data* QuadData, ob_appearance* Appearance, ov3 ParticlePosition)
 {
     OffbeatAssert(DrawList->IndexCount + 6 < OFFBEAT_MAX_INDEX_COUNT);
     OffbeatAssert(DrawList->VertexCount + 4 < OFFBEAT_MAX_VERTEX_COUNT);
 
     // NOTE(rytis): Vertices (from camera perspective)
-    v3 TopLeft = ParticlePosition +
+    ov3 TopLeft = ParticlePosition +
                  0.5f * Appearance->Size * (QuadData->Horizontal + QuadData->Vertical);
-    v3 TopRight = ParticlePosition +
+    ov3 TopRight = ParticlePosition +
                   0.5f * Appearance->Size * (-QuadData->Horizontal + QuadData->Vertical);
-    v3 BottomLeft = ParticlePosition +
+    ov3 BottomLeft = ParticlePosition +
                     0.5f * Appearance->Size * (QuadData->Horizontal - QuadData->Vertical);
-    v3 BottomRight = ParticlePosition +
+    ov3 BottomRight = ParticlePosition +
                      0.5f * Appearance->Size * (-QuadData->Horizontal - QuadData->Vertical);
 
     // NOTE(rytis): UVs
-    v2 TopLeftUV = v2{0.0f, 1.0f};
-    v2 TopRightUV = v2{1.0f, 1.0f};
-    v2 BottomLeftUV = v2{0.0f, 0.0f};
-    v2 BottomRightUV = v2{1.0f, 0.0f};
+    ov2 TopLeftUV = ov2{0.0f, 1.0f};
+    ov2 TopRightUV = ov2{1.0f, 1.0f};
+    ov2 BottomLeftUV = ov2{0.0f, 0.0f};
+    ov2 BottomRightUV = ov2{1.0f, 0.0f};
 
     u32 VertexIndex = DrawList->VertexCount;
     // NOTE(rytis): Updating draw list vertex array
-    DrawList->Vertices[DrawList->VertexCount++] = offbeat_draw_vertex{TopLeft,
-                                                                      TopLeftUV,
-                                                                      Appearance->Color};
-    DrawList->Vertices[DrawList->VertexCount++] = offbeat_draw_vertex{TopRight,
-                                                                      TopRightUV,
-                                                                      Appearance->Color};
-    DrawList->Vertices[DrawList->VertexCount++] = offbeat_draw_vertex{BottomLeft,
-                                                                      BottomLeftUV,
-                                                                      Appearance->Color};
-    DrawList->Vertices[DrawList->VertexCount++] = offbeat_draw_vertex{BottomRight,
-                                                                      BottomRightUV,
-                                                                      Appearance->Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopLeft,
+                                                                 TopLeftUV,
+                                                                 Appearance->Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopRight,
+                                                                 TopRightUV,
+                                                                 Appearance->Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomLeft,
+                                                                 BottomLeftUV,
+                                                                 Appearance->Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomRight,
+                                                                 BottomRightUV,
+                                                                 Appearance->Color};
 
     // NOTE(rytis): Updating draw list index array
     // NOTE(rytis): Top left triangle
@@ -351,17 +339,17 @@ OffbeatConstructQuad(offbeat_draw_list* DrawList, offbeat_quad_data* QuadData, o
 }
 
 static void
-OffbeatUpdateAndRenderParticleSystem(offbeat_draw_list* DrawList, offbeat_particle_system* ParticleSystem, f32 dt, b32 UpdateFlag, offbeat_quad_data* QuadData)
+OffbeatUpdateAndRenderParticleSystem(ob_draw_list* DrawList, ob_particle_system* ParticleSystem, f32 dt, b32 UpdateFlag, ob_quad_data* QuadData)
 {
-    offbeat_motion* Motion = &ParticleSystem->Motion;
-    offbeat_appearance* Appearance = &ParticleSystem->Appearance;
+    ob_motion* Motion = &ParticleSystem->Motion;
+    ob_appearance* Appearance = &ParticleSystem->Appearance;
 
     *DrawList = {};
     DrawList->TextureID = Appearance->TextureID;
 
     for(u32 ParticleIndex = 0; ParticleIndex < ArrayCount(ParticleSystem->Particles); ++ParticleIndex)
     {
-        offbeat_particle* Particle = ParticleSystem->Particles + ParticleIndex;
+        ob_particle* Particle = ParticleSystem->Particles + ParticleIndex;
 
         if(Particle->Age >= 1.0f)
         {
@@ -375,12 +363,12 @@ OffbeatUpdateAndRenderParticleSystem(offbeat_draw_list* DrawList, offbeat_partic
 
         Particle->Age += dt / ParticleSystem->Emission.ParticleLifetime;
 
-        v3 ddP = OffbeatUpdateParticleddP(Motion, Particle);
+        ov3 ddP = OffbeatUpdateParticleddP(Motion, Particle);
 
         // NOTE(rytis): Simulate the particle forward in time
-        Particle->P += 0.5f * Square(dt) * ddP + dt * Particle->dP;
+        Particle->P += 0.5f * ObSquare(dt) * ddP + dt * Particle->dP;
         Particle->dP += dt * ddP;
-        Particle->Color.A = 1.0f - Particle->Age;
+        Particle->Color.a = 1.0f - Particle->Age;
 
 #if 0
         if(Particle->P.Y < 0.0f)
@@ -397,18 +385,18 @@ OffbeatUpdateAndRenderParticleSystem(offbeat_draw_list* DrawList, offbeat_partic
 
         // NOTE(rytis): Particle draw
 OffbeatRender:
-        v4 Color;
-        Color.R = Clamp01(Particle->Color.R);
-        Color.G = Clamp01(Particle->Color.G);
-        Color.B = Clamp01(Particle->Color.B);
-        Color.A = Clamp01(Particle->Color.A);
+        ov4 Color;
+        Color.r = ObClamp01(Particle->Color.r);
+        Color.g = ObClamp01(Particle->Color.g);
+        Color.b = ObClamp01(Particle->Color.b);
+        Color.a = ObClamp01(Particle->Color.a);
 
         OffbeatConstructQuad(DrawList, QuadData, Appearance, Particle->P);
     }
 }
 
 void
-OffbeatParticleSystem(offbeat_state* OffbeatState, game_input* Input, offbeat_camera Camera)
+OffbeatParticleSystem(ob_state* OffbeatState, game_input* Input, ob_camera Camera)
 {
     OffbeatHandleInput(OffbeatState, Input, Camera);
     OffbeatDrawGrid(OffbeatState);
@@ -428,16 +416,18 @@ OffbeatParticleSystem(offbeat_state* OffbeatState, game_input* Input, offbeat_ca
         OffbeatUpdateAndRenderParticleSystem(&OffbeatState->DrawData.DrawLists[i], &OffbeatState->ParticleSystems[i], OffbeatState->dt, OffbeatState->UpdateParticles, &OffbeatState->QuadData);
 
         // NOTE(rytis): Motion primitive position render
-        v3 Point = OffbeatState->ParticleSystems[i].Motion.Point.Position = v3{-3.0f * sinf(0.25f * PI * OffbeatState->t), 1.0f, 1.0f};
-        v4 PointColor = v4{1.0f, 0.0f, 0.0f, 1.0f};
-        Debug::PushWireframeSphere(Point, 0.05f, PointColor);
+        ov3 Point = OffbeatState->ParticleSystems[i].Motion.Point.Position = ov3{-3.0f * ObSin(0.25f * PI * OffbeatState->t), 1.0f, 1.0f};
+        ov4 PointColor = ov4{1.0f, 0.0f, 0.0f, 1.0f};
+        Debug::PushWireframeSphere(v3{Point.x, Point.y, Point.z},
+                                   0.05f,
+                                   v4{PointColor.r, PointColor.g, PointColor.b, PointColor.a});
     }
 
     glDisable(GL_BLEND);
 }
 
-offbeat_draw_data*
-OffbeatGetDrawData(offbeat_state* OffbeatState)
+ob_draw_data*
+OffbeatGetDrawData(ob_state* OffbeatState)
 {
     return &OffbeatState->DrawData;
 }
