@@ -59,6 +59,8 @@ OffbeatInit(void* Memory, u64 MemorySize)
 #if 1
         TestEmission.Shape = OFFBEAT_EmissionRing;
         TestEmission.Ring.Radius = 0.5f;
+        TestEmission.Ring.Normal = ov3{0.0f, 1.0f, 0.0f};
+        TestEmission.Ring.Rotation = ObRotationAlign(ov3{0.0f, 0.0f, 1.0f}, TestEmission.Ring.Normal);
 #else
         TestEmission.Shape = OFFBEAT_EmissionPoint;
 #endif
@@ -124,16 +126,9 @@ OffbeatDrawGrid(ob_state* OffbeatState)
 {
     for(u32 i = 0; i < OffbeatState->SquareGridLineCount; ++i)
     {
-        v3 A = v3{OffbeatState->SquareGridLines[i].A.x,
-                  OffbeatState->SquareGridLines[i].A.y,
-                  OffbeatState->SquareGridLines[i].A.z};
-        v3 B = v3{OffbeatState->SquareGridLines[i].B.x,
-                  OffbeatState->SquareGridLines[i].B.y,
-                  OffbeatState->SquareGridLines[i].B.z};
-        v4 GridColor = v4{OffbeatState->SquareGridColor.r,
-                          OffbeatState->SquareGridColor.g,
-                          OffbeatState->SquareGridColor.b,
-                          OffbeatState->SquareGridColor.a};
+        vec3 A = OV3ToVec3(OffbeatState->SquareGridLines[i].A);
+        vec3 B = OV3ToVec3(OffbeatState->SquareGridLines[i].B);
+        vec4 GridColor = OV4ToVec4(OffbeatState->SquareGridColor);
         Debug::PushLine(A, B, GridColor);
     }
 }
@@ -174,13 +169,14 @@ OffbeatParticleInitialPosition(ob_random_series* Entropy, ob_emission* Emission)
 
         case OFFBEAT_EmissionRing:
         {
-            // TODO(rytis): This currently uses Y axis as the up direction. In future this
-            // should be changed to either be independent from a specific coordinate system
-            // or use a clearly defined internal coordinate system.
             f32 RandomValue = 2.0f * PI * ObRandomUnilateral(Entropy);
-            Result = Emission->Location;
-            Result.x += Emission->Ring.Radius * ObSin(RandomValue);
-            Result.z += Emission->Ring.Radius * ObCos(RandomValue);
+
+            Result.x = Emission->Ring.Radius * ObSin(RandomValue);
+            Result.y = Emission->Ring.Radius * ObCos(RandomValue);
+
+            Result = Emission->Ring.Rotation * Result;
+
+            Result += Emission->Location;
         } break;
 
         default:
@@ -260,8 +256,8 @@ OffbeatSpawnParticles(ob_particle_system* ParticleSystem, ob_random_series* Entr
         Particle->dP = OffbeatParticleInitialVelocity(Entropy, Emission);
         Particle->Color = Appearance->Color;
         Particle->Age = 0.0f;
-        v3 P = v3{Particle->P.x, Particle->P.y, Particle->P.z};
-        Debug::PushWireframeSphere(P, 0.02f, v4{0.8f, 0.0f, 0.0f, 1.0f});
+        Debug::PushWireframeSphere(OV3ToVec3(Particle->P), 0.02f,
+                                   OV4ToVec4(ov4{0.8f, 0.0f, 0.0f, 1.0f}));
     }
 }
 
@@ -295,43 +291,43 @@ OffbeatConstructQuad(ob_draw_list* DrawList, ob_quad_data* QuadData, ob_appearan
     OffbeatAssert(DrawList->VertexCount + 4 < OFFBEAT_MAX_VERTEX_COUNT);
 
     // NOTE(rytis): Vertices (from camera perspective)
-    ov3 TopLeft = ParticlePosition +
-                 0.5f * Appearance->Size * (QuadData->Horizontal + QuadData->Vertical);
-    ov3 TopRight = ParticlePosition +
-                  0.5f * Appearance->Size * (-QuadData->Horizontal + QuadData->Vertical);
     ov3 BottomLeft = ParticlePosition +
                     0.5f * Appearance->Size * (QuadData->Horizontal - QuadData->Vertical);
     ov3 BottomRight = ParticlePosition +
                      0.5f * Appearance->Size * (-QuadData->Horizontal - QuadData->Vertical);
+    ov3 TopRight = ParticlePosition +
+                  0.5f * Appearance->Size * (-QuadData->Horizontal + QuadData->Vertical);
+    ov3 TopLeft = ParticlePosition +
+                 0.5f * Appearance->Size * (QuadData->Horizontal + QuadData->Vertical);
 
     // NOTE(rytis): UVs
-    ov2 TopLeftUV = ov2{0.0f, 1.0f};
-    ov2 TopRightUV = ov2{1.0f, 1.0f};
     ov2 BottomLeftUV = ov2{0.0f, 0.0f};
     ov2 BottomRightUV = ov2{1.0f, 0.0f};
+    ov2 TopRightUV = ov2{1.0f, 1.0f};
+    ov2 TopLeftUV = ov2{0.0f, 1.0f};
 
     u32 VertexIndex = DrawList->VertexCount;
     // NOTE(rytis): Updating draw list vertex array
-    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopLeft,
-                                                                 TopLeftUV,
-                                                                 Appearance->Color};
-    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopRight,
-                                                                 TopRightUV,
-                                                                 Appearance->Color};
     DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomLeft,
                                                                  BottomLeftUV,
                                                                  Appearance->Color};
     DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomRight,
                                                                  BottomRightUV,
                                                                  Appearance->Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopRight,
+                                                                 TopRightUV,
+                                                                 Appearance->Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopLeft,
+                                                                 TopLeftUV,
+                                                                 Appearance->Color};
 
     // NOTE(rytis): Updating draw list index array
+    // NOTE(rytis): Bottom right triangle
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex;
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 1;
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 2;
     // NOTE(rytis): Top left triangle
     DrawList->Indices[DrawList->IndexCount++] = VertexIndex;
-    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 2;
-    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 1;
-    // NOTE(rytis): Bottom right triangle
-    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 1;
     DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 2;
     DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 3;
 
@@ -385,12 +381,7 @@ OffbeatUpdateAndRenderParticleSystem(ob_draw_list* DrawList, ob_particle_system*
 
         // NOTE(rytis): Particle draw
 OffbeatRender:
-        ov4 Color;
-        Color.r = ObClamp01(Particle->Color.r);
-        Color.g = ObClamp01(Particle->Color.g);
-        Color.b = ObClamp01(Particle->Color.b);
-        Color.a = ObClamp01(Particle->Color.a);
-
+        ov4 Color = ObClamp01(Particle->Color);
         OffbeatConstructQuad(DrawList, QuadData, Appearance, Particle->P);
     }
 }
@@ -418,9 +409,7 @@ OffbeatParticleSystem(ob_state* OffbeatState, game_input* Input, ob_camera Camer
         // NOTE(rytis): Motion primitive position render
         ov3 Point = OffbeatState->ParticleSystems[i].Motion.Point.Position = ov3{-3.0f * ObSin(0.25f * PI * OffbeatState->t), 1.0f, 1.0f};
         ov4 PointColor = ov4{1.0f, 0.0f, 0.0f, 1.0f};
-        Debug::PushWireframeSphere(v3{Point.x, Point.y, Point.z},
-                                   0.05f,
-                                   v4{PointColor.r, PointColor.g, PointColor.b, PointColor.a});
+        Debug::PushWireframeSphere(OV3ToVec3(Point), 0.05f, OV4ToVec4(PointColor));
     }
 
     glDisable(GL_BLEND);

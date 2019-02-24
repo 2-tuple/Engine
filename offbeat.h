@@ -20,12 +20,6 @@ typedef double r64;
 typedef float f32;
 typedef double f64;
 
-typedef vec2 v2;
-typedef vec3 v3;
-typedef vec4 v4;
-typedef mat3 m3;
-typedef mat4 m4;
-
 #define OffbeatAssert(Expression) if(!(Expression)) {*(int *)0 = 0;}
 
 #define OffbeatKibibytes(Value) (1024LL * (Value))
@@ -98,6 +92,8 @@ struct ob_emission
         struct
         {
             f32 Radius;
+            ov3 Normal;
+            om3 Rotation;
         } Ring;
     };
     f32 InitialVelocityScale;
@@ -162,6 +158,7 @@ struct ob_particle_system
 
 struct ob_camera
 {
+    ov3 Position;
     ov3 Forward;
     ov3 Right;
 };

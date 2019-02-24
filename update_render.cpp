@@ -204,7 +204,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     if(GameState->ParticleMode)
     {
         GameState->LastCameraPosition = GameState->Camera.Position;
-        GameState->Camera.Position = v3{ 0, 1, 7 };
+        GameState->Camera.Position = vec3{ 0, 1, 7 };
         GameState->LastDrawCubemap = GameState->DrawCubemap;
         GameState->DrawCubemap = false;
         GameState->R.CurrentClearColor = GameState->R.ParticleSystemClearColor;
@@ -221,12 +221,9 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
   {
     BEGIN_TIMED_BLOCK(Offbeat);
     ob_camera OffbeatCamera = {};
-    OffbeatCamera.Forward = ov3{GameState->Camera.Forward.X,
-                                GameState->Camera.Forward.Y,
-                                GameState->Camera.Forward.Z};
-    OffbeatCamera.Right = ov3{GameState->Camera.Right.X,
-                              GameState->Camera.Right.Y,
-                              GameState->Camera.Right.Z};
+    OffbeatCamera.Position = OV3(GameState->Camera.Position);
+    OffbeatCamera.Forward = OV3(GameState->Camera.Forward);
+    OffbeatCamera.Right = OV3(GameState->Camera.Right);
 
     OffbeatParticleSystem(GameState->OffbeatState, (game_input*)Input, OffbeatCamera);
     END_TIMED_BLOCK(Offbeat);
