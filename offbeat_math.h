@@ -15,10 +15,13 @@ union ov2
     {
         f32 x, y;
     };
+
     struct
     {
         f32 u, v;
     };
+
+    float E[2];
 };
 
 union ov3
@@ -27,6 +30,8 @@ union ov3
     {
         f32 x, y, z;
     };
+
+    float E[3];
 };
 
 union ov4
@@ -35,10 +40,13 @@ union ov4
     {
         f32 x, y, z, w;
     };
+
     struct
     {
         f32 r, g, b, a;
     };
+
+    float E[4];
 };
 
 // TODO(rytis): Move conversion functions elsewhere (maybe a config.h file?).
@@ -87,6 +95,7 @@ union om3
         f32 _21, _22, _23;
         f32 _31, _32, _33;
     };
+
     f32 E[3][3];
 };
 
@@ -99,6 +108,7 @@ union om4
         f32 _31, _32, _33, _34;
         f32 _41, _42, _43, _44;
     };
+
     f32 E[4][4];
 };
 

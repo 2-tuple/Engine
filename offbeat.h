@@ -52,16 +52,14 @@ struct ob_particle
 {
     ov3 P;
     ov3 dP;
-    ov3 ddP;
     ov4 Color;
-    ov4 dColor;
     f32 Age;
     // TODO(rytis): Change the uniform size to be per-particle and the
     // non-uniform scale per-particle-system.
-    f32 Size;
+    // f32 Size;
 };
 
-enum ob_emission_shape
+enum ob_emission_shape_type
 {
     OFFBEAT_EmissionPoint,
     OFFBEAT_EmissionRing,
@@ -69,20 +67,10 @@ enum ob_emission_shape
     OFFBEAT_EmissionCount,
 };
 
-enum ob_emission_velocity_type
+struct ob_emission_shape
 {
-    OFFBEAT_VelocityCone,
-    OFFBEAT_VelocityRandom,
+    ob_emission_shape_type Type;
 
-    OFFBEAT_VelocityCount,
-};
-
-struct ob_emission
-{
-    ov3 Location;
-    f32 EmissionRate;
-    f32 ParticleLifetime;
-    ob_emission_shape Shape;
     union
     {
         struct
@@ -96,8 +84,19 @@ struct ob_emission
             om3 Rotation;
         } Ring;
     };
-    f32 InitialVelocityScale;
-    ob_emission_velocity_type VelocityType;
+};
+
+enum ob_emission_velocity_type
+{
+    OFFBEAT_VelocityCone,
+    OFFBEAT_VelocityRandom,
+
+    OFFBEAT_VelocityCount,
+};
+
+struct ob_emission_velocity
+{
+    ob_emission_velocity_type Type;
     union
     {
         struct
@@ -112,6 +111,17 @@ struct ob_emission
         {
         } Random;
     };
+};
+
+struct ob_emission
+{
+    ov3 Location;
+    f32 EmissionRate;
+    f32 ParticleLifetime;
+    ob_emission_shape Shape;
+
+    f32 InitialVelocityScale;
+    ob_emission_velocity Velocity;
 };
 
 enum ob_motion_primitive

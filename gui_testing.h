@@ -20,6 +20,7 @@ namespace UI
     static bool s_ShowDemoWindow     = false;
     static bool s_ShowPhysicsWindow  = false;
     static bool s_ShowProfilerWindow = false;
+    static bool s_ShowOffbeatWindow  = true;
 
     UI::BeginWindow("Editor Window", { 1200, 50 }, { 700, 600 });
     {
@@ -37,6 +38,7 @@ namespace UI
 
       UI::Checkbox("Profiler Window", &s_ShowProfilerWindow);
       UI::Checkbox("Physics Window", &s_ShowPhysicsWindow);
+      UI::Checkbox("Offbeat Window", &s_ShowOffbeatWindow);
       UI::Checkbox("GUI Params Window", &s_ShowDemoWindow);
       EntityGUI(GameState, s_ShowEntityTools);
       MaterialGUI(GameState, s_ShowMaterialEditor);
@@ -282,6 +284,49 @@ namespace UI
         UI::Checkbox("Apply Torque", &Switches.ApplyExternalTorque);
       }
       UI::EndWindow();
+    }
+
+    if(s_ShowOffbeatWindow)
+    {
+        ob_state* OffbeatState = GameState->OffbeatState;
+        ob_particle_system* ParticleSystem = &OffbeatState->ParticleSystems[0];
+        UI::BeginWindow("Offbeat Window", {25, 25}, {500, 800});
+        {
+            static bool s_OffbeatShowEmission = false;
+            static bool s_OffbeatShowMotion = false;
+            static bool s_OffbeatShowAppearance = false;
+
+            if(UI::CollapsingHeader("Emission", &s_OffbeatShowEmission))
+            {
+                UI::DragFloat3("Location", ParticleSystem->Emission.Location.E, -INFINITY, INFINITY, 10.0f);
+                UI::DragFloat("Emission Rate", &ParticleSystem->Emission.EmissionRate, 0.0f, INFINITY, 200.0f);
+                UI::DragFloat("Particle Lifetime", &ParticleSystem->Emission.ParticleLifetime, 0.0f, INFINITY, 5.0f);
+                switch(ParticleSystem->Emission.Shape.Type)
+                {
+                    case OFFBEAT_EmissionPoint:
+                    {
+                    } break;
+
+                    case OFFBEAT_EmissionRing:
+                    {
+                    } break;
+                }
+                UI::NewLine();
+                UI::DragFloat("Initial Velocity Scale", &ParticleSystem->Emission.InitialVelocityScale, -INFINITY, INFINITY, 5.0f);
+            }
+
+            if(UI::CollapsingHeader("Motion", &s_OffbeatShowMotion))
+            {
+                UI::SliderInt("TEMP: Motion enum", (int32_t*)&ParticleSystem->Motion.Primitive, OFFBEAT_MotionNone, OFFBEAT_MotionPoint);
+            }
+
+            if(UI::CollapsingHeader("Appearance", &s_OffbeatShowAppearance))
+            {
+                UI::DragFloat4("Color", ParticleSystem->Appearance.Color.E, 0.0f, INFINITY, 5.0f);
+                UI::DragFloat("Size", &ParticleSystem->Appearance.Size, 0.0f, INFINITY, 5.0f);
+            }
+        }
+        UI::EndWindow();
     }
 
     if(s_ShowDemoWindow)

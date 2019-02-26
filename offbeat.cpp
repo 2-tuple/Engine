@@ -57,22 +57,22 @@ OffbeatInit(void* Memory, u64 MemorySize)
         TestEmission.EmissionRate = 60.0f;
         TestEmission.ParticleLifetime = 1.5f;
 #if 1
-        TestEmission.Shape = OFFBEAT_EmissionRing;
-        TestEmission.Ring.Radius = 0.5f;
-        TestEmission.Ring.Normal = ov3{0.0f, 1.0f, 0.0f};
-        TestEmission.Ring.Rotation = ObRotationAlign(ov3{0.0f, 0.0f, 1.0f}, TestEmission.Ring.Normal);
+        TestEmission.Shape.Type = OFFBEAT_EmissionRing;
+        TestEmission.Shape.Ring.Radius = 0.5f;
+        TestEmission.Shape.Ring.Normal = ov3{0.0f, 1.0f, 0.0f};
+        TestEmission.Shape.Ring.Rotation = ObRotationAlign(ov3{0.0f, 0.0f, 1.0f}, TestEmission.Shape.Ring.Normal);
 #else
-        TestEmission.Shape = OFFBEAT_EmissionPoint;
+        TestEmission.Shape.Type = OFFBEAT_EmissionPoint;
 #endif
 
         TestEmission.InitialVelocityScale = 1.0f;
 #if 1
-        TestEmission.VelocityType = OFFBEAT_VelocityCone;
-        TestEmission.Cone.Direction = ov3{0.0f, 1.0f, 0.0f};
-        TestEmission.Cone.Height = 5.0f;
-        TestEmission.Cone.Radius = 3.0f;
-        TestEmission.Cone.Rotation = ObRotationAlign(ov3{0.0f, 0.0f, 1.0f},
-                                                     TestEmission.Cone.Direction);
+        TestEmission.Velocity.Type = OFFBEAT_VelocityCone;
+        TestEmission.Velocity.Cone.Direction = ov3{0.0f, 1.0f, 0.0f};
+        TestEmission.Velocity.Cone.Height = 5.0f;
+        TestEmission.Velocity.Cone.Radius = 3.0f;
+        TestEmission.Velocity.Cone.Rotation = ObRotationAlign(ov3{0.0f, 0.0f, 1.0f},
+                                                     TestEmission.Velocity.Cone.Direction);
 #else
         TestEmission.VelocityType = OFFBEAT_VelocityRandom;
 #endif
@@ -160,7 +160,7 @@ OffbeatParticleInitialPosition(ob_random_series* Entropy, ob_emission* Emission)
 {
     ov3 Result = {};
 
-    switch(Emission->Shape)
+    switch(Emission->Shape.Type)
     {
         case OFFBEAT_EmissionPoint:
         {
@@ -171,10 +171,10 @@ OffbeatParticleInitialPosition(ob_random_series* Entropy, ob_emission* Emission)
         {
             f32 RandomValue = 2.0f * PI * ObRandomUnilateral(Entropy);
 
-            Result.x = Emission->Ring.Radius * ObSin(RandomValue);
-            Result.y = Emission->Ring.Radius * ObCos(RandomValue);
+            Result.x = Emission->Shape.Ring.Radius * ObSin(RandomValue);
+            Result.y = Emission->Shape.Ring.Radius * ObCos(RandomValue);
 
-            Result = Emission->Ring.Rotation * Result;
+            Result = Emission->Shape.Ring.Rotation * Result;
 
             Result += Emission->Location;
         } break;
@@ -192,12 +192,12 @@ OffbeatParticleInitialVelocity(ob_random_series* Entropy, ob_emission* Emission)
 {
     ov3 Result = {};
 
-    switch(Emission->VelocityType)
+    switch(Emission->Velocity.Type)
     {
         case OFFBEAT_VelocityCone:
         {
-            f32 Denom = ObSquareRoot(ObSquare(Emission->Cone.Height) + ObSquare(Emission->Cone.Radius));
-            f32 CosTheta = Emission->Cone.Height / Denom;
+            f32 Denom = ObSquareRoot(ObSquare(Emission->Velocity.Cone.Height) + ObSquare(Emission->Velocity.Cone.Radius));
+            f32 CosTheta = Emission->Velocity.Cone.Height / Denom;
 
             f32 Phi = ObRandomBetween(Entropy, 0.0f, 2.0f * PI);
             f32 Z = ObRandomBetween(Entropy, CosTheta, 1.0f);
@@ -208,7 +208,7 @@ OffbeatParticleInitialVelocity(ob_random_series* Entropy, ob_emission* Emission)
             RandomVector.y = ObSquareRoot(1.0f - ObSquare(Z)) * ObSin(Phi);
             RandomVector.z = Z;
 
-            Result = Emission->Cone.Rotation * RandomVector;
+            Result = Emission->Velocity.Cone.Rotation * RandomVector;
         } break;
 
         case OFFBEAT_VelocityRandom:
@@ -255,6 +255,7 @@ OffbeatSpawnParticles(ob_particle_system* ParticleSystem, ob_random_series* Entr
         Particle->P = OffbeatParticleInitialPosition(Entropy, Emission);
         Particle->dP = OffbeatParticleInitialVelocity(Entropy, Emission);
         Particle->Color = Appearance->Color;
+        // Particle->Size = Appearance->Size;
         Particle->Age = 0.0f;
         Debug::PushWireframeSphere(OV3ToVec3(Particle->P), 0.02f,
                                    OV4ToVec4(ov4{0.8f, 0.0f, 0.0f, 1.0f}));
@@ -364,7 +365,7 @@ OffbeatUpdateAndRenderParticleSystem(ob_draw_list* DrawList, ob_particle_system*
         // NOTE(rytis): Simulate the particle forward in time
         Particle->P += 0.5f * ObSquare(dt) * ddP + dt * Particle->dP;
         Particle->dP += dt * ddP;
-        Particle->Color.a = 1.0f - Particle->Age;
+        // Particle->Color.a = 1.0f - Particle->Age;
 
 #if 0
         if(Particle->P.Y < 0.0f)
@@ -392,8 +393,6 @@ OffbeatParticleSystem(ob_state* OffbeatState, game_input* Input, ob_camera Camer
     OffbeatHandleInput(OffbeatState, Input, Camera);
     OffbeatDrawGrid(OffbeatState);
 
-    glEnable(GL_BLEND);
-
     OffbeatState->DrawData.DrawListCount = OffbeatState->ParticleSystemCount;
     for(u32 i = 0; i < OffbeatState->ParticleSystemCount; ++i)
     {
@@ -411,8 +410,6 @@ OffbeatParticleSystem(ob_state* OffbeatState, game_input* Input, ob_camera Camer
         ov4 PointColor = ov4{1.0f, 0.0f, 0.0f, 1.0f};
         Debug::PushWireframeSphere(OV3ToVec3(Point), 0.05f, OV4ToVec4(PointColor));
     }
-
-    glDisable(GL_BLEND);
 }
 
 ob_draw_data*
