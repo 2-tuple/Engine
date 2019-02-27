@@ -103,6 +103,7 @@ struct game_state
 
   // Particle system test
   bool ParticleMode;
+  bool UpdateParticles;
   uint64_t OffbeatMemorySize;
   ob_state* OffbeatState;
 };

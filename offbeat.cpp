@@ -101,24 +101,18 @@ OffbeatInit(void* Memory, u64 MemorySize)
     return OffbeatState;
 }
 
-static void
-OffbeatHandleInput(ob_state* OffbeatState, game_input* Input, ob_camera Camera)
+ob_state*
+OffbeatInit(void* (*Malloc)(u64))
 {
-    if(OffbeatState->UpdateParticles)
-    {
-        OffbeatState->dt = Input->dt;
-        OffbeatState->t += OffbeatState->dt;
-    }
+    u64 MemorySize = OffbeatMibibytes(100);
+    void* Memory = Malloc(MemorySize);
+    return OffbeatInit(Memory, MemorySize);
+}
 
-    if(Input->q.EndedDown && Input->q.Changed)
-    {
-        OffbeatState->UpdateParticles = !OffbeatState->UpdateParticles;
-    }
-
-    ob_quad_data QuadData = {};
-    QuadData.Horizontal = -ObNormalize(Camera.Right);
-    QuadData.Vertical = ObNormalize(ObCross(QuadData.Horizontal, -Camera.Forward));
-    OffbeatState->QuadData = QuadData;
+ob_state*
+OffbeatInit()
+{
+    return OffbeatInit(GlobalOffbeatAlloc);
 }
 
 static void
@@ -388,9 +382,18 @@ OffbeatRender:
 }
 
 void
-OffbeatParticleSystem(ob_state* OffbeatState, game_input* Input, ob_camera Camera)
+OffbeatParticleSystem(ob_state* OffbeatState, ob_camera Camera, f32 dt)
 {
-    OffbeatHandleInput(OffbeatState, Input, Camera);
+    {
+        OffbeatState->dt = dt;
+        OffbeatState->t += OffbeatState->dt;
+
+        ob_quad_data QuadData = {};
+        QuadData.Horizontal = -ObNormalize(Camera.Right);
+        QuadData.Vertical = ObNormalize(ObCross(QuadData.Horizontal, -Camera.Forward));
+        OffbeatState->QuadData = QuadData;
+    }
+
     OffbeatDrawGrid(OffbeatState);
 
     OffbeatState->DrawData.DrawListCount = OffbeatState->ParticleSystemCount;

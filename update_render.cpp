@@ -217,15 +217,27 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     }
   }
 
+  if(Input->q.EndedDown && Input->q.Changed)
+  {
+    GameState->UpdateParticles = !GameState->UpdateParticles;
+  }
+
   if(GameState->ParticleMode)
   {
     BEGIN_TIMED_BLOCK(Offbeat);
+
+    float dt = 0.0f;
+    if(GameState->UpdateParticles)
+    {
+      dt = Input->dt;
+    }
+
     ob_camera OffbeatCamera = {};
     OffbeatCamera.Position = OV3(GameState->Camera.Position);
     OffbeatCamera.Forward = OV3(GameState->Camera.Forward);
     OffbeatCamera.Right = OV3(GameState->Camera.Right);
 
-    OffbeatParticleSystem(GameState->OffbeatState, (game_input*)Input, OffbeatCamera);
+    OffbeatParticleSystem(GameState->OffbeatState, OffbeatCamera, dt);
     END_TIMED_BLOCK(Offbeat);
   }
 

@@ -296,6 +296,7 @@ namespace UI
             static bool s_OffbeatShowMotion = false;
             static bool s_OffbeatShowAppearance = false;
 
+            UI::NewLine();
             if(UI::CollapsingHeader("Emission", &s_OffbeatShowEmission))
             {
                 UI::DragFloat3("Location", ParticleSystem->Emission.Location.E, -INFINITY, INFINITY, 10.0f);
@@ -311,7 +312,6 @@ namespace UI
                     {
                     } break;
                 }
-                UI::NewLine();
                 UI::DragFloat("Initial Velocity Scale", &ParticleSystem->Emission.InitialVelocityScale, -INFINITY, INFINITY, 5.0f);
             }
 

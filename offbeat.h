@@ -1,7 +1,5 @@
 #pragma once
 
-#include "common.h"
-
 typedef int8_t s8;
 typedef int8_t s08;
 typedef int16_t s16;
@@ -19,6 +17,10 @@ typedef float r32;
 typedef double r64;
 typedef float f32;
 typedef double f64;
+
+#ifndef OFFBEAT_API
+#define OFFBEAT_API
+#endif
 
 #define OffbeatAssert(Expression) if(!(Expression)) {*(int *)0 = 0;}
 
@@ -226,7 +228,14 @@ struct ob_state
     ob_draw_data DrawData;
 };
 
-void OffbeatSetAllocatorFunctions(void* (*Malloc)(u64), void (*Free)(void*));
-ob_state* OffbeatInit(void* Memory, u64 MemorySize);
-void OffbeatParticleSystem(ob_state* OffbeatState, game_input* Input, ob_camera Camera);
-ob_draw_data* OffbeatGetDrawData(ob_state* OffbeatState);
+// NOTE(rytis): Init
+OFFBEAT_API void OffbeatSetAllocatorFunctions(void* (*Malloc)(u64), void (*Free)(void*));
+OFFBEAT_API ob_state* OffbeatInit(void* Memory, u64 MemorySize);
+OFFBEAT_API ob_state* OffbeatInit(void* (*Malloc)(u64));
+OFFBEAT_API ob_state* OffbeatInit();
+
+// NOTE(rytis): Calculation
+OFFBEAT_API void OffbeatParticleSystem(ob_state* OffbeatState, ob_camera Camera, f32 dt);
+
+// NOTE(rytis): Render data
+OFFBEAT_API ob_draw_data* OffbeatGetDrawData(ob_state* OffbeatState);

@@ -427,7 +427,8 @@ SetGameStatePODFields(game_state* GameState)
   // PARTICLE SYSTEM INITIALIZATION
   {
       GameState->ParticleMode = true;
-      GameState->OffbeatMemorySize = sizeof(ob_state);
+      GameState->UpdateParticles = true;
+      GameState->OffbeatMemorySize = Mibibytes(50);
       GameState->OffbeatState =
         OffbeatInit(GameState->PersistentMemStack->Alloc(GameState->OffbeatMemorySize),
                     GameState->OffbeatMemorySize);
