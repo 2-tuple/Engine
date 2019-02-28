@@ -460,6 +460,7 @@ RenderMaterialPreviewToTexture(game_state* GameState)
 void
 RenderParticleEffects(game_state* GameState)
 {
+    glEnable(GL_BLEND);
     GLuint OffbeatShaderID = GameState->Resources.GetShader(GameState->R.ShaderOffbeat);
     glUseProgram(OffbeatShaderID);
     glUniformMatrix4fv(glGetUniformLocation(OffbeatShaderID, "Projection"), 1, GL_FALSE,
@@ -509,4 +510,5 @@ RenderParticleEffects(game_state* GameState)
     glDeleteBuffers(1, &EBO);
     glDeleteVertexArrays(1, &VAO);
     glBindVertexArray(0);
+    glDisable(GL_BLEND);
 }

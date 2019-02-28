@@ -13,10 +13,16 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 
-typedef float r32;
-typedef double r64;
 typedef float f32;
 typedef double f64;
+
+/* TODO(rytis):
+ *
+ * Change rotation calculations so that rotation matrix would be calculated either every frame
+ * or on every direction vector change.
+ * UPDATE: For now we do it every frame before any other calculations for the particle system.
+ * Maybe could thing of something better?
+ */
 
 #ifndef OFFBEAT_API
 #define OFFBEAT_API
@@ -35,14 +41,10 @@ typedef double f64;
 
 #define OFFBEAT_MAX_SQUARE_GRID_LINE_COUNT 50
 
-#define OFFBEAT_MAX_PARTICLE_COUNT 512
-#define OFFBEAT_MAX_DRAW_COMMAND_COUNT OFFBEAT_MAX_PARTICLE_COUNT
+#define OFFBEAT_HISTORY_ENTRY_COUNT 1000
 
-#define OFFBEAT_MAX_INDEX_COUNT 6000
-#define OFFBEAT_MAX_VERTEX_COUNT 4000
-
-#define OFFBEAT_MAX_SYSTEM_COUNT 10
-#define OFFBEAT_MAX_DRAW_LIST_COUNT OFFBEAT_MAX_SYSTEM_COUNT
+#define OFFBEAT_PARTICLE_SYSTEM_COUNT 512
+#define OFFBEAT_DRAW_LIST_COUNT OFFBEAT_PARTICLE_SYSTEM_COUNT
 
 struct ob_grid_line
 {
@@ -54,11 +56,7 @@ struct ob_particle
 {
     ov3 P;
     ov3 dP;
-    ov4 Color;
     f32 Age;
-    // TODO(rytis): Change the uniform size to be per-particle and the
-    // non-uniform scale per-particle-system.
-    // f32 Size;
 };
 
 enum ob_emission_shape_type
@@ -152,8 +150,14 @@ struct ob_appearance
 {
     ov4 Color;
     f32 Size;
-    ov3 Scale;
+    // ov3 Scale;
     u32 TextureID;
+};
+
+struct ob_history_entry
+{
+    f32 TimeElapsed;
+    u32 ParticlesEmitted;
 };
 
 struct ob_particle_system
@@ -164,8 +168,12 @@ struct ob_particle_system
     ob_motion Motion;
     ob_appearance Appearance;
 
-    u32 NextParticle;
-    ob_particle Particles[OFFBEAT_MAX_PARTICLE_COUNT];
+    u32 ParticleCount;
+    ob_particle* Particles;
+
+    u32 HistoryStartIndex;
+    u32 HistoryEndIndex;
+    ob_history_entry History[OFFBEAT_HISTORY_ENTRY_COUNT];
 };
 
 struct ob_camera
@@ -194,16 +202,27 @@ struct ob_draw_list
     u32 ElementCount;
 
     u32 IndexCount;
-    u32 Indices[OFFBEAT_MAX_INDEX_COUNT];
+    u32* Indices;
 
     u32 VertexCount;
-    ob_draw_vertex Vertices[OFFBEAT_MAX_VERTEX_COUNT];
+    ob_draw_vertex* Vertices;
 };
 
 struct ob_draw_data
 {
     u32 DrawListCount;
-    ob_draw_list DrawLists[OFFBEAT_MAX_DRAW_LIST_COUNT];
+    ob_draw_list DrawLists[OFFBEAT_DRAW_LIST_COUNT];
+};
+
+struct ob_memory_manager
+{
+    u8* CurrentMaxAddress;
+    u8* LastMaxAddress;
+
+    u8* CurrentAddress;
+
+    u8* CurrentBuffer;
+    u8* LastBuffer;
 };
 
 struct ob_state
@@ -222,10 +241,13 @@ struct ob_state
     b32 UpdateParticles;
     ob_random_series EffectsEntropy;
 
+    u32 CurrentParticleSystem;
     u32 ParticleSystemCount;
-    ob_particle_system ParticleSystems[OFFBEAT_MAX_SYSTEM_COUNT];
+    ob_particle_system ParticleSystems[OFFBEAT_PARTICLE_SYSTEM_COUNT];
 
     ob_draw_data DrawData;
+
+    ob_memory_manager MemoryManager;
 };
 
 // NOTE(rytis): Init
@@ -234,8 +256,11 @@ OFFBEAT_API ob_state* OffbeatInit(void* Memory, u64 MemorySize);
 OFFBEAT_API ob_state* OffbeatInit(void* (*Malloc)(u64));
 OFFBEAT_API ob_state* OffbeatInit();
 
+// NOTE(rytis): Particle system manipulation
+OFFBEAT_API ob_particle_system* OffbeatAddParticleSystem(ob_state* OffbeatState);
+
 // NOTE(rytis): Calculation
-OFFBEAT_API void OffbeatParticleSystem(ob_state* OffbeatState, ob_camera Camera, f32 dt);
+OFFBEAT_API void OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt);
 
 // NOTE(rytis): Render data
 OFFBEAT_API ob_draw_data* OffbeatGetDrawData(ob_state* OffbeatState);

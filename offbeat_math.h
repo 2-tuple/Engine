@@ -5,6 +5,8 @@
 
 #define PI 3.1415926535f
 
+#define ObMin(A, B) ((A) < (B) ? (A) : (B))
+
 // TODO(rytis): SIMD-ize!!!
 
 // NOTE(rytis): Linear types
