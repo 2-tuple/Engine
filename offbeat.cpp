@@ -58,11 +58,12 @@ OffbeatInit(void* Memory, u64 MemorySize)
         Marker += HalfSize;
         OffbeatState->MemoryManager.CurrentMaxAddress = Marker;
 
-        // NOTE(rytis): Might be unnecessary, since there will be an update.
+        // NOTE(rytis): Might be unnecessary, since there will be an initial memory update.
         OffbeatState->MemoryManager.CurrentAddress = OffbeatState->MemoryManager.CurrentBuffer;
 
         OffbeatAssert(OffbeatState->MemoryManager.CurrentMaxAddress <= ((u8*)Memory + MemorySize));
     }
+
     // NOTE(rytis): OffbeatState init.
     {
         OffbeatState->t = 0.0f;
@@ -299,7 +300,7 @@ OffbeatSpawnParticles(ob_particle* Particles, ob_particle_system* ParticleSystem
 {
     ob_emission* Emission = &ParticleSystem->Emission;
 
-    u32 Index = ObMin(ParticleSystem->HistoryEndIndex - 1, OffbeatArrayCount(ParticleSystem->History));
+    u32 Index = ParticleSystem->HistoryEntryCount - 1;
     u32 ParticleSpawnCount = ParticleSystem->History[Index].ParticlesEmitted;
     for(u32 ParticleSpawnIndex = 0; ParticleSpawnIndex < ParticleSpawnCount; ++ParticleSpawnIndex)
     {
@@ -341,7 +342,7 @@ OffbeatUpdateParticleSystem(ob_particle* Particles, ob_particle_system* Particle
 {
     ob_motion* Motion = &ParticleSystem->Motion;
 
-    u32 Index = ObMin(ParticleSystem->HistoryEndIndex - 1, OffbeatArrayCount(ParticleSystem->History));
+    u32 Index = ParticleSystem->HistoryEntryCount - 1;
     u32 ParticleSpawnCount = ParticleSystem->History[Index].ParticlesEmitted;
     u32 LastParticleCount = ParticleSystem->ParticleCount - ParticleSpawnCount;
 
@@ -435,7 +436,7 @@ OffbeatRenderParticleSystem(ob_draw_list* DrawList, u32* IndexMemory, ob_draw_ve
 }
 
 static void
-OffbeatUpdateParticleCount(ob_particle_system* ParticleSystem, f32 t, f32 dt)
+OffbeatUpdateParticleCount(ob_history_entry* History, ob_particle_system* ParticleSystem, f32 t, f32 dt)
 {
     ob_emission* Emission = &ParticleSystem->Emission;
 
@@ -449,20 +450,26 @@ OffbeatUpdateParticleCount(ob_particle_system* ParticleSystem, f32 t, f32 dt)
     ParticleSystem->t -= ParticleSpawnCount * TimePerParticle;
     ParticleSystem->ParticleCount += ParticleSpawnCount;
 
-    ob_history_entry Entry = {};
-    Entry.TimeElapsed = t;
-    Entry.ParticlesEmitted = ParticleSpawnCount;
-    ParticleSystem->History[ParticleSystem->HistoryEndIndex] = Entry;
-    ParticleSystem->HistoryEndIndex = (ParticleSystem->HistoryEndIndex + 1) % OFFBEAT_HISTORY_ENTRY_COUNT;
-
     f32 MinTimeElapsed = ObClamp(0.0f, t - ParticleSystem->Emission.ParticleLifetime, t);
-    u32 i = ParticleSystem->HistoryStartIndex;
-    while(ParticleSystem->History[i].TimeElapsed < MinTimeElapsed)
+    u32 NewHistoryEntryCount = 0;
+    for(u32 HistoryIndex = 0; HistoryIndex < ParticleSystem->HistoryEntryCount; ++HistoryIndex)
     {
-        ParticleSystem->ParticleCount -= ParticleSystem->History[i].ParticlesEmitted;
-        i = (i + 1) % OFFBEAT_HISTORY_ENTRY_COUNT;
+        ob_history_entry* HistoryEntry = ParticleSystem->History + HistoryIndex;
+        if(HistoryEntry->TimeElapsed < MinTimeElapsed)
+        {
+            ParticleSystem->ParticleCount -= HistoryEntry->ParticlesEmitted;
+        }
+        else
+        {
+            History[NewHistoryEntryCount++] = *HistoryEntry;
+        }
     }
-    ParticleSystem->HistoryStartIndex = i;
+
+    History[NewHistoryEntryCount].TimeElapsed = t;
+    History[NewHistoryEntryCount++].ParticlesEmitted = ParticleSpawnCount;
+
+    ParticleSystem->HistoryEntryCount = NewHistoryEntryCount;
+    ParticleSystem->History = History;
 }
 
 static void
@@ -536,7 +543,12 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
 
         OffbeatUpdateSystemRotations(ParticleSystem);
 
-        OffbeatUpdateParticleCount(ParticleSystem, OffbeatState->t, OffbeatState->dt);
+        ob_history_entry* History =
+            (ob_history_entry*)OffbeatAllocateMemory(&OffbeatState->MemoryManager,
+                                                     (ParticleSystem->HistoryEntryCount + 1) *
+                                                     sizeof(ob_history_entry));
+
+        OffbeatUpdateParticleCount(History, ParticleSystem, OffbeatState->t, OffbeatState->dt);
 
         ob_particle* Particles =
             (ob_particle*)OffbeatAllocateMemory(&OffbeatState->MemoryManager,

@@ -171,9 +171,8 @@ struct ob_particle_system
     u32 ParticleCount;
     ob_particle* Particles;
 
-    u32 HistoryStartIndex;
-    u32 HistoryEndIndex;
-    ob_history_entry History[OFFBEAT_HISTORY_ENTRY_COUNT];
+    u32 HistoryEntryCount;
+    ob_history_entry* History;
 };
 
 struct ob_camera
@@ -257,7 +256,7 @@ OFFBEAT_API ob_state* OffbeatInit(void* (*Malloc)(u64));
 OFFBEAT_API ob_state* OffbeatInit();
 
 // NOTE(rytis): Particle system manipulation
-OFFBEAT_API ob_particle_system* OffbeatAddParticleSystem(ob_state* OffbeatState);
+OFFBEAT_API ob_particle_system* OffbeatNewParticleSystem(ob_state* OffbeatState);
 
 // NOTE(rytis): Calculation
 OFFBEAT_API void OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt);
