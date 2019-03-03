@@ -147,6 +147,18 @@ ObCos(f32 Angle)
     return cosf(Angle);
 }
 
+inline s32
+TruncateF32ToS32(f32 F32)
+{
+    return (s32)F32;
+}
+
+inline u32
+TruncateF32ToU32(f32 F32)
+{
+    return (u32)F32;
+}
+
 // NOTE(rytis): Scalar operations
 
 inline f32
@@ -156,7 +168,7 @@ ObLerp(f32 A, f32 t, f32 B)
 }
 
 inline f32
-ObClamp(f32 N, f32 Min, f32 Max)
+ObClamp(f32 Min, f32 N, f32 Max)
 {
     if(N < Min)
     {
@@ -172,7 +184,7 @@ ObClamp(f32 N, f32 Min, f32 Max)
 inline f32
 ObClamp01(f32 Value)
 {
-    return ObClamp(Value, 0.0f, 1.0f);
+    return ObClamp(0.0f, Value, 1.0f);
 }
 
 inline f32

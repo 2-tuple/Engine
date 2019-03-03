@@ -306,6 +306,10 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     RenderMainSceneObjects(GameState);
 
+    BEGIN_GPU_TIMED_BLOCK(Particles);
+    RenderParticleEffects(GameState);
+    END_GPU_TIMED_BLOCK(Particles);
+
     if(GameState->DrawCubemap)
     {
       RenderCubemap(GameState);
@@ -350,10 +354,6 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
   Debug::ClearDrawArrays();
   Text::ClearTextRequestCounts();
   END_TIMED_BLOCK(DebugDrawingSubmission);
-
-  BEGIN_TIMED_BLOCK(Particles);
-  RenderParticleEffects(GameState);
-  END_TIMED_BLOCK(Particles);
 
   END_TIMED_BLOCK(Render);
   READ_GPU_QUERY_TIMERS();

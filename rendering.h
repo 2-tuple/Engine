@@ -461,6 +461,8 @@ void
 RenderParticleEffects(game_state* GameState)
 {
     glEnable(GL_BLEND);
+    glDepthMask(GL_FALSE);
+
     GLuint OffbeatShaderID = GameState->Resources.GetShader(GameState->R.ShaderOffbeat);
     glUseProgram(OffbeatShaderID);
     glUniformMatrix4fv(glGetUniformLocation(OffbeatShaderID, "Projection"), 1, GL_FALSE,
@@ -493,6 +495,7 @@ RenderParticleEffects(game_state* GameState)
     ob_draw_data* DrawData = OffbeatGetDrawData(GameState->OffbeatState);
     for(int i = 0; i < DrawData->DrawListCount; ++i)
     {
+        glBindTexture(GL_TEXTURE_2D, DrawData->DrawLists[i].TextureID);
         glBufferData(GL_ARRAY_BUFFER,
                      DrawData->DrawLists[i].VertexCount * sizeof(ob_draw_vertex),
                      DrawData->DrawLists[i].Vertices,
@@ -506,9 +509,12 @@ RenderParticleEffects(game_state* GameState)
         glDrawElements(GL_TRIANGLES, DrawData->DrawLists[i].IndexCount, GL_UNSIGNED_INT, 0);
     }
 
+    glBindTexture(GL_TEXTURE_2D, 0);
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &EBO);
     glDeleteVertexArrays(1, &VAO);
     glBindVertexArray(0);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
 }

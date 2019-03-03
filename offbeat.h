@@ -22,11 +22,26 @@ typedef double f64;
  * or on every direction vector change.
  * UPDATE: For now we do it every frame before any other calculations for the particle system.
  * Maybe could thing of something better?
+ *
+ * Finalize texture list. Provide means to add custom textures. If I want to do that, though,
+ * a global texture ID table might not be the proper solution.
+ *
+ * Expand the GUI to allow customization of particle emission, motion or appearance.
+ *
+ * Figure out a way to properly implement expressions, including the ability to use some
+ * per-particle values (age, distance to camera, etc.). Add distance to camera.
+ *
+ * SIMD-ize the calculations where possible. Try to add a possibility to do calculations on GPU
+ * using the compute shaders.
+ *
+ * Add more emission, initial velocity and motion primitive shapes.
+ *
+ * Add selectors (plane, sphere, cube ???). Allow testing selectors against a ray.
+ *
+ * Change square grid to use a single textured quad, instead of debug lines.
+ *
+ * Add import from / export to files.
  */
-
-#ifndef OFFBEAT_API
-#define OFFBEAT_API
-#endif
 
 #define OffbeatAssert(Expression) if(!(Expression)) {*(int *)0 = 0;}
 
@@ -36,12 +51,20 @@ typedef double f64;
 
 #define OffbeatArrayCount(Array) sizeof((Array)) / sizeof(Array[0])
 
+#include "offbeat_config.h"
+
 #include "offbeat_math.h"
 #include "offbeat_random.h"
 
-#define OFFBEAT_MAX_SQUARE_GRID_LINE_COUNT 50
+#ifndef OFFBEAT_API
+#define OFFBEAT_API
+#endif
 
-#define OFFBEAT_HISTORY_ENTRY_COUNT 1000
+#ifdef OFFBEAT_OPENGL
+typedef GLuint ob_texture;
+#endif
+
+#define OFFBEAT_MAX_SQUARE_GRID_LINE_COUNT 50
 
 #define OFFBEAT_PARTICLE_SYSTEM_COUNT 512
 #define OFFBEAT_DRAW_LIST_COUNT OFFBEAT_PARTICLE_SYSTEM_COUNT
@@ -50,6 +73,15 @@ struct ob_grid_line
 {
     ov3 A;
     ov3 B;
+};
+
+enum ob_texture_type
+{
+    OFFBEAT_TextureSquare,
+    OFFBEAT_TextureCircle,
+    OFFBEAT_TextureRing,
+
+    OFFBEAT_TextureCount,
 };
 
 struct ob_particle
@@ -151,7 +183,7 @@ struct ob_appearance
     ov4 Color;
     f32 Size;
     // ov3 Scale;
-    u32 TextureID;
+    ob_texture TextureID;
 };
 
 struct ob_history_entry
@@ -197,7 +229,7 @@ struct ob_draw_vertex
 
 struct ob_draw_list
 {
-    u32 TextureID;
+    ob_texture TextureID;
     u32 ElementCount;
 
     u32 IndexCount;

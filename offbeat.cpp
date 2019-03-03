@@ -11,14 +11,67 @@ static void* _Malloc(u64 Size) { return malloc(Size); }
 static void _Free(void* Pointer) { free(Pointer); }
 #endif
 
-static void* (*GlobalOffbeatAlloc)(u64) = _Malloc;
-static void (*GlobalOffbeatFree)(void*) = _Free;
+static void* (*OffbeatGlobalAlloc)(u64) = _Malloc;
+static void (*OffbeatGlobalFree)(void*) = _Free;
 
 void
 OffbeatSetAllocatorFunctions(void* (*Malloc)(u64), void (*Free)(void*))
 {
-    GlobalOffbeatAlloc = Malloc;
-    GlobalOffbeatFree = Free;
+    OffbeatGlobalAlloc = Malloc;
+    OffbeatGlobalFree = Free;
+}
+
+#ifdef OFFBEAT_OPENGL
+ob_texture OffbeatRGBATextureID(void* TextureData, u32 Width, u32 Height)
+{
+    ob_texture LastBoundTexture;
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, (GLint*)&LastBoundTexture);
+
+    ob_texture TextureID;
+    glGenTextures(1, &TextureID);
+    glBindTexture(GL_TEXTURE_2D, TextureID);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, Width, Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, TextureData);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+
+    glBindTexture(GL_TEXTURE_2D, LastBoundTexture);
+    return TextureID;
+}
+#endif
+
+static ob_texture (*OffbeatGlobalRGBATextureID)(void*, u32, u32) = OffbeatRGBATextureID;
+static ob_texture OffbeatGlobalTextureIDs[OFFBEAT_TextureCount];
+
+void
+OffbeatSetTextureFunction(ob_texture (*TextureFunction)(void*, u32, u32))
+{
+    OffbeatGlobalRGBATextureID = TextureFunction;
+}
+
+static void
+OffbeatUpdateMemoryManager(ob_memory_manager* MemoryManager)
+{
+    u8* Temp = MemoryManager->CurrentBuffer;
+    u8* TempMax = MemoryManager->CurrentMaxAddress;
+
+    MemoryManager->CurrentBuffer = MemoryManager->LastBuffer;
+    MemoryManager->CurrentMaxAddress = MemoryManager->LastMaxAddress;
+
+    MemoryManager->LastBuffer = Temp;
+    MemoryManager->LastMaxAddress = TempMax;
+
+    MemoryManager->CurrentAddress = MemoryManager->CurrentBuffer;
+}
+
+static void*
+OffbeatAllocateMemory(ob_memory_manager* MemoryManager, u64 Size)
+{
+    OffbeatAssert(MemoryManager->CurrentAddress + Size < MemoryManager->CurrentMaxAddress);
+    void* Result = MemoryManager->CurrentAddress;
+    MemoryManager->CurrentAddress += Size;
+    return Result;
 }
 
 static void
@@ -28,6 +81,45 @@ ObZeroMemory(void* Pointer, u64 Size)
     while(Size--)
     {
         *Byte++ = 0;
+    }
+}
+
+void
+OffbeatGenerateSquareRGBATexture(void* Memory, u64 MemorySize, u32 Width, u32 Height)
+{
+    OffbeatAssert(MemorySize >= (Width * Height * sizeof(u32)));
+
+    u32* Pixel = (u32*)Memory;
+    for(u32 i = 0; i < Height; ++i)
+    {
+        for(u32 j = 0; j < Width; ++j)
+        {
+            *Pixel++ = 0xFFFFFFFF;
+        }
+    }
+}
+
+void
+OffbeatGenerateCircleRGBATexture(void* Memory, u64 MemorySize, u32 Width, u32 Height)
+{
+    OffbeatAssert(MemorySize >= (Width * Height * sizeof(u32)));
+
+    s32 CenterHeight = Height / 2;
+    s32 CenterWidth = Width / 2;
+
+    u32* Pixel = (u32*)Memory;
+    for(s32 i = 0; i < Height; ++i)
+    {
+        for(s32 j = 0; j < Width; ++j)
+        {
+            // u8 Alpha = ObSin(i * PI / Height) * ObSin(j * PI / Width);
+            f32 LengthSq = ObSquare((float)(i - CenterHeight) / (float)CenterHeight) +
+                           ObSquare((float)(j - CenterWidth) / (float)CenterWidth);
+            f32 Scale = 1.0f - ObClamp(0.0f, ObSquareRoot(LengthSq), 1.0f);
+            u32 Alpha = TruncateF32ToU32(0xFF * Scale);
+            // NOTE(rytis): ABGR in registers, RGBA in memory.
+            *Pixel++ = 0x00FFFFFF | (Alpha << 24);
+        }
     }
 }
 
@@ -62,6 +154,21 @@ OffbeatInit(void* Memory, u64 MemorySize)
         OffbeatState->MemoryManager.CurrentAddress = OffbeatState->MemoryManager.CurrentBuffer;
 
         OffbeatAssert(OffbeatState->MemoryManager.CurrentMaxAddress <= ((u8*)Memory + MemorySize));
+    }
+
+    // NOTE(rytis): Offbeat texture init.
+    {
+        u32 Width = 500;
+        u32 Height = 500;
+        u64 Size = Width * Height * sizeof(u32);
+
+        void* TextureMemory = OffbeatAllocateMemory(&OffbeatState->MemoryManager, Size);
+        OffbeatGenerateSquareRGBATexture(TextureMemory, Size, Width, Height);
+        OffbeatGlobalTextureIDs[OFFBEAT_TextureSquare] = OffbeatGlobalRGBATextureID(TextureMemory, Width, Height);
+
+        TextureMemory = OffbeatAllocateMemory(&OffbeatState->MemoryManager, Size);
+        OffbeatGenerateCircleRGBATexture(TextureMemory, Size, Width, Height);
+        OffbeatGlobalTextureIDs[OFFBEAT_TextureCircle] = OffbeatGlobalRGBATextureID(TextureMemory, Width, Height);
     }
 
     // NOTE(rytis): OffbeatState init.
@@ -128,6 +235,7 @@ OffbeatInit(void* Memory, u64 MemorySize)
                                    ObRandomBetween(&OffbeatState->EffectsEntropy, 0.8f, 1.0f),
                                    1.0f};
         TestAppearance.Size = 0.05f;
+        TestAppearance.TextureID = OffbeatGlobalTextureIDs[OFFBEAT_TextureCircle];
 
         ob_particle_system TestSystem = {};
         TestSystem.Emission = TestEmission;
@@ -162,6 +270,7 @@ OffbeatInit(void* Memory, u64 MemorySize)
         TestSystem.Emission = TestEmission;
         TestSystem.Motion = TestMotion;
         TestSystem.Appearance = TestAppearance;
+        TestAppearance.TextureID = OffbeatGlobalTextureIDs[OFFBEAT_TextureCircle];
 
         OffbeatState->ParticleSystemCount = 2;
         OffbeatState->ParticleSystems[1] = TestSystem;
@@ -183,7 +292,7 @@ OffbeatInit(void* (*Malloc)(u64))
 ob_state*
 OffbeatInit()
 {
-    return OffbeatInit(GlobalOffbeatAlloc);
+    return OffbeatInit(OffbeatGlobalAlloc);
 }
 
 static void
@@ -196,18 +305,6 @@ OffbeatDrawGrid(ob_state* OffbeatState)
         vec4 GridColor = OV4ToVec4(OffbeatState->SquareGridColor);
         Debug::PushLine(A, B, GridColor);
     }
-}
-
-inline s32
-TruncateF32ToS32(f32 F32)
-{
-    return (s32)F32;
-}
-
-inline u32
-TruncateF32ToU32(f32 F32)
-{
-    return (u32)F32;
 }
 
 ob_particle_system*
@@ -470,30 +567,6 @@ OffbeatUpdateParticleCount(ob_history_entry* History, ob_particle_system* Partic
 
     ParticleSystem->HistoryEntryCount = NewHistoryEntryCount;
     ParticleSystem->History = History;
-}
-
-static void
-OffbeatUpdateMemoryManager(ob_memory_manager* MemoryManager)
-{
-    u8* Temp = MemoryManager->CurrentBuffer;
-    u8* TempMax = MemoryManager->CurrentMaxAddress;
-
-    MemoryManager->CurrentBuffer = MemoryManager->LastBuffer;
-    MemoryManager->CurrentMaxAddress = MemoryManager->LastMaxAddress;
-
-    MemoryManager->LastBuffer = Temp;
-    MemoryManager->LastMaxAddress = TempMax;
-
-    MemoryManager->CurrentAddress = MemoryManager->CurrentBuffer;
-}
-
-static void*
-OffbeatAllocateMemory(ob_memory_manager* MemoryManager, u64 Size)
-{
-    OffbeatAssert(MemoryManager->CurrentAddress + Size < MemoryManager->CurrentMaxAddress);
-    void* Result = MemoryManager->CurrentAddress;
-    MemoryManager->CurrentAddress += Size;
-    return Result;
 }
 
 static void
