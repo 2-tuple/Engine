@@ -522,6 +522,11 @@ ObIdentity()
 static om3
 ObRotationAlign(ov3 Start, ov3 Destination)
 {
+    if((ObLength(Start) == 0.0f) || (ObLength(Destination) == 0.0f))
+    {
+        return ObIdentity();
+    }
+
     Start = ObNormalize(Start);
     Destination = ObNormalize(Destination);
 

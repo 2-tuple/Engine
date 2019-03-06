@@ -34,6 +34,9 @@ typedef double f64;
  * SIMD-ize the calculations where possible. Try to add a possibility to do calculations on GPU
  * using the compute shaders.
  *
+ * Add memory alignment (16 byte, preferably changeable with macro or function parameter)
+ * in OffbeatInit and memory manager.
+ *
  * Add more emission, initial velocity and motion primitive shapes.
  *
  * Add selectors (plane, sphere, cube ???). Allow testing selectors against a ray.
@@ -79,10 +82,12 @@ enum ob_texture_type
 {
     OFFBEAT_TextureSquare,
     OFFBEAT_TextureCircle,
-    OFFBEAT_TextureRing,
+    // OFFBEAT_TextureRing,
 
     OFFBEAT_TextureCount,
 };
+
+static ob_texture OffbeatGlobalTextureIDs[OFFBEAT_TextureCount];
 
 struct ob_particle
 {
@@ -289,6 +294,9 @@ OFFBEAT_API ob_state* OffbeatInit();
 
 // NOTE(rytis): Particle system manipulation
 OFFBEAT_API ob_particle_system* OffbeatNewParticleSystem(ob_state* OffbeatState);
+OFFBEAT_API u32 OffbeatNewParticleSystem(ob_state* OffbeatState, ob_particle_system** NewParticleSystem);
+OFFBEAT_API ob_texture_type OffbeatGetCurrentTextureType(ob_particle_system* ParticleSystem);
+OFFBEAT_API void OffbeatSetTextureID(ob_particle_system* ParticleSystem, ob_texture_type NewType);
 
 // NOTE(rytis): Calculation
 OFFBEAT_API void OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt);

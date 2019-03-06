@@ -2,6 +2,7 @@
 #include "scene.h"
 #include "shader_def.h"
 #include "profile.h"
+#include "offbeat_gui.h"
 
 void MaterialGUI(game_state* GameState, bool& ShowMaterialEditor);
 void EntityGUI(game_state* GameState, bool& ShowEntityTools);
@@ -288,45 +289,7 @@ namespace UI
 
     if(s_ShowOffbeatWindow)
     {
-        ob_state* OffbeatState = GameState->OffbeatState;
-        ob_particle_system* ParticleSystem = &OffbeatState->ParticleSystems[0];
-        UI::BeginWindow("Offbeat Window", {25, 25}, {500, 800});
-        {
-            static bool s_OffbeatShowEmission = false;
-            static bool s_OffbeatShowMotion = false;
-            static bool s_OffbeatShowAppearance = false;
-
-            UI::NewLine();
-            if(UI::CollapsingHeader("Emission", &s_OffbeatShowEmission))
-            {
-                UI::DragFloat3("Location", ParticleSystem->Emission.Location.E, -INFINITY, INFINITY, 10.0f);
-                UI::DragFloat("Emission Rate", &ParticleSystem->Emission.EmissionRate, 0.0f, INFINITY, 200.0f);
-                UI::DragFloat("Particle Lifetime", &ParticleSystem->Emission.ParticleLifetime, 0.0f, INFINITY, 5.0f);
-                switch(ParticleSystem->Emission.Shape.Type)
-                {
-                    case OFFBEAT_EmissionPoint:
-                    {
-                    } break;
-
-                    case OFFBEAT_EmissionRing:
-                    {
-                    } break;
-                }
-                UI::DragFloat("Initial Velocity Scale", &ParticleSystem->Emission.InitialVelocityScale, -INFINITY, INFINITY, 5.0f);
-            }
-
-            if(UI::CollapsingHeader("Motion", &s_OffbeatShowMotion))
-            {
-                UI::SliderInt("TEMP: Motion enum", (int32_t*)&ParticleSystem->Motion.Primitive, OFFBEAT_MotionNone, OFFBEAT_MotionPoint);
-            }
-
-            if(UI::CollapsingHeader("Appearance", &s_OffbeatShowAppearance))
-            {
-                UI::DragFloat4("Color", ParticleSystem->Appearance.Color.E, 0.0f, INFINITY, 5.0f);
-                UI::DragFloat("Size", &ParticleSystem->Appearance.Size, 0.0f, INFINITY, 5.0f);
-            }
-        }
-        UI::EndWindow();
+      OffbeatWindow(GameState, Input);
     }
 
     if(s_ShowDemoWindow)

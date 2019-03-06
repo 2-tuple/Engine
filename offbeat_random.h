@@ -563,12 +563,12 @@ inline f32 ObRandomBilateral(ob_random_series* Series)
 
 inline f32 ObRandomBetween(ob_random_series* Series, f32 Min, f32 Max)
 {
-    OffbeatAssert(Max > Min);
+    OffbeatAssert(Max >= Min);
     return ObLerp(Min, ObRandomUnilateral(Series), Max);
 }
 
 inline s32 ObRandomBetween(ob_random_series* Series, s32 Min, s32 Max)
 {
-    OffbeatAssert(Max > Min);
+    OffbeatAssert(Max >= Min);
     return (Min + (ObRandomNextRandomUInt32(Series) % (Max - Min)));
 }

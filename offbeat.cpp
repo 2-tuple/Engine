@@ -42,7 +42,6 @@ ob_texture OffbeatRGBATextureID(void* TextureData, u32 Width, u32 Height)
 #endif
 
 static ob_texture (*OffbeatGlobalRGBATextureID)(void*, u32, u32) = OffbeatRGBATextureID;
-static ob_texture OffbeatGlobalTextureIDs[OFFBEAT_TextureCount];
 
 void
 OffbeatSetTextureFunction(ob_texture (*TextureFunction)(void*, u32, u32))
@@ -121,6 +120,25 @@ OffbeatGenerateCircleRGBATexture(void* Memory, u64 MemorySize, u32 Width, u32 He
             *Pixel++ = 0x00FFFFFF | (Alpha << 24);
         }
     }
+}
+
+ob_texture_type
+OffbeatGetCurrentTextureType(ob_particle_system* ParticleSystem)
+{
+    for(u32 i = 0; i < OFFBEAT_TextureCount; ++i)
+    {
+        if(ParticleSystem->Appearance.TextureID == OffbeatGlobalTextureIDs[i])
+        {
+            return (ob_texture_type)i;
+        }
+    }
+    return OFFBEAT_TextureCount;
+}
+
+void
+OffbeatSetTextureID(ob_particle_system* ParticleSystem, ob_texture_type NewType)
+{
+    ParticleSystem->Appearance.TextureID = OffbeatGlobalTextureIDs[NewType];
 }
 
 ob_state*
@@ -307,6 +325,16 @@ OffbeatDrawGrid(ob_state* OffbeatState)
     }
 }
 
+u32
+OffbeatNewParticleSystem(ob_state* OffbeatState, ob_particle_system** NewParticleSystem)
+{
+    OffbeatAssert(OffbeatState->ParticleSystemCount + 1 <= OFFBEAT_PARTICLE_SYSTEM_COUNT);
+    u32 Result = OffbeatState->ParticleSystemCount;
+    *NewParticleSystem = &OffbeatState->ParticleSystems[OffbeatState->ParticleSystemCount++];
+    OffbeatState->ParticleSystems[Result] = {};
+    return Result;
+}
+
 ob_particle_system*
 OffbeatNewParticleSystem(ob_state* OffbeatState)
 {
@@ -358,7 +386,7 @@ OffbeatParticleInitialVelocity(ob_random_series* Entropy, ob_emission* Emission)
         case OFFBEAT_VelocityCone:
         {
             f32 Denom = ObSquareRoot(ObSquare(Emission->Velocity.Cone.Height) + ObSquare(Emission->Velocity.Cone.Radius));
-            f32 CosTheta = Emission->Velocity.Cone.Height / Denom;
+            f32 CosTheta = Denom > 0.0f ? Emission->Velocity.Cone.Height / Denom : 0.0f;
 
             f32 Phi = ObRandomBetween(Entropy, 0.0f, 2.0f * PI);
             f32 Z = ObRandomBetween(Entropy, CosTheta, 1.0f);
@@ -539,7 +567,7 @@ OffbeatUpdateParticleCount(ob_history_entry* History, ob_particle_system* Partic
 
     ParticleSystem->t += dt;
 
-    f32 TimePerParticle = 1.0f / Emission->EmissionRate;
+    f32 TimePerParticle = Emission->EmissionRate > 0.0f ? 1.0f / Emission->EmissionRate : 0.0f;
     f32 RealParticleSpawn =  ParticleSystem->t * Emission->EmissionRate;
     OffbeatAssert(RealParticleSpawn >= 0.0f);
 
