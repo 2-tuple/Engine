@@ -220,26 +220,16 @@ OffbeatInit(void* Memory, u64 MemorySize)
         TestEmission.Location = ov3{0.0f, 0.0f, 0.0f};
         TestEmission.EmissionRate = 60.0f;
         TestEmission.ParticleLifetime = 1.5f;
-#if 1
+
         TestEmission.Shape.Type = OFFBEAT_EmissionRing;
         TestEmission.Shape.Ring.Radius = 0.5f;
         TestEmission.Shape.Ring.Normal = ov3{0.0f, 1.0f, 0.0f};
-        // TestEmission.Shape.Ring.Rotation = ObRotationAlign(ov3{0.0f, 0.0f, 1.0f}, TestEmission.Shape.Ring.Normal);
-#else
-        TestEmission.Shape.Type = OFFBEAT_EmissionPoint;
-#endif
 
         TestEmission.InitialVelocityScale = 1.0f;
-#if 1
         TestEmission.Velocity.Type = OFFBEAT_VelocityCone;
         TestEmission.Velocity.Cone.Direction = ov3{0.0f, 1.0f, 0.0f};
         TestEmission.Velocity.Cone.Height = 5.0f;
         TestEmission.Velocity.Cone.Radius = 3.0f;
-        // TestEmission.Velocity.Cone.Rotation = ObRotationAlign(ov3{0.0f, 0.0f, 1.0f},
-        //                                              TestEmission.Velocity.Cone.Direction);
-#else
-        TestEmission.VelocityType = OFFBEAT_VelocityRandom;
-#endif
 
         ob_motion TestMotion = {};
         TestMotion.Gravity = ov3{0.0f, 0.0f, 0.0f};
@@ -261,40 +251,7 @@ OffbeatInit(void* Memory, u64 MemorySize)
         TestSystem.Appearance = TestAppearance;
 
         OffbeatState->ParticleSystems[0] = TestSystem;
-
-#if 0
-        TestEmission = {};
-        TestEmission.Location = ov3{2.0f, 0.0f, -2.0f};
-        TestEmission.EmissionRate = 100.0f;
-        TestEmission.ParticleLifetime = 2.5f;
-        TestEmission.Shape.Type = OFFBEAT_EmissionPoint;
-
-        TestEmission.InitialVelocityScale = 0.3f;
-        TestEmission.Velocity.Type = OFFBEAT_VelocityCone;
-        TestEmission.Velocity.Cone.Direction = ov3{0.0f, 1.0f, 0.0f};
-        TestEmission.Velocity.Cone.Height = 10.0f;
-        TestEmission.Velocity.Cone.Radius = 2.0f;
-        // TestEmission.Velocity.Cone.Rotation = ObRotationAlign(ov3{0.0f, 0.0f, 1.0f},
-                                                     TestEmission.Velocity.Cone.Direction);
-
-        TestMotion = {};
-        TestMotion.Gravity = ov3{0.0f, -0.2f, 0.0f};
-
-        TestAppearance = {};
-        TestAppearance.Color = ov4{0.2f, 0.8f, 0.4f, 1.0f};
-        TestAppearance.Size = 0.01f;
-
-        TestSystem = {};
-        TestSystem.Emission = TestEmission;
-        TestSystem.Motion = TestMotion;
-        TestSystem.Appearance = TestAppearance;
-        TestAppearance.TextureID = OffbeatGlobalTextureIDs[OFFBEAT_TextureCircle];
-
-        OffbeatState->ParticleSystemCount = 2;
-        OffbeatState->ParticleSystems[1] = TestSystem;
-#else
         OffbeatState->ParticleSystemCount = 1;
-#endif
     }
     return OffbeatState;
 }
@@ -342,6 +299,16 @@ OffbeatNewParticleSystem(ob_state* OffbeatState)
     ob_particle_system* Result = &OffbeatState->ParticleSystems[OffbeatState->ParticleSystemCount++];
     *Result = {};
     return Result;
+}
+
+void
+OffbeatRemoveParticleSystem(ob_state* OffbeatState, u32 Index)
+{
+    for(u32 i = Index; i < OffbeatState->ParticleSystemCount - 1; ++i)
+    {
+        OffbeatState->ParticleSystems[i] = OffbeatState->ParticleSystems[i + 1];
+    }
+    --OffbeatState->ParticleSystemCount;
 }
 
 static ov3
@@ -421,7 +388,7 @@ OffbeatParticleInitialVelocity(ob_random_series* Entropy, ob_emission* Emission)
 }
 
 static void
-OffbeatSpawnParticles(ob_particle* Particles, ob_particle_system* ParticleSystem, ob_random_series* Entropy, f32 dt)
+OffbeatSpawnParticles(ob_particle* Particles, ob_particle_system* ParticleSystem, ob_random_series* Entropy, f32 dt, ov3* CameraPosition, u32* RunningParticleID)
 {
     ob_emission* Emission = &ParticleSystem->Emission;
 
@@ -434,6 +401,9 @@ OffbeatSpawnParticles(ob_particle* Particles, ob_particle_system* ParticleSystem
         Particle->P = OffbeatParticleInitialPosition(Entropy, Emission);
         Particle->dP = OffbeatParticleInitialVelocity(Entropy, Emission);
         Particle->Age = 0.0f;
+        Particle->Random = ObRandomUnilateral(Entropy);
+        // Particle->CameraDistance = ObLength(*CameraPosition - Particle->P);
+        Particle->ID = (*RunningParticleID)++;
         Debug::PushWireframeSphere(OV3ToVec3(Particle->P), 0.02f,
                                    OV4ToVec4(ov4{0.8f, 0.0f, 0.0f, 1.0f}));
     }
@@ -442,7 +412,10 @@ OffbeatSpawnParticles(ob_particle* Particles, ob_particle_system* ParticleSystem
 static ov3
 OffbeatUpdateParticleddP(ob_motion* Motion, ob_particle* Particle)
 {
-    ov3 Result = Motion->Gravity;
+    // TODO(rytis): Maybe add choice for linear drag?
+    f32 Length = ObLengthSq(Particle->dP);
+    ov3 Drag = Motion->Drag * Length * ObNormalize(-Particle->dP);
+    ov3 Result = Motion->Gravity + Drag;
     switch(Motion->Primitive)
     {
         case OFFBEAT_MotionPoint:
@@ -463,7 +436,7 @@ OffbeatUpdateParticleddP(ob_motion* Motion, ob_particle* Particle)
 }
 
 static void
-OffbeatUpdateParticleSystem(ob_particle* Particles, ob_particle_system* ParticleSystem, f32 dt)
+OffbeatUpdateParticleSystem(ob_particle* Particles, ob_particle_system* ParticleSystem, f32 dt, ov3* CameraPosition)
 {
     ob_motion* Motion = &ParticleSystem->Motion;
 
@@ -489,6 +462,7 @@ OffbeatUpdateParticleSystem(ob_particle* Particles, ob_particle_system* Particle
 
         UpdatedParticle->P += 0.5f * ObSquare(dt) * ddP + dt * UpdatedParticle->dP;
         UpdatedParticle->dP += dt * ddP;
+        // UpdatedParticle->CameraDistance = ObLength(*CameraPosition - UpdatedParticle->P);
         ++UpdatedParticle;
     }
 
@@ -623,6 +597,7 @@ OffbeatUpdateSystemRotations(ob_particle_system* ParticleSystem)
 void
 OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
 {
+    u64 StartCycleCount = __rdtsc();
     {
         OffbeatState->dt = dt;
         OffbeatState->t += OffbeatState->dt;
@@ -631,12 +606,14 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
         QuadData.Horizontal = -ObNormalize(Camera.Right);
         QuadData.Vertical = ObNormalize(ObCross(QuadData.Horizontal, -Camera.Forward));
         OffbeatState->QuadData = QuadData;
+        OffbeatState->CameraPosition = Camera.Position;
 
         OffbeatUpdateMemoryManager(&OffbeatState->MemoryManager);
     }
 
     OffbeatDrawGrid(OffbeatState);
 
+    ov4 PointColor = ov4{1.0f, 1.0f, 0.0f, 1.0f};
     OffbeatState->DrawData.DrawListCount = OffbeatState->ParticleSystemCount;
     for(u32 i = 0; i < OffbeatState->ParticleSystemCount; ++i)
     {
@@ -656,8 +633,9 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
                                                 ParticleSystem->ParticleCount *
                                                 sizeof(ob_particle));
         OffbeatSpawnParticles(Particles, ParticleSystem, &OffbeatState->EffectsEntropy,
-                              OffbeatState->dt);
-        OffbeatUpdateParticleSystem(Particles, ParticleSystem, OffbeatState->dt);
+                              OffbeatState->dt, &OffbeatState->CameraPosition,
+                              &OffbeatState->RunningParticleID);
+        OffbeatUpdateParticleSystem(Particles, ParticleSystem, OffbeatState->dt, &OffbeatState->CameraPosition);
 
         u32* IndexMemory =
             (u32*)OffbeatAllocateMemory(&OffbeatState->MemoryManager,
@@ -671,10 +649,14 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
                                     ParticleSystem, &OffbeatState->QuadData);
 
         // NOTE(rytis): Motion primitive position render
-        ov3 Point = OffbeatState->ParticleSystems[i].Motion.Point.Position = ov3{-3.0f * ObSin(0.25f * PI * OffbeatState->t), 1.0f, 1.0f};
-        ov4 PointColor = ov4{1.0f, 0.0f, 0.0f, 1.0f};
-        Debug::PushWireframeSphere(OV3ToVec3(Point), 0.05f, OV4ToVec4(PointColor));
+        // ov3 Point = ParticleSystem->Motion.Point.Position = ov3{-3.0f * ObSin(0.25f * PI * OffbeatState->t), 1.0f, 1.0f};
+        if(ParticleSystem->Motion.Primitive == OFFBEAT_MotionPoint)
+        {
+            Debug::PushWireframeSphere(OV3ToVec3(ParticleSystem->Motion.Point.Position), 0.05f, OV4ToVec4(PointColor));
+        }
     }
+
+    OffbeatState->CycleCount = __rdtsc() - StartCycleCount;
 }
 
 ob_draw_data*

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "ui.h"
 #include "offbeat.h"
+#include "ui.h"
 
 static char* g_EmissionShapeStrings[OFFBEAT_EmissionCount] = {
     "Point",
@@ -28,6 +28,7 @@ void
 OffbeatWindow(game_state* GameState, const game_input* Input)
 {
     ob_state* OffbeatState = GameState->OffbeatState;
+    // TODO(rytis): Handle the case when ParticleSystemCount is zero.
     static ob_particle_system* ParticleSystem = &OffbeatState->ParticleSystems[0];
     UI::BeginWindow("Offbeat Window", {25, 25}, {500, 800});
     {
@@ -62,6 +63,16 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
         }
 
         UI::NewLine();
+        if(UI::Button("Remove Particle System"))
+        {
+            OffbeatRemoveParticleSystem(OffbeatState, s_OffbeatCurrentParticleSystem);
+            if(s_OffbeatCurrentParticleSystem >= OffbeatState->ParticleSystemCount)
+            {
+                s_OffbeatCurrentParticleSystem = OffbeatState->ParticleSystemCount - 1;
+            }
+        }
+
+        UI::NewLine();
         if(UI::Button("Save Particle System"))
         {
         }
@@ -72,7 +83,7 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
         if(UI::CollapsingHeader("Emission", &s_OffbeatShowEmission))
         {
             UI::DragFloat3("Location", ParticleSystem->Emission.Location.E, -INFINITY, INFINITY, 10.0f);
-            UI::DragFloat("Emission Rate", &ParticleSystem->Emission.EmissionRate, 0.0f, INFINITY, 200.0f);
+            UI::DragFloat("Emission Rate", &ParticleSystem->Emission.EmissionRate, 0.0f, INFINITY, 500.0f);
             UI::DragFloat("Particle Lifetime", &ParticleSystem->Emission.ParticleLifetime, 0.0f, INFINITY, 5.0f);
 
             ob_emission_shape_type* CurrentShapeType = &ParticleSystem->Emission.Shape.Type;
@@ -86,7 +97,7 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
 
                 case OFFBEAT_EmissionRing:
                 {
-                    UI::DragFloat("Ring Radius", &ParticleSystem->Emission.Shape.Ring.Radius, 0.0f, INFINITY, 200.0f);
+                    UI::DragFloat("Ring Radius", &ParticleSystem->Emission.Shape.Ring.Radius, 0.0f, INFINITY, 10.0f);
                     UI::DragFloat3("Ring Normal", ParticleSystem->Emission.Shape.Ring.Normal.E, -INFINITY, INFINITY, 10.0f);
                 } break;
             }
@@ -101,8 +112,8 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
                 case OFFBEAT_VelocityCone:
                 {
                     UI::DragFloat3("Cone Direction", ParticleSystem->Emission.Velocity.Cone.Direction.E, -INFINITY, INFINITY, 10.0f);
-                    UI::DragFloat("Cone Height", &ParticleSystem->Emission.Velocity.Cone.Height, 0.0f, INFINITY, 200.0f);
-                    UI::DragFloat("Cone Radius", &ParticleSystem->Emission.Velocity.Cone.Radius, 0.0f, INFINITY, 200.0f);
+                    UI::DragFloat("Cone Height", &ParticleSystem->Emission.Velocity.Cone.Height, 0.0f, INFINITY, 10.0f);
+                    UI::DragFloat("Cone Radius", &ParticleSystem->Emission.Velocity.Cone.Radius, 0.0f, INFINITY, 10.0f);
                 } break;
 
                 case OFFBEAT_VelocityRandom:
@@ -114,6 +125,7 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
         if(UI::CollapsingHeader("Motion", &s_OffbeatShowMotion))
         {
             UI::DragFloat3("Gravity", ParticleSystem->Motion.Gravity.E, -INFINITY, INFINITY, 10.0f);
+            UI::DragFloat("Drag Strength", &ParticleSystem->Motion.Drag, -INFINITY, INFINITY, 10.0f);
 
             ob_motion_primitive* CurrentPrimitive = &ParticleSystem->Motion.Primitive;
             UI::Combo("Motion Primitive", (int*)CurrentPrimitive, g_MotionPrimitiveStrings, OFFBEAT_MotionCount, UI::StringArrayToString);
@@ -141,6 +153,28 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
                 CurrentTexture = NewTexture;
                 OffbeatSetTextureID(ParticleSystem, CurrentTexture);
             }
+        }
+        {
+            u64 TotalParticleCount = 0;
+            for(u32 i = 0; i < OffbeatState->ParticleSystemCount; ++i)
+            {
+                TotalParticleCount += OffbeatState->ParticleSystems[i].ParticleCount;
+            }
+
+            u64 CycleCount = OffbeatState->CycleCount;
+            f32 CyclesPerParticle = TotalParticleCount ? CycleCount / (float)TotalParticleCount : 0.0f;
+
+            char CountBuffer[50];
+            sprintf(CountBuffer, "Cycles: %llu", CycleCount);
+            UI::Text(CountBuffer);
+
+            char ParticleBuffer[50];
+            sprintf(ParticleBuffer, "Particles: %llu", TotalParticleCount);
+            UI::Text(ParticleBuffer);
+
+            char PerParticleBuffer[50];
+            sprintf(PerParticleBuffer, "%.2f cycles/particle", CyclesPerParticle);
+            UI::Text(PerParticleBuffer);
         }
     }
     UI::EndWindow();

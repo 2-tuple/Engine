@@ -197,6 +197,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
   END_TIMED_BLOCK(Update);
 
   //---------------------PARTICLES---------------------
+  BEGIN_TIMED_BLOCK(Offbeat);
   if(Input->p.EndedDown && Input->p.Changed)
   {
     GameState->ParticleMode = !GameState->ParticleMode;
@@ -224,8 +225,6 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
   if(GameState->ParticleMode)
   {
-    BEGIN_TIMED_BLOCK(Offbeat);
-
     float dt = 0.0f;
     if(GameState->UpdateParticles)
     {
@@ -238,8 +237,8 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     OffbeatCamera.Right = OV3(GameState->Camera.Right);
 
     OffbeatUpdate(GameState->OffbeatState, OffbeatCamera, dt);
-    END_TIMED_BLOCK(Offbeat);
   }
+  END_TIMED_BLOCK(Offbeat);
 
   //---------------------RENDERING----------------------------
   BEGIN_TIMED_BLOCK(Render);

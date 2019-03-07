@@ -94,6 +94,9 @@ struct ob_particle
     ov3 P;
     ov3 dP;
     f32 Age;
+    f32 Random;
+    f32 CameraDistance;
+    u32 ID;
 };
 
 enum ob_emission_shape_type
@@ -172,6 +175,8 @@ enum ob_motion_primitive
 struct ob_motion
 {
     ov3 Gravity;
+    // TODO(rytis): Add option for linear drag? Now is quadratic only.
+    f32 Drag;
     ob_motion_primitive Primitive;
     union
     {
@@ -266,7 +271,12 @@ struct ob_state
     f32 dt;
     f32 t;
 
+    u32 RunningParticleID;
+
+    u64 CycleCount;
+
     ob_quad_data QuadData;
+    ov3 CameraPosition;
 
     ov4 SquareGridColor;
     u32 SquareGridLineCount;
@@ -295,6 +305,7 @@ OFFBEAT_API ob_state* OffbeatInit();
 // NOTE(rytis): Particle system manipulation
 OFFBEAT_API ob_particle_system* OffbeatNewParticleSystem(ob_state* OffbeatState);
 OFFBEAT_API u32 OffbeatNewParticleSystem(ob_state* OffbeatState, ob_particle_system** NewParticleSystem);
+OFFBEAT_API void OffbeatRemoveParticleSystem(ob_state* OffbeatState, u32 Index);
 OFFBEAT_API ob_texture_type OffbeatGetCurrentTextureType(ob_particle_system* ParticleSystem);
 OFFBEAT_API void OffbeatSetTextureID(ob_particle_system* ParticleSystem, ob_texture_type NewType);
 
