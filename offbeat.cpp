@@ -21,6 +21,15 @@ OffbeatSetAllocatorFunctions(void* (*Malloc)(u64), void (*Free)(void*))
     OffbeatGlobalFree = Free;
 }
 
+struct ob_global_data
+{
+    f32* t;
+    ob_texture TextureIDs[OFFBEAT_TextureCount];
+    umm ParameterOffsets[OFFBEAT_ParameterCount];
+};
+
+static ob_global_data OffbeatGlobalData;
+
 #ifdef OFFBEAT_OPENGL
 ob_texture OffbeatRGBATextureID(void* TextureData, u32 Width, u32 Height)
 {
@@ -122,12 +131,42 @@ OffbeatGenerateCircleRGBATexture(void* Memory, u64 MemorySize, u32 Width, u32 He
     }
 }
 
+static void
+OffbeatGenerateGridRGBATexture(void* Memory, u64 MemorySize, u32 Width, u32 Height, u32 SquareCount)
+{
+    OffbeatAssert(MemorySize >= (Width * Height * sizeof(u32)));
+
+    u32 Light = 0xFF888888;
+    u32 Dark = 0xFF777777;
+
+    u32 XSquares = ((f32)Width + 0.5f) / SquareCount;
+    u32 YSquares = ((f32)Height + 0.5f) / SquareCount;
+
+    u32* Pixel = (u32*)Memory;
+    for(u32 i = 0; i < Height; ++i)
+    {
+        b32 YLight = ((i / YSquares) % 2) == 0;
+        for(u32 j = 0; j < Width; ++j)
+        {
+            b32 XLight = ((j / XSquares) % 2) == 0;
+            if(YLight ^ XLight)
+            {
+                *Pixel++ = Light;
+            }
+            else
+            {
+                *Pixel++ = Dark;
+            }
+        }
+    }
+}
+
 ob_texture_type
 OffbeatGetCurrentTextureType(ob_particle_system* ParticleSystem)
 {
     for(u32 i = 0; i < OFFBEAT_TextureCount; ++i)
     {
-        if(ParticleSystem->Appearance.TextureID == OffbeatGlobalTextureIDs[i])
+        if(ParticleSystem->Appearance.TextureID == OffbeatGlobalData.TextureIDs[i])
         {
             return (ob_texture_type)i;
         }
@@ -138,12 +177,11 @@ OffbeatGetCurrentTextureType(ob_particle_system* ParticleSystem)
 void
 OffbeatSetTextureID(ob_particle_system* ParticleSystem, ob_texture_type NewType)
 {
-    ParticleSystem->Appearance.TextureID = OffbeatGlobalTextureIDs[NewType];
+    ParticleSystem->Appearance.TextureID = OffbeatGlobalData.TextureIDs[NewType];
 }
 
-// TODO(rytis): Fix this parameter mess.
 static f32
-EvaluateParameter(ob_parameter Parameter, ob_particle* Particle, f32* t, f32* tSystem)
+EvaluateParameter(ob_parameter Parameter, ob_particle* Particle)
 {
     f32 Result;
 
@@ -151,12 +189,7 @@ EvaluateParameter(ob_parameter Parameter, ob_particle* Particle, f32* t, f32* tS
     {
         case OFFBEAT_ParameterGlobalTime:
         {
-            Result = *t;
-        } break;
-
-        case OFFBEAT_ParameterSystemTime:
-        {
-            Result = *tSystem;
+            Result = *OffbeatGlobalData.t;
         } break;
 
         case OFFBEAT_ParameterAge:
@@ -164,7 +197,7 @@ EvaluateParameter(ob_parameter Parameter, ob_particle* Particle, f32* t, f32* tS
         case OFFBEAT_ParameterCameraDistance:
         case OFFBEAT_ParameterID:
         {
-            Result = *(f32*)((u8*)Particle + OffbeatGlobalOffsets[Parameter]);
+            Result = *(f32*)((u8*)Particle + OffbeatGlobalData.ParameterOffsets[Parameter]);
         } break;
 
         default:
@@ -176,164 +209,61 @@ EvaluateParameter(ob_parameter Parameter, ob_particle* Particle, f32* t, f32* tS
     return Result;
 }
 
-static f32
-EvaluateExpression(ob_expr_f32* Expr, ob_particle* Particle, f32* t, f32* tSystem)
-{
-    f32 Param = EvaluateParameter(Expr->Parameter, Particle, t, tSystem);
-    switch(Expr->Function)
-    {
-        case OFFBEAT_FunctionConst:
-        {
-            return Expr->High;
-        } break;
-
-        case OFFBEAT_FunctionLerp:
-        {
-            return ObLerp(Expr->Low, ObClamp01(Param), Expr->High);
-        } break;
-
-        case OFFBEAT_FunctionSin:
-        {
-            f32 Sin01 = 0.5f * (ObSin(2.0f * PI * Param) + 1.0f);
-            return ObLerp(Expr->Low, Sin01, Expr->High);
-        } break;
-
-        case OFFBEAT_FunctionCos:
-        {
-            f32 Cos01 = 0.5f * (ObCos(2.0f * PI * Param) + 1.0f);
-            return ObLerp(Expr->Low, Cos01, Expr->High);
-        } break;
-
-        case OFFBEAT_FunctionFloor:
-        {
-            f32 Floor = ObFloor(Param);
-            return ObLerp(Expr->Low, ObClamp01(Floor), Expr->High);
-        } break;
-
-        case OFFBEAT_FunctionRound:
-        {
-            f32 Round = ObRound(Param);
-            return ObLerp(Expr->Low, ObClamp01(Round), Expr->High);
-        } break;
-
-        case OFFBEAT_FunctionCeil:
-        {
-            f32 Ceil = ObCeil(Param);
-            return ObLerp(Expr->Low, ObClamp01(Ceil), Expr->High);
-        } break;
-
-        default:
-        {
-            return 0.0f;
-        } break;
-    }
+#define OffbeatEvaluateExpression_(type) type OffbeatEvaluateExpression(ob_expr_##type* Expr, ob_particle* Particle)\
+{\
+    f32 Param = EvaluateParameter(Expr->Parameter, Particle);\
+    switch(Expr->Function)\
+    {\
+        case OFFBEAT_FunctionConst:\
+        {\
+            return Expr->High;\
+        } break;\
+\
+        case OFFBEAT_FunctionLerp:\
+        {\
+            return ObLerp(Expr->Low, ObClamp01(Param), Expr->High);\
+        } break;\
+\
+        case OFFBEAT_FunctionSin:\
+        {\
+            f32 Sin01 = 0.5f * (ObSin(2.0f * PI * Param) + 1.0f);\
+            return ObLerp(Expr->Low, Sin01, Expr->High);\
+        } break;\
+\
+        case OFFBEAT_FunctionCos:\
+        {\
+            f32 Cos01 = 0.5f * (ObCos(2.0f * PI * Param) + 1.0f);\
+            return ObLerp(Expr->Low, Cos01, Expr->High);\
+        } break;\
+\
+        case OFFBEAT_FunctionFloor:\
+        {\
+            f32 Floor = ObFloor(Param);\
+            return ObLerp(Expr->Low, ObClamp01(Floor), Expr->High);\
+        } break;\
+\
+        case OFFBEAT_FunctionRound:\
+        {\
+            f32 Round = ObRound(Param);\
+            return ObLerp(Expr->Low, ObClamp01(Round), Expr->High);\
+        } break;\
+\
+        case OFFBEAT_FunctionCeil:\
+        {\
+            f32 Ceil = ObCeil(Param);\
+            return ObLerp(Expr->Low, ObClamp01(Ceil), Expr->High);\
+        } break;\
+\
+        default:\
+        {\
+            return type{};\
+        } break;\
+    }\
 }
 
-static ov3
-EvaluateExpression(ob_expr_ov3* Expr, ob_particle* Particle, f32* t, f32* tSystem)
-{
-    f32 Param = EvaluateParameter(Expr->Parameter, Particle, t, tSystem);
-    switch(Expr->Function)
-    {
-        case OFFBEAT_FunctionConst:
-        {
-            return Expr->High;
-        } break;
-
-        case OFFBEAT_FunctionLerp:
-        {
-            return ObLerp(Expr->Low, ObClamp01(Param), Expr->High);
-        } break;
-
-        case OFFBEAT_FunctionSin:
-        {
-            f32 Sin01 = 0.5f * (ObSin(2.0f * PI * Param) + 1.0f);
-            return ObLerp(Expr->Low, Sin01, Expr->High);
-        } break;
-
-        case OFFBEAT_FunctionCos:
-        {
-            f32 Cos01 = 0.5f * (ObCos(2.0f * PI * Param) + 1.0f);
-            return ObLerp(Expr->Low, Cos01, Expr->High);
-        } break;
-
-        case OFFBEAT_FunctionFloor:
-        {
-            f32 Floor = ObFloor(Param);
-            return ObLerp(Expr->Low, ObClamp01(Floor), Expr->High);
-        } break;
-
-        case OFFBEAT_FunctionRound:
-        {
-            f32 Round = ObRound(Param);
-            return ObLerp(Expr->Low, ObClamp01(Round), Expr->High);
-        } break;
-
-        case OFFBEAT_FunctionCeil:
-        {
-            f32 Ceil = ObCeil(Param);
-            return ObLerp(Expr->Low, ObClamp01(Ceil), Expr->High);
-        } break;
-
-        default:
-        {
-            return ov3{};
-        } break;
-    }
-}
-
-static ov4
-EvaluateExpression(ob_expr_ov4* Expr, ob_particle* Particle, f32* t, f32* tSystem)
-{
-    f32 Param = EvaluateParameter(Expr->Parameter, Particle, t, tSystem);
-    switch(Expr->Function)
-    {
-        case OFFBEAT_FunctionConst:
-        {
-            return Expr->High;
-        } break;
-
-        case OFFBEAT_FunctionLerp:
-        {
-            return ObLerp(Expr->Low, ObClamp01(Param), Expr->High);
-        } break;
-
-        case OFFBEAT_FunctionSin:
-        {
-            f32 Sin01 = 0.5f * (ObSin(2.0f * PI * Param) + 1.0f);
-            return ObLerp(Expr->Low, Sin01, Expr->High);
-        } break;
-
-        case OFFBEAT_FunctionCos:
-        {
-            f32 Cos01 = 0.5f * (ObCos(2.0f * PI * Param) + 1.0f);
-            return ObLerp(Expr->Low, Cos01, Expr->High);
-        } break;
-
-        case OFFBEAT_FunctionFloor:
-        {
-            f32 Floor = ObFloor(Param);
-            return ObLerp(Expr->Low, ObClamp01(Floor), Expr->High);
-        } break;
-
-        case OFFBEAT_FunctionRound:
-        {
-            f32 Round = ObRound(Param);
-            return ObLerp(Expr->Low, ObClamp01(Round), Expr->High);
-        } break;
-
-        case OFFBEAT_FunctionCeil:
-        {
-            f32 Ceil = ObCeil(Param);
-            return ObLerp(Expr->Low, ObClamp01(Ceil), Expr->High);
-        } break;
-
-        default:
-        {
-            return ov4{};
-        } break;
-    }
-}
+static OffbeatEvaluateExpression_(f32);
+static OffbeatEvaluateExpression_(ov3);
+static OffbeatEvaluateExpression_(ov4);
 
 ob_state*
 OffbeatInit(void* Memory, u64 MemorySize)
@@ -368,6 +298,57 @@ OffbeatInit(void* Memory, u64 MemorySize)
         OffbeatAssert(OffbeatState->MemoryManager.CurrentMaxAddress <= ((u8*)Memory + MemorySize));
     }
 
+    // NOTE(rytis): Offbeat grid init.
+    {
+        u32 Width = 1000;
+        u32 Height = 1000;
+        u32 SquareCount = 50;
+        u64 Size = Width * Height * sizeof(u32);
+
+        void* TextureMemory = OffbeatAllocateMemory(&OffbeatState->MemoryManager, Size);
+        OffbeatGenerateGridRGBATexture(TextureMemory, Size, Width, Height, SquareCount);
+        OffbeatState->GridTextureID = OffbeatGlobalRGBATextureID(TextureMemory, Width, Height);
+
+        ov3 Z = ov3{0.0f, 0.0f, 1.0f};
+        om3 Rotation = ObRotationAlign(Z, ov3{0.0f, 1.0f, 0.0f});
+
+        f32 Scale = 10.0f;
+
+        ov3 BottomLeft = Rotation * (Scale * ov3{-1.0f, -1.0f, 0.0f});
+        ov3 BottomRight = Rotation * (Scale * ov3{1.0f, -1.0f, 0.0f});
+        ov3 TopRight = Rotation * (Scale * ov3{1.0f, 1.0f, 0.0f});
+        ov3 TopLeft = Rotation * (Scale * ov3{-1.0f, 1.0f, 0.0f});
+
+        ov2 BottomLeftUV = ov2{0.0f, 0.0f};
+        ov2 BottomRightUV = ov2{1.0f, 0.0f};
+        ov2 TopRightUV = ov2{1.0f, 1.0f};
+        ov2 TopLeftUV = ov2{0.0f, 1.0f};
+
+        ov4 Color = ov4{1.0f, 1.0f, 1.0f, 1.0f};
+
+        // NOTE(rytis): Top side.
+        OffbeatState->GridIndices[0] = 0;
+        OffbeatState->GridIndices[1] = 1;
+        OffbeatState->GridIndices[2] = 2;
+        OffbeatState->GridIndices[3] = 0;
+        OffbeatState->GridIndices[4] = 2;
+        OffbeatState->GridIndices[5] = 3;
+
+        // NOTE(rytis): Bottom side.
+        OffbeatState->GridIndices[6] = 0;
+        OffbeatState->GridIndices[7] = 2;
+        OffbeatState->GridIndices[8] = 1;
+        OffbeatState->GridIndices[9] = 0;
+        OffbeatState->GridIndices[10] = 3;
+        OffbeatState->GridIndices[11] = 2;
+
+
+        OffbeatState->GridVertices[0] = ob_draw_vertex{BottomLeft, BottomLeftUV, Color};
+        OffbeatState->GridVertices[1] = ob_draw_vertex{BottomRight, BottomRightUV, Color};
+        OffbeatState->GridVertices[2] = ob_draw_vertex{TopRight, TopRightUV, Color};
+        OffbeatState->GridVertices[3] = ob_draw_vertex{TopLeft, TopLeftUV, Color};
+    }
+
     // NOTE(rytis): Offbeat texture init.
     {
         u32 Width = 500;
@@ -376,39 +357,29 @@ OffbeatInit(void* Memory, u64 MemorySize)
 
         void* TextureMemory = OffbeatAllocateMemory(&OffbeatState->MemoryManager, Size);
         OffbeatGenerateSquareRGBATexture(TextureMemory, Size, Width, Height);
-        OffbeatGlobalTextureIDs[OFFBEAT_TextureSquare] = OffbeatGlobalRGBATextureID(TextureMemory, Width, Height);
+        OffbeatGlobalData.TextureIDs[OFFBEAT_TextureSquare] = OffbeatGlobalRGBATextureID(TextureMemory, Width, Height);
 
         TextureMemory = OffbeatAllocateMemory(&OffbeatState->MemoryManager, Size);
         OffbeatGenerateCircleRGBATexture(TextureMemory, Size, Width, Height);
-        OffbeatGlobalTextureIDs[OFFBEAT_TextureCircle] = OffbeatGlobalRGBATextureID(TextureMemory, Width, Height);
+        OffbeatGlobalData.TextureIDs[OFFBEAT_TextureCircle] = OffbeatGlobalRGBATextureID(TextureMemory, Width, Height);
+    }
+
+    // NOTE(rytis): Offbeat parameter offset init.
+    {
+        OffbeatGlobalData.ParameterOffsets[0] = 0;
+        OffbeatGlobalData.ParameterOffsets[1] = OffbeatOffsetOf(ob_particle, Age);
+        OffbeatGlobalData.ParameterOffsets[2] = OffbeatOffsetOf(ob_particle, Random);
+        OffbeatGlobalData.ParameterOffsets[3] = OffbeatOffsetOf(ob_particle, CameraDistance);
+        OffbeatGlobalData.ParameterOffsets[4] = OffbeatOffsetOf(ob_particle, ID);
     }
 
     // NOTE(rytis): OffbeatState init.
     {
         OffbeatState->t = 0.0f;
+        OffbeatGlobalData.t = &OffbeatState->t;
 
         OffbeatState->EffectsEntropy = ObRandomSeed(1234);
         OffbeatState->UpdateParticles = true;
-
-        OffbeatState->SquareGridColor = ov4{0.5f, 0.5f, 0.85f, 1.0f};
-        OffbeatState->SquareGridLineCount = 0;
-        OffbeatState->SquareGridStep = 2.0f;
-        OffbeatState->SquareGridRange = 10.0f;
-        f32 Limit = OffbeatState->SquareGridRange + 0.5f * OffbeatState->SquareGridStep;
-        for(f32 Coordinate = -OffbeatState->SquareGridRange;
-          Coordinate < Limit;
-          Coordinate += OffbeatState->SquareGridStep)
-        {
-          OffbeatState->SquareGridLines[OffbeatState->SquareGridLineCount++] = ob_grid_line{
-            ov3{Coordinate, 0.0f, -OffbeatState->SquareGridRange},
-            ov3{Coordinate, 0.0f, OffbeatState->SquareGridRange}
-          };
-          OffbeatState->SquareGridLines[OffbeatState->SquareGridLineCount++] = ob_grid_line{
-            ov3{-OffbeatState->SquareGridRange, 0.0f, Coordinate},
-            ov3{OffbeatState->SquareGridRange, 0.0f, Coordinate}
-          };
-        }
-        OffbeatAssert(OffbeatState->SquareGridLineCount < OFFBEAT_MAX_SQUARE_GRID_LINE_COUNT);
 
         ob_emission TestEmission = {};
         TestEmission.Location = ov3{0.0f, 0.0f, 0.0f};
@@ -438,7 +409,7 @@ OffbeatInit(void* Memory, u64 MemorySize)
             ObRandomBetween(&OffbeatState->EffectsEntropy, 0.8f, 1.0f),
             1.0f};
         TestAppearance.Size.Low = TestAppearance.Size.High = 0.05f;
-        TestAppearance.TextureID = OffbeatGlobalTextureIDs[OFFBEAT_TextureCircle];
+        TestAppearance.TextureID = OffbeatGlobalData.TextureIDs[OFFBEAT_TextureCircle];
 
         ob_particle_system TestSystem = {};
         TestSystem.Emission = TestEmission;
@@ -463,18 +434,6 @@ ob_state*
 OffbeatInit()
 {
     return OffbeatInit(OffbeatGlobalAlloc);
-}
-
-static void
-OffbeatDrawGrid(ob_state* OffbeatState)
-{
-    for(u32 i = 0; i < OffbeatState->SquareGridLineCount; ++i)
-    {
-        vec3 A = OV3ToVec3(OffbeatState->SquareGridLines[i].A);
-        vec3 B = OV3ToVec3(OffbeatState->SquareGridLines[i].B);
-        vec4 GridColor = OV4ToVec4(OffbeatState->SquareGridColor);
-        Debug::PushLine(A, B, GridColor);
-    }
 }
 
 u32
@@ -605,7 +564,7 @@ OffbeatSpawnParticles(ob_particle* Particles, ob_particle_system* ParticleSystem
 }
 
 static ov3
-OffbeatUpdateParticleddP(ob_motion* Motion, ob_particle* Particle, f32* t, f32* tSystem)
+OffbeatUpdateParticleddP(ob_motion* Motion, ob_particle* Particle)
 {
     f32 LengthSq = ObLengthSq(Particle->dP);
     ov3 Drag = Motion->Drag * LengthSq * ObNormalize(-Particle->dP);
@@ -614,7 +573,7 @@ OffbeatUpdateParticleddP(ob_motion* Motion, ob_particle* Particle, f32* t, f32* 
     {
         case OFFBEAT_MotionPoint:
         {
-            f32 Strength = EvaluateExpression(&Motion->Point.Strength, Particle, t, tSystem);
+            f32 Strength = OffbeatEvaluateExpression(&Motion->Point.Strength, Particle);
             ov3 Direction = Motion->Point.Position - Particle->P;
             Result += Strength * ObNormalize(Direction);
         } break;
@@ -655,7 +614,7 @@ OffbeatUpdateParticleSystem(ob_particle* Particles, ob_particle_system* Particle
 
         // TODO(rytis): Find a better solution for expression evaluation with parameters from
         // higher scope. So far it's very sloppy.
-        ov3 ddP = OffbeatUpdateParticleddP(Motion, UpdatedParticle, &t, &ParticleSystem->t);
+        ov3 ddP = OffbeatUpdateParticleddP(Motion, UpdatedParticle);
 
         UpdatedParticle->P += 0.5f * ObSquare(dt) * ddP + dt * UpdatedParticle->dP;
         UpdatedParticle->dP += dt * ddP;
@@ -667,14 +626,14 @@ OffbeatUpdateParticleSystem(ob_particle* Particles, ob_particle_system* Particle
 }
 
 static void
-OffbeatConstructQuad(ob_draw_list* DrawList, ob_quad_data* QuadData, ob_appearance* Appearance, ob_particle* Particle, f32* tSystem, f32* t)
+OffbeatConstructQuad(ob_draw_list* DrawList, ob_quad_data* QuadData, ob_appearance* Appearance, ob_particle* Particle)
 {
-    f32 Size = EvaluateExpression(&Appearance->Size, Particle, tSystem, t);
+    f32 Size = OffbeatEvaluateExpression(&Appearance->Size, Particle);
     // NOTE(rytis): Vertices (facing the camera plane)
-    ov3 BottomLeft = Particle->P + 0.5f * Size * (QuadData->Horizontal - QuadData->Vertical);
-    ov3 BottomRight = Particle->P + 0.5f * Size * (-QuadData->Horizontal - QuadData->Vertical);
-    ov3 TopRight = Particle->P + 0.5f * Size * (-QuadData->Horizontal + QuadData->Vertical);
-    ov3 TopLeft = Particle->P + 0.5f * Size * (QuadData->Horizontal + QuadData->Vertical);
+    ov3 BottomLeft = Particle->P + 0.5f * Size * (-QuadData->Horizontal - QuadData->Vertical);
+    ov3 BottomRight = Particle->P + 0.5f * Size * (QuadData->Horizontal - QuadData->Vertical);
+    ov3 TopRight = Particle->P + 0.5f * Size * (QuadData->Horizontal + QuadData->Vertical);
+    ov3 TopLeft = Particle->P + 0.5f * Size * (-QuadData->Horizontal + QuadData->Vertical);
 
     // NOTE(rytis): UVs
     ov2 BottomLeftUV = ov2{0.0f, 0.0f};
@@ -682,7 +641,7 @@ OffbeatConstructQuad(ob_draw_list* DrawList, ob_quad_data* QuadData, ob_appearan
     ov2 TopRightUV = ov2{1.0f, 1.0f};
     ov2 TopLeftUV = ov2{0.0f, 1.0f};
 
-    ov4 Color = EvaluateExpression(&Appearance->Color, Particle, tSystem, t);
+    ov4 Color = OffbeatEvaluateExpression(&Appearance->Color, Particle);
 
     u32 VertexIndex = DrawList->VertexCount;
     // NOTE(rytis): Updating draw list vertex array
@@ -705,7 +664,7 @@ OffbeatConstructQuad(ob_draw_list* DrawList, ob_quad_data* QuadData, ob_appearan
 }
 
 static void
-OffbeatRenderParticleSystem(ob_draw_list* DrawList, u32* IndexMemory, ob_draw_vertex* VertexMemory, ob_particle_system* ParticleSystem, ob_quad_data* QuadData, f32* t)
+OffbeatRenderParticleSystem(ob_draw_list* DrawList, u32* IndexMemory, ob_draw_vertex* VertexMemory, ob_particle_system* ParticleSystem, ob_quad_data* QuadData)
 {
     ob_appearance* Appearance = &ParticleSystem->Appearance;
 
@@ -718,7 +677,7 @@ OffbeatRenderParticleSystem(ob_draw_list* DrawList, u32* IndexMemory, ob_draw_ve
     {
         ob_particle* Particle = ParticleSystem->Particles + ParticleIndex;
 
-        OffbeatConstructQuad(DrawList, QuadData, Appearance, Particle, &ParticleSystem->t, t);
+        OffbeatConstructQuad(DrawList, QuadData, Appearance, Particle);
     }
 }
 
@@ -792,15 +751,13 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
         OffbeatState->t += OffbeatState->dt;
 
         ob_quad_data QuadData = {};
-        QuadData.Horizontal = -ObNormalize(Camera.Right);
-        QuadData.Vertical = ObNormalize(ObCross(QuadData.Horizontal, -Camera.Forward));
+        QuadData.Horizontal = ObNormalize(Camera.Right);
+        QuadData.Vertical = ObNormalize(ObCross(QuadData.Horizontal, Camera.Forward));
         OffbeatState->QuadData = QuadData;
         OffbeatState->CameraPosition = Camera.Position;
 
         OffbeatUpdateMemoryManager(&OffbeatState->MemoryManager);
     }
-
-    OffbeatDrawGrid(OffbeatState);
 
     ov4 PointColor = ov4{1.0f, 1.0f, 0.0f, 1.0f};
     OffbeatState->DrawData.DrawListCount = OffbeatState->ParticleSystemCount;
@@ -835,7 +792,7 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
                                                    ParticleSystem->ParticleCount *
                                                    sizeof(ob_draw_vertex) * 4);
         OffbeatRenderParticleSystem(&OffbeatState->DrawData.DrawLists[i], IndexMemory, VertexMemory,
-                                    ParticleSystem, &OffbeatState->QuadData, &OffbeatState->t);
+                                    ParticleSystem, &OffbeatState->QuadData);
 
         // NOTE(rytis): Motion primitive position render
         // ov3 Point = ParticleSystem->Motion.Point.Position = ov3{-3.0f * ObSin(0.25f * PI * OffbeatState->t), 1.0f, 1.0f};

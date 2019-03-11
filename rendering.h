@@ -461,7 +461,6 @@ void
 RenderParticleEffects(game_state* GameState)
 {
     glEnable(GL_BLEND);
-    glDepthMask(GL_FALSE);
 
     GLuint OffbeatShaderID = GameState->Resources.GetShader(GameState->R.ShaderOffbeat);
     glUseProgram(OffbeatShaderID);
@@ -492,6 +491,25 @@ RenderParticleEffects(game_state* GameState)
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex), (GLvoid*)(offsetof(ob_draw_vertex, Color)));
 
+    // NOTE(rytis): Draw square grid.
+    {
+        ob_state* OffbeatState = GameState->OffbeatState;
+        glBindTexture(GL_TEXTURE_2D, OffbeatState->GridTextureID);
+        glBufferData(GL_ARRAY_BUFFER,
+                     ArrayCount(OffbeatState->GridVertices) * sizeof(ob_draw_vertex),
+                     OffbeatState->GridVertices,
+                     GL_STREAM_DRAW);
+
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                     ArrayCount(OffbeatState->GridIndices) * sizeof(uint32_t),
+                     OffbeatState->GridIndices,
+                     GL_STREAM_DRAW);
+
+        glDrawElements(GL_TRIANGLES, ArrayCount(OffbeatState->GridIndices), GL_UNSIGNED_INT, 0);
+    }
+
+    // NOTE(rytis): Draw particles.
+    glDepthMask(GL_FALSE);
     ob_draw_data* DrawData = OffbeatGetDrawData(GameState->OffbeatState);
     for(int i = 0; i < DrawData->DrawListCount; ++i)
     {
@@ -514,7 +532,7 @@ RenderParticleEffects(game_state* GameState)
     glDeleteBuffers(1, &EBO);
     glDeleteVertexArrays(1, &VAO);
     glBindVertexArray(0);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
 }

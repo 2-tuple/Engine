@@ -35,6 +35,11 @@ typedef uintptr_t umm;
  *
  * SIMD-ize the calculations where possible. Try to add a possibility to do calculations on GPU
  * using the compute shaders.
+ * UPDATE: SIMD is likely not possible, since it messes up the particle emission pretty hard -
+ * cannot have exact values (got to have multiples of 4) or do some stuff with masks, which
+ * in the end might render SIMD-izing rather pointless.
+ *
+ * Seems like it's better to just do a GPU version.
  *
  * Add memory alignment (16 byte, preferably changeable with macro or function parameter)
  * in OffbeatInit and memory manager.
@@ -91,8 +96,6 @@ enum ob_texture_type
     OFFBEAT_TextureCount,
 };
 
-static ob_texture OffbeatGlobalTextureIDs[OFFBEAT_TextureCount];
-
 struct ob_particle
 {
     ov3 P;
@@ -119,23 +122,12 @@ enum ob_function
 enum ob_parameter
 {
     OFFBEAT_ParameterGlobalTime,
-    OFFBEAT_ParameterSystemTime,
     OFFBEAT_ParameterAge,
     OFFBEAT_ParameterRandom,
     OFFBEAT_ParameterCameraDistance,
     OFFBEAT_ParameterID,
 
     OFFBEAT_ParameterCount,
-};
-
-static umm OffbeatGlobalOffsets[OFFBEAT_ParameterCount] =
-{
-    0,
-    0,
-    OffbeatOffsetOf(ob_particle, Age),
-    OffbeatOffsetOf(ob_particle, Random),
-    OffbeatOffsetOf(ob_particle, CameraDistance),
-    OffbeatOffsetOf(ob_particle, ID),
 };
 
 struct ob_expr_f32
@@ -341,12 +333,9 @@ struct ob_state
     ob_quad_data QuadData;
     ov3 CameraPosition;
 
-    // TODO(rytis): Move this into a single quad with generated texture.
-    ov4 SquareGridColor;
-    u32 SquareGridLineCount;
-    f32 SquareGridStep;
-    f32 SquareGridRange;
-    ob_grid_line SquareGridLines[OFFBEAT_MAX_SQUARE_GRID_LINE_COUNT];
+    ob_texture GridTextureID;
+    u32 GridIndices[12];
+    ob_draw_vertex GridVertices[4];
 
     b32 UpdateParticles;
     ob_random_series EffectsEntropy;

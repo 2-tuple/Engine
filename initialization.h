@@ -406,7 +406,7 @@ SetGameStatePODFields(game_state* GameState)
     // Clear Color
     {
         GameState->R.DefaultClearColor = vec4{0.3f, 0.4f, 0.7f, 1.0f};
-        GameState->R.ParticleSystemClearColor = vec4{0.15f, 0.15f, 0.15f, 1.0f};
+        GameState->R.ParticleSystemClearColor = vec4{0.0f, 0.0f, 0.0f, 1.0f};
         GameState->R.CurrentClearColor = GameState->R.DefaultClearColor;
     }
   }
