@@ -24,6 +24,166 @@ static char* g_TextureStrings[OFFBEAT_TextureCount] = {
     // "Ring",
 };
 
+static char* g_FunctionStrings[OFFBEAT_FunctionCount] = {
+    "Const",
+    "Lerp",
+    "Sin",
+    "Cos",
+    "Floor",
+    "Round",
+    "Ceil",
+};
+
+static char* g_ParameterStrings[OFFBEAT_ParameterCount] = {
+    "GlobalTime",
+    "SystemTime",
+    "Age",
+    "Random",
+    "CameraDistance",
+    "ID",
+};
+
+static void
+OffbeatExpressionF32(const char* Name, ob_expr_f32* Expression, bool MinZero)
+{
+    char FunctionName[50];
+    char ParameterName[50];
+    char LowName[50];
+    char HighName[50];
+
+    strcpy(FunctionName, Name);
+    strcat(FunctionName, " Function");
+    strcpy(ParameterName, Name);
+    strcat(ParameterName, " Parameter");
+    strcpy(LowName, Name);
+    strcat(LowName, " Low");
+    strcpy(HighName, Name);
+    strcat(HighName, " High");
+
+    UI::Combo(FunctionName, (int*)&Expression->Function, g_FunctionStrings, OFFBEAT_FunctionCount, UI::StringArrayToString);
+
+    if(Expression->Function == OFFBEAT_FunctionConst)
+    {
+        if(MinZero)
+        {
+            UI::DragFloat(HighName, &Expression->High, 0.0f, INFINITY, 5.0f);
+        }
+        else
+        {
+            UI::DragFloat(HighName, &Expression->High, -INFINITY, INFINITY, 5.0f);
+        }
+    }
+    else
+    {
+        UI::Combo(ParameterName, (int*)&Expression->Parameter, g_ParameterStrings, OFFBEAT_ParameterCount, UI::StringArrayToString);
+
+        if(MinZero)
+        {
+            UI::DragFloat(LowName, &Expression->Low, 0.0f, INFINITY, 5.0f);
+            UI::DragFloat(HighName, &Expression->High, 0.0f, INFINITY, 5.0f);
+        }
+        else
+        {
+            UI::DragFloat(LowName, &Expression->Low, -INFINITY, INFINITY, 5.0f);
+            UI::DragFloat(HighName, &Expression->High, -INFINITY, INFINITY, 5.0f);
+        }
+    }
+}
+
+static void
+OffbeatExpressionOV3(const char* Name, ob_expr_ov3* Expression, bool MinZero)
+{
+    char FunctionName[50];
+    char ParameterName[50];
+    char LowName[50];
+    char HighName[50];
+
+    strcpy(FunctionName, Name);
+    strcat(FunctionName, " Function");
+    strcpy(ParameterName, Name);
+    strcat(ParameterName, " Parameter");
+    strcpy(LowName, Name);
+    strcat(LowName, " Low");
+    strcpy(HighName, Name);
+    strcat(HighName, " High");
+
+    UI::Combo(FunctionName, (int*)&Expression->Function, g_FunctionStrings, OFFBEAT_FunctionCount, UI::StringArrayToString);
+
+    if(Expression->Function == OFFBEAT_FunctionConst)
+    {
+        if(MinZero)
+        {
+            UI::DragFloat3(HighName, Expression->High.E, 0.0f, INFINITY, 5.0f);
+        }
+        else
+        {
+            UI::DragFloat3(HighName, Expression->High.E, -INFINITY, INFINITY, 5.0f);
+        }
+    }
+    else
+    {
+        UI::Combo(ParameterName, (int*)&Expression->Parameter, g_ParameterStrings, OFFBEAT_ParameterCount, UI::StringArrayToString);
+
+        if(MinZero)
+        {
+            UI::DragFloat3(LowName, Expression->Low.E, 0.0f, INFINITY, 5.0f);
+            UI::DragFloat3(HighName, Expression->High.E, 0.0f, INFINITY, 5.0f);
+        }
+        else
+        {
+            UI::DragFloat3(LowName, Expression->Low.E, -INFINITY, INFINITY, 5.0f);
+            UI::DragFloat3(HighName, Expression->High.E, -INFINITY, INFINITY, 5.0f);
+        }
+    }
+}
+
+static void
+OffbeatExpressionOV4(const char* Name, ob_expr_ov4* Expression, bool MinZero)
+{
+    char FunctionName[50];
+    char ParameterName[50];
+    char LowName[50];
+    char HighName[50];
+
+    strcpy(FunctionName, Name);
+    strcat(FunctionName, " Function");
+    strcpy(ParameterName, Name);
+    strcat(ParameterName, " Parameter");
+    strcpy(LowName, Name);
+    strcat(LowName, " Low");
+    strcpy(HighName, Name);
+    strcat(HighName, " High");
+
+    UI::Combo(FunctionName, (int*)&Expression->Function, g_FunctionStrings, OFFBEAT_FunctionCount, UI::StringArrayToString);
+
+    if(Expression->Function == OFFBEAT_FunctionConst)
+    {
+        if(MinZero)
+        {
+            UI::DragFloat4(HighName, Expression->High.E, 0.0f, INFINITY, 5.0f);
+        }
+        else
+        {
+            UI::DragFloat4(HighName, Expression->High.E, -INFINITY, INFINITY, 5.0f);
+        }
+    }
+    else
+    {
+        UI::Combo(ParameterName, (int*)&Expression->Parameter, g_ParameterStrings, OFFBEAT_ParameterCount, UI::StringArrayToString);
+
+        if(MinZero)
+        {
+            UI::DragFloat4(LowName, Expression->Low.E, 0.0f, INFINITY, 5.0f);
+            UI::DragFloat4(HighName, Expression->High.E, 0.0f, INFINITY, 5.0f);
+        }
+        else
+        {
+            UI::DragFloat4(LowName, Expression->Low.E, -INFINITY, INFINITY, 5.0f);
+            UI::DragFloat4(HighName, Expression->High.E, -INFINITY, INFINITY, 5.0f);
+        }
+    }
+}
+
 void
 OffbeatWindow(game_state* GameState, const game_input* Input)
 {
@@ -38,6 +198,10 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
         static bool s_OffbeatShowEmission = false;
         static bool s_OffbeatShowMotion = false;
         static bool s_OffbeatShowAppearance = false;
+
+        char SystemIDBuffer[50];
+        sprintf(SystemIDBuffer, "Current particle system ID: %u", s_OffbeatCurrentParticleSystem);
+        UI::Text(SystemIDBuffer);
 
         if(UI::Button("<"))
         {
@@ -135,15 +299,15 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
                 case OFFBEAT_MotionPoint:
                 {
                     UI::DragFloat3("Position", ParticleSystem->Motion.Point.Position.E, -INFINITY, INFINITY, 10.0f);
-                    UI::DragFloat("Strength", &ParticleSystem->Motion.Point.Strength, -INFINITY, INFINITY, 200.0f);
+                    OffbeatExpressionF32("Strength", &ParticleSystem->Motion.Point.Strength, false);
                 } break;
             }
         }
 
         if(UI::CollapsingHeader("Appearance", &s_OffbeatShowAppearance))
         {
-            UI::DragFloat4("Color", ParticleSystem->Appearance.Color.E, 0.0f, INFINITY, 5.0f);
-            UI::DragFloat("Size", &ParticleSystem->Appearance.Size, 0.0f, INFINITY, 5.0f);
+            OffbeatExpressionOV4("Color", &ParticleSystem->Appearance.Color, true);
+            OffbeatExpressionF32("Size", &ParticleSystem->Appearance.Size, true);
 
             static ob_texture_type CurrentTexture = OffbeatGetCurrentTextureType(ParticleSystem);
             ob_texture_type NewTexture = CurrentTexture;

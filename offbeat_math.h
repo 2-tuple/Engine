@@ -7,8 +7,6 @@
 
 #define ObMin(A, B) ((A) < (B) ? (A) : (B))
 
-// TODO(rytis): SIMD-ize!!!
-
 // NOTE(rytis): Linear types
 
 union ov2
@@ -199,6 +197,24 @@ ObClamp01MapToRange(f32 Min, f32 t, f32 Max)
     }
     
     return Result;
+}
+
+inline f32
+ObFloor(f32 Value)
+{
+    return (f32)TruncateF32ToS32(Value);
+}
+
+inline f32
+ObRound(f32 Value)
+{
+    return (f32)TruncateF32ToS32(Value + 0.5f);
+}
+
+inline f32
+ObCeil(f32 Value)
+{
+    return (f32)TruncateF32ToS32(Value + 1.0f);
 }
 
 // NOTE(rytis): v3 operations

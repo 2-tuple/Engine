@@ -16,6 +16,8 @@ typedef uint64_t u64;
 typedef float f32;
 typedef double f64;
 
+typedef uintptr_t umm;
+
 /* TODO(rytis):
  *
  * Change rotation calculations so that rotation matrix would be calculated either every frame
@@ -53,6 +55,8 @@ typedef double f64;
 #define OffbeatGibibytes(Value) (1024LL * OffbeatMibibytes(Value))
 
 #define OffbeatArrayCount(Array) sizeof((Array)) / sizeof(Array[0])
+
+#define OffbeatOffsetOf(type, Member) (umm)&(((type*)0)->Member)
 
 #include "offbeat_config.h"
 
@@ -97,6 +101,65 @@ struct ob_particle
     f32 Random;
     f32 CameraDistance;
     u32 ID;
+};
+
+enum ob_function
+{
+    OFFBEAT_FunctionConst,
+    OFFBEAT_FunctionLerp,
+    OFFBEAT_FunctionSin,
+    OFFBEAT_FunctionCos,
+    OFFBEAT_FunctionFloor,
+    OFFBEAT_FunctionRound,
+    OFFBEAT_FunctionCeil,
+
+    OFFBEAT_FunctionCount,
+};
+
+enum ob_parameter
+{
+    OFFBEAT_ParameterGlobalTime,
+    OFFBEAT_ParameterSystemTime,
+    OFFBEAT_ParameterAge,
+    OFFBEAT_ParameterRandom,
+    OFFBEAT_ParameterCameraDistance,
+    OFFBEAT_ParameterID,
+
+    OFFBEAT_ParameterCount,
+};
+
+static umm OffbeatGlobalOffsets[OFFBEAT_ParameterCount] =
+{
+    0,
+    0,
+    OffbeatOffsetOf(ob_particle, Age),
+    OffbeatOffsetOf(ob_particle, Random),
+    OffbeatOffsetOf(ob_particle, CameraDistance),
+    OffbeatOffsetOf(ob_particle, ID),
+};
+
+struct ob_expr_f32
+{
+    ob_function Function;
+    ob_parameter Parameter;
+    f32 Low;
+    f32 High;
+};
+
+struct ob_expr_ov3
+{
+    ob_function Function;
+    ob_parameter Parameter;
+    ov3 Low;
+    ov3 High;
+};
+
+struct ob_expr_ov4
+{
+    ob_function Function;
+    ob_parameter Parameter;
+    ov4 Low;
+    ov4 High;
 };
 
 enum ob_emission_shape_type
@@ -175,7 +238,6 @@ enum ob_motion_primitive
 struct ob_motion
 {
     ov3 Gravity;
-    // TODO(rytis): Add option for linear drag? Now is quadratic only.
     f32 Drag;
     ob_motion_primitive Primitive;
     union
@@ -183,15 +245,15 @@ struct ob_motion
         struct
         {
             ov3 Position;
-            f32 Strength;
+            ob_expr_f32 Strength;
         } Point;
     };
 };
 
 struct ob_appearance
 {
-    ov4 Color;
-    f32 Size;
+    ob_expr_ov4 Color;
+    ob_expr_f32 Size;
     // ov3 Scale;
     ob_texture TextureID;
 };
@@ -204,7 +266,8 @@ struct ob_history_entry
 
 struct ob_particle_system
 {
-    f32 t; // NOTE(rytis): Time of individual particle system to properly spawn particles.
+    f32 t;
+    f32 tSpawn;
 
     ob_emission Emission;
     ob_motion Motion;
@@ -278,6 +341,7 @@ struct ob_state
     ob_quad_data QuadData;
     ov3 CameraPosition;
 
+    // TODO(rytis): Move this into a single quad with generated texture.
     ov4 SquareGridColor;
     u32 SquareGridLineCount;
     f32 SquareGridStep;
