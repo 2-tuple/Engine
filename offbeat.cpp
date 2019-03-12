@@ -2,6 +2,11 @@
 
 #include "offbeat.h"
 
+#ifdef OFFBEAT_OPENGL
+#include "offbeat_opengl.h"
+#endif
+
+
 #ifndef OFFBEAT_USE_DEFAULT_ALLOCATOR
 static void* _Malloc(u64 Size) { OffbeatAssert(!"No custom allocator set!"); return 0; }
 static void _Free(void* Pointer) { OffbeatAssert(!"No custom allocator set!"); }
@@ -13,12 +18,19 @@ static void _Free(void* Pointer) { free(Pointer); }
 
 static void* (*OffbeatGlobalAlloc)(u64) = _Malloc;
 static void (*OffbeatGlobalFree)(void*) = _Free;
+static ob_texture (*OffbeatGlobalRGBATextureID)(void*, u32, u32) = OffbeatRGBATextureID;
 
 void
 OffbeatSetAllocatorFunctions(void* (*Malloc)(u64), void (*Free)(void*))
 {
     OffbeatGlobalAlloc = Malloc;
     OffbeatGlobalFree = Free;
+}
+
+void
+OffbeatSetTextureFunction(ob_texture (*TextureFunction)(void*, u32, u32))
+{
+    OffbeatGlobalRGBATextureID = TextureFunction;
 }
 
 struct ob_global_data
@@ -29,34 +41,6 @@ struct ob_global_data
 };
 
 static ob_global_data OffbeatGlobalData;
-
-#ifdef OFFBEAT_OPENGL
-ob_texture OffbeatRGBATextureID(void* TextureData, u32 Width, u32 Height)
-{
-    ob_texture LastBoundTexture;
-    glGetIntegerv(GL_TEXTURE_BINDING_2D, (GLint*)&LastBoundTexture);
-
-    ob_texture TextureID;
-    glGenTextures(1, &TextureID);
-    glBindTexture(GL_TEXTURE_2D, TextureID);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, Width, Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, TextureData);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-
-    glBindTexture(GL_TEXTURE_2D, LastBoundTexture);
-    return TextureID;
-}
-#endif
-
-static ob_texture (*OffbeatGlobalRGBATextureID)(void*, u32, u32) = OffbeatRGBATextureID;
-
-void
-OffbeatSetTextureFunction(ob_texture (*TextureFunction)(void*, u32, u32))
-{
-    OffbeatGlobalRGBATextureID = TextureFunction;
-}
 
 static void
 OffbeatUpdateMemoryManager(ob_memory_manager* MemoryManager)
@@ -378,6 +362,8 @@ OffbeatInit(void* Memory, u64 MemorySize)
         OffbeatState->t = 0.0f;
         OffbeatGlobalData.t = &OffbeatState->t;
 
+        OffbeatState->RenderProgramID = OffbeatCreateRenderProgram();
+
         OffbeatState->EffectsEntropy = ObRandomSeed(1234);
         OffbeatState->UpdateParticles = true;
 
@@ -594,8 +580,6 @@ OffbeatUpdateParticleSystem(ob_particle* Particles, ob_particle_system* Particle
 
     u32 Index = ParticleSystem->HistoryEntryCount - 1;
     u32 ParticleSpawnCount = ParticleSystem->History[Index].ParticlesEmitted;
-    // TODO(rytis): Remove this.
-    f32 t = ParticleSystem->History[Index].TimeElapsed;
     u32 LastParticleCount = ParticleSystem->ParticleCount - ParticleSpawnCount;
 
     ob_particle* UpdatedParticle = Particles + ParticleSpawnCount;
@@ -612,8 +596,6 @@ OffbeatUpdateParticleSystem(ob_particle* Particles, ob_particle_system* Particle
 
         UpdatedParticle->Age += dt / ParticleSystem->Emission.ParticleLifetime;
 
-        // TODO(rytis): Find a better solution for expression evaluation with parameters from
-        // higher scope. So far it's very sloppy.
         ov3 ddP = OffbeatUpdateParticleddP(Motion, UpdatedParticle);
 
         UpdatedParticle->P += 0.5f * ObSquare(dt) * ddP + dt * UpdatedParticle->dP;

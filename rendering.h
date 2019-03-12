@@ -460,6 +460,9 @@ RenderMaterialPreviewToTexture(game_state* GameState)
 void
 RenderParticleEffects(game_state* GameState)
 {
+#if 1
+    OffbeatRenderParticles(GameState->OffbeatState, GameState->Camera.ViewMatrix.e, GameState->Camera.ProjectionMatrix.e);
+#else
     glEnable(GL_BLEND);
 
     GLuint OffbeatShaderID = GameState->Resources.GetShader(GameState->R.ShaderOffbeat);
@@ -510,6 +513,7 @@ RenderParticleEffects(game_state* GameState)
 
     // NOTE(rytis): Draw particles.
     glDepthMask(GL_FALSE);
+    // TODO(rytis): Think about functions like this one.
     ob_draw_data* DrawData = OffbeatGetDrawData(GameState->OffbeatState);
     for(int i = 0; i < DrawData->DrawListCount; ++i)
     {
@@ -535,4 +539,5 @@ RenderParticleEffects(game_state* GameState)
     // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
+#endif
 }

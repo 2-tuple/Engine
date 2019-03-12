@@ -28,17 +28,17 @@ typedef uintptr_t umm;
  * Finalize texture list. Provide means to add custom textures. If I want to do that, though,
  * a global texture ID table might not be the proper solution.
  *
- * Expand the GUI to allow customization of particle emission, motion or appearance.
+ * IN PROGRESS: Expand the GUI to allow customization of particle emission, motion or appearance.
  *
  * Figure out a way to properly implement expressions, including the ability to use some
  * per-particle values (age, distance to camera, etc.). Add distance to camera.
+ * UPDATE: For now, expression evaluation seems to be decent enough, although it's not very flexible.
  *
  * SIMD-ize the calculations where possible. Try to add a possibility to do calculations on GPU
  * using the compute shaders.
  * UPDATE: SIMD is likely not possible, since it messes up the particle emission pretty hard -
  * cannot have exact values (got to have multiples of 4) or do some stuff with masks, which
- * in the end might render SIMD-izing rather pointless.
- *
+ * in the end might be overly calculation intensive.
  * Seems like it's better to just do a GPU version.
  *
  * Add memory alignment (16 byte, preferably changeable with macro or function parameter)
@@ -47,8 +47,6 @@ typedef uintptr_t umm;
  * Add more emission, initial velocity and motion primitive shapes.
  *
  * Add selectors (plane, sphere, cube ???). Allow testing selectors against a ray.
- *
- * Change square grid to use a single textured quad, instead of debug lines.
  *
  * Add import from / export to files.
  */
@@ -74,6 +72,7 @@ typedef uintptr_t umm;
 
 #ifdef OFFBEAT_OPENGL
 typedef GLuint ob_texture;
+typedef GLuint ob_program;
 #endif
 
 #define OFFBEAT_MAX_SQUARE_GRID_LINE_COUNT 50
@@ -328,6 +327,8 @@ struct ob_state
 
     u32 RunningParticleID;
 
+    ob_program RenderProgramID;
+
     u64 CycleCount;
 
     ob_quad_data QuadData;
@@ -367,3 +368,4 @@ OFFBEAT_API void OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
 
 // NOTE(rytis): Render data
 OFFBEAT_API ob_draw_data* OffbeatGetDrawData(ob_state* OffbeatState);
+OFFBEAT_API void OffbeatRenderParticles(ob_state* OffbeatState, float* ViewMatrix, float* ProjectionMatrix);

@@ -166,20 +166,6 @@ struct cubemap
   uint32_t CubemapTexture;
 };
 
-#if 0
-// TODO(rytis): Should we rather use this???
-struct framebuffers
-{
-  uint32_t VAO;
-  uint32_t VBO;
-  uint32_t FBOs[FRAMEBUFFER_MAX_COUNT];
-  uint32_t RBOs[FRAMEBUFFER_MAX_COUNT];
-  uint32_t Textures[FRAMEBUFFER_MAX_COUNT];
-  uint32_t CurrentFBO;
-  uint32_t CurrentTexture;
-};
-#endif
-
 struct box_mesh
 {
   vec3 Points[8];
