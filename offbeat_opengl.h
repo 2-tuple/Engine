@@ -1,3 +1,5 @@
+#pragma once
+
 static GLuint
 OffbeatRGBATextureID(void* TextureData, u32 Width, u32 Height)
 {
@@ -152,13 +154,13 @@ OffbeatRenderParticles(ob_state* OffbeatState, float* ViewMatrix, float* Project
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex), (GLvoid*)(offsetof(ob_draw_vertex, Position)));
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex), (GLvoid*)(OffbeatOffsetOf(ob_draw_vertex, Position)));
 
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex), (GLvoid*)(offsetof(ob_draw_vertex, UV)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex), (GLvoid*)(OffbeatOffsetOf(ob_draw_vertex, UV)));
 
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex), (GLvoid*)(offsetof(ob_draw_vertex, Color)));
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex), (GLvoid*)(OffbeatOffsetOf(ob_draw_vertex, Color)));
 
     // NOTE(rytis): Draw square grid.
     {
@@ -176,9 +178,31 @@ OffbeatRenderParticles(ob_state* OffbeatState, float* ViewMatrix, float* Project
         glDrawElements(GL_TRIANGLES, OffbeatArrayCount(OffbeatState->GridIndices), GL_UNSIGNED_INT, 0);
     }
 
+    ob_draw_data* DrawData;
+
+#ifdef OFFBEAT_DEBUG
+    // NOTE(rytis): Draw debug data.
+    DrawData = OffbeatGetDebugDrawData();
+    for(int i = 0; i < DrawData->DrawListCount; ++i)
+    {
+        glBindTexture(GL_TEXTURE_2D, DrawData->DrawLists[i].TextureID);
+        glBufferData(GL_ARRAY_BUFFER,
+                     DrawData->DrawLists[i].VertexCount * sizeof(ob_draw_vertex),
+                     DrawData->DrawLists[i].Vertices,
+                     GL_STREAM_DRAW);
+
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                     DrawData->DrawLists[i].IndexCount * sizeof(uint32_t),
+                     DrawData->DrawLists[i].Indices,
+                     GL_STREAM_DRAW);
+
+        glDrawElements(GL_TRIANGLES, DrawData->DrawLists[i].IndexCount, GL_UNSIGNED_INT, 0);
+    }
+#endif
+
     // NOTE(rytis): Draw particles.
     glDepthMask(GL_FALSE);
-    ob_draw_data* DrawData = &OffbeatState->DrawData;
+    DrawData = &OffbeatState->DrawData;
     for(int i = 0; i < DrawData->DrawListCount; ++i)
     {
         glBindTexture(GL_TEXTURE_2D, DrawData->DrawLists[i].TextureID);

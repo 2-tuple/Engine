@@ -1,6 +1,15 @@
-#include "debug_drawing.h"
-
 #include "offbeat.h"
+
+// Windows perf counter header
+#if defined(__WIN32__) || defined(_WIN32) || defined(__WIN64__) || defined(_WIN64) || defined(WIN32)
+#include <intrin.h>
+// Linux perf counter header
+#elif defined(__linux__) || defined(LINUX)
+#include <x86intrin.h>
+#define __rdtsc _rdtsc
+#else
+#error "ERROR: No intrinsics library available!"
+#endif
 
 #ifdef OFFBEAT_OPENGL
 #include "offbeat_opengl.h"
@@ -38,9 +47,140 @@ struct ob_global_data
     f32* t;
     ob_texture TextureIDs[OFFBEAT_TextureCount];
     umm ParameterOffsets[OFFBEAT_ParameterCount];
+#ifdef OFFBEAT_DEBUG
+    u32 CurrentParticleSystem;
+    ob_quad_data DebugQuadData;
+    ob_draw_data DebugDrawData;
+#endif
 };
 
 static ob_global_data OffbeatGlobalData;
+
+// NOTE(rytis): Debug stuff.
+#ifdef OFFBEAT_DEBUG
+#define OffbeatDebugSpawnPoint(Point) OffbeatDebugSpawnPoint_(Point)
+#define OffbeatDebugMotionPrimitive(Motion) OffbeatDebugMotionPrimitive_(Motion)
+
+static void
+OffbeatDebugSpawnPoint_(ov3 Point)
+{
+    ob_draw_list* DrawList = &OffbeatGlobalData.DebugDrawData.DrawLists[OffbeatGlobalData.CurrentParticleSystem];
+    ob_quad_data* QuadData = &OffbeatGlobalData.DebugQuadData;
+    f32 Size = 0.05f;
+    ov4 Color = ov4{1.0f, 0.0f, 0.0f, 1.0f};
+
+    ov3 BottomLeft = Point + 0.5f * Size * (-QuadData->Horizontal - QuadData->Vertical);
+    ov3 BottomRight = Point + 0.5f * Size * (QuadData->Horizontal - QuadData->Vertical);
+    ov3 TopRight = Point + 0.5f * Size * (QuadData->Horizontal + QuadData->Vertical);
+    ov3 TopLeft = Point + 0.5f * Size * (-QuadData->Horizontal + QuadData->Vertical);
+
+    // NOTE(rytis): UVs
+    ov2 BottomLeftUV = ov2{0.0f, 0.0f};
+    ov2 BottomRightUV = ov2{1.0f, 0.0f};
+    ov2 TopRightUV = ov2{1.0f, 1.0f};
+    ov2 TopLeftUV = ov2{0.0f, 1.0f};
+
+    u32 VertexIndex = DrawList->VertexCount;
+    // NOTE(rytis): Updating draw list vertex array
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomLeft, BottomLeftUV, Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomRight, BottomRightUV, Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopRight, TopRightUV, Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopLeft, TopLeftUV, Color};
+
+    // NOTE(rytis): Updating draw list index array
+    // NOTE(rytis): CCW bottom right triangle
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex;
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 1;
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 2;
+    // NOTE(rytis): CCW top left triangle
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex;
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 2;
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 3;
+
+    ++DrawList->ElementCount;
+}
+
+static void
+OffbeatDebugMotionPrimitive_(ob_motion* Motion)
+{
+    ob_draw_list* DrawList = &OffbeatGlobalData.DebugDrawData.DrawLists[OffbeatGlobalData.CurrentParticleSystem];
+    ov3 Point;
+    ov3 Horizontal;
+    ov3 Vertical;
+    f32 Width;
+    f32 Height;
+    switch(Motion->Primitive)
+    {
+        case OFFBEAT_MotionPoint:
+        {
+            Point = Motion->Point.Position;
+            Horizontal = OffbeatGlobalData.DebugQuadData.Horizontal;
+            Vertical = OffbeatGlobalData.DebugQuadData.Vertical;
+            Width = 0.05f;
+            Height = 0.05f;
+        } break;
+
+        case OFFBEAT_MotionLine:
+        {
+            Point = Motion->Line.Position;
+            ov3 Normal = ObNormalize(ObCross(OffbeatGlobalData.DebugQuadData.Horizontal, OffbeatGlobalData.DebugQuadData.Vertical));
+            Vertical = ObNormalize(Motion->Line.Direction);
+            Horizontal = ObNormalize(ObCross(Vertical, Normal));
+            Width = 0.03f;
+            Height = 100.0f;
+        } break;
+
+        default:
+        {
+            Horizontal = ov3{};
+            Vertical = ov3{};
+            Width = 0.0f;
+            Height = 0.0f;
+        } break;
+    }
+    ov4 Color = ov4{1.0f, 1.0f, 0.0f, 1.0f};
+
+    ov3 BottomLeft = Point + 0.5f * (-(Width * Horizontal) - (Height * Vertical));
+    ov3 BottomRight = Point + 0.5f * ((Width * Horizontal) - (Height * Vertical));
+    ov3 TopRight = Point + 0.5f * ((Width * Horizontal) + (Height * Vertical));
+    ov3 TopLeft = Point + 0.5f * (-(Width * Horizontal) + (Height * Vertical));
+
+    // NOTE(rytis): UVs
+    ov2 BottomLeftUV = ov2{0.0f, 0.0f};
+    ov2 BottomRightUV = ov2{1.0f, 0.0f};
+    ov2 TopRightUV = ov2{1.0f, 1.0f};
+    ov2 TopLeftUV = ov2{0.0f, 1.0f};
+
+    u32 VertexIndex = DrawList->VertexCount;
+    // NOTE(rytis): Updating draw list vertex array
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomLeft, BottomLeftUV, Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomRight, BottomRightUV, Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopRight, TopRightUV, Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopLeft, TopLeftUV, Color};
+
+    // NOTE(rytis): Updating draw list index array
+    // NOTE(rytis): CCW bottom right triangle
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex;
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 1;
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 2;
+    // NOTE(rytis): CCW top left triangle
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex;
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 2;
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 3;
+
+    ++DrawList->ElementCount;
+}
+
+ob_draw_data*
+OffbeatGetDebugDrawData()
+{
+    return &OffbeatGlobalData.DebugDrawData;
+}
+
+#else
+#define OffbeatDebugSpawnPoint(Point)
+#define OffbeatDebugMotionPrimitive(Motion)
+#endif
 
 static void
 OffbeatUpdateMemoryManager(ob_memory_manager* MemoryManager)
@@ -111,6 +251,39 @@ OffbeatGenerateCircleRGBATexture(void* Memory, u64 MemorySize, u32 Width, u32 He
             u32 Alpha = TruncateF32ToU32(0xFF * Scale);
             // NOTE(rytis): ABGR in registers, RGBA in memory.
             *Pixel++ = 0x00FFFFFF | (Alpha << 24);
+        }
+    }
+}
+
+void
+OffbeatGenerateCrossRGBATexture(void* Memory, u64 MemorySize, u32 Width, u32 Height, u32 Thickness)
+{
+    OffbeatAssert(MemorySize >= (Width * Height * sizeof(u32)));
+    OffbeatAssert((Thickness <= Height) && (Thickness <= Width));
+
+    u32 CenterHeight = Height / 2;
+    u32 CenterWidth = Width / 2;
+    u32 HalfThickness = Thickness / 2;
+
+    u32 FillStartHeight = CenterHeight - HalfThickness;
+    u32 FillStartWidth = CenterWidth - HalfThickness;
+    u32 FillEndHeight = FillStartHeight + Thickness;
+    u32 FillEndWidth = FillStartWidth + Thickness;
+
+    u32* Pixel = (u32*)Memory;
+    for(s32 i = 0; i < Height; ++i)
+    {
+        for(s32 j = 0; j < Width; ++j)
+        {
+            if(((FillStartHeight <= i) && (i <= FillEndHeight)) ||
+               ((FillStartWidth <= j) && (j <= FillEndWidth)))
+            {
+                *Pixel++ = 0xFFFFFFFF;
+            }
+            else
+            {
+                *Pixel++ = 0;
+            }
         }
     }
 }
@@ -346,6 +519,14 @@ OffbeatInit(void* Memory, u64 MemorySize)
         TextureMemory = OffbeatAllocateMemory(&OffbeatState->MemoryManager, Size);
         OffbeatGenerateCircleRGBATexture(TextureMemory, Size, Width, Height);
         OffbeatGlobalData.TextureIDs[OFFBEAT_TextureCircle] = OffbeatGlobalRGBATextureID(TextureMemory, Width, Height);
+
+        TextureMemory = OffbeatAllocateMemory(&OffbeatState->MemoryManager, Size);
+        OffbeatGenerateCrossRGBATexture(TextureMemory, Size, Width, Height, Height / 2);
+        OffbeatGlobalData.TextureIDs[OFFBEAT_TextureFatCross] = OffbeatGlobalRGBATextureID(TextureMemory, Width, Height);
+
+        TextureMemory = OffbeatAllocateMemory(&OffbeatState->MemoryManager, Size);
+        OffbeatGenerateCrossRGBATexture(TextureMemory, Size, Width, Height, Height / 25);
+        OffbeatGlobalData.TextureIDs[OFFBEAT_TextureSlimCross] = OffbeatGlobalRGBATextureID(TextureMemory, Width, Height);
     }
 
     // NOTE(rytis): Offbeat parameter offset init.
@@ -365,7 +546,6 @@ OffbeatInit(void* Memory, u64 MemorySize)
         OffbeatState->RenderProgramID = OffbeatCreateRenderProgram();
 
         OffbeatState->EffectsEntropy = ObRandomSeed(1234);
-        OffbeatState->UpdateParticles = true;
 
         ob_emission TestEmission = {};
         TestEmission.Location = ov3{0.0f, 0.0f, 0.0f};
@@ -386,7 +566,7 @@ OffbeatInit(void* Memory, u64 MemorySize)
         TestMotion.Gravity = ov3{0.0f, 0.0f, 0.0f};
         TestMotion.Primitive = OFFBEAT_MotionPoint;
         TestMotion.Point.Position = ov3{-3.0f * sinf(0.25f * PI * OffbeatState->t), 1.0f, 1.0f};
-        TestMotion.Point.Strength.High = 10.0f;
+        TestMotion.Strength.High = 10.0f;
 
         ob_appearance TestAppearance = {};
         TestAppearance.Color.Low = TestAppearance.Color.High =
@@ -528,12 +708,10 @@ OffbeatParticleInitialVelocity(ob_random_series* Entropy, ob_emission* Emission)
 }
 
 static void
-OffbeatSpawnParticles(ob_particle* Particles, ob_particle_system* ParticleSystem, ob_random_series* Entropy, f32 dt, ov3* CameraPosition, u32* RunningParticleID)
+OffbeatSpawnParticles(ob_particle* Particles, ob_particle_system* ParticleSystem, ob_random_series* Entropy, f32 dt, u32 ParticleSpawnCount, ov3* CameraPosition, u32* RunningParticleID)
 {
     ob_emission* Emission = &ParticleSystem->Emission;
 
-    u32 Index = ParticleSystem->HistoryEntryCount - 1;
-    u32 ParticleSpawnCount = ParticleSystem->History[Index].ParticlesEmitted;
     for(u32 ParticleSpawnIndex = 0; ParticleSpawnIndex < ParticleSpawnCount; ++ParticleSpawnIndex)
     {
         ob_particle* Particle = Particles + ParticleSpawnIndex;
@@ -544,8 +722,7 @@ OffbeatSpawnParticles(ob_particle* Particles, ob_particle_system* ParticleSystem
         Particle->Random = ObRandomUnilateral(Entropy);
         Particle->CameraDistance = ObLength(*CameraPosition - Particle->P);
         Particle->ID = (*RunningParticleID)++;
-        Debug::PushWireframeSphere(OV3ToVec3(Particle->P), 0.02f,
-                                   OV4ToVec4(ov4{0.8f, 0.0f, 0.0f, 1.0f}));
+        OffbeatDebugSpawnPoint(Particle->P);
     }
 }
 
@@ -555,31 +732,38 @@ OffbeatUpdateParticleddP(ob_motion* Motion, ob_particle* Particle)
     f32 LengthSq = ObLengthSq(Particle->dP);
     ov3 Drag = Motion->Drag * LengthSq * ObNormalize(-Particle->dP);
     ov3 Result = Motion->Gravity + Drag;
+    f32 Strength = OffbeatEvaluateExpression(&Motion->Strength, Particle);
+    ov3 Direction;
     switch(Motion->Primitive)
     {
         case OFFBEAT_MotionPoint:
         {
-            f32 Strength = OffbeatEvaluateExpression(&Motion->Point.Strength, Particle);
-            ov3 Direction = Motion->Point.Position - Particle->P;
-            Result += Strength * ObNormalize(Direction);
+            Direction = Motion->Point.Position - Particle->P;
+        } break;
+
+        case OFFBEAT_MotionLine:
+        {
+            f32 t = ObInner(Particle->P - Motion->Line.Position, Motion->Line.Direction) /
+                    ObInner(Motion->Line.Direction, Motion->Line.Direction);
+            Direction = (Motion->Line.Position + t * Motion->Line.Direction) - Particle->P;
         } break;
 
         case OFFBEAT_MotionNone:
         default:
         {
+            Direction = ov3{0.0f, 0.0f, 0.0f};
         } break;
     }
+    Result += Strength * ObNormalize(Direction);
 
     return Result;
 }
 
 static void
-OffbeatUpdateParticleSystem(ob_particle* Particles, ob_particle_system* ParticleSystem, f32 dt, ov3* CameraPosition)
+OffbeatUpdateParticleSystem(ob_particle* Particles, ob_particle_system* ParticleSystem, f32 dt, u32 ParticleSpawnCount, ov3* CameraPosition)
 {
     ob_motion* Motion = &ParticleSystem->Motion;
 
-    u32 Index = ParticleSystem->HistoryEntryCount - 1;
-    u32 ParticleSpawnCount = ParticleSystem->History[Index].ParticlesEmitted;
     u32 LastParticleCount = ParticleSystem->ParticleCount - ParticleSpawnCount;
 
     ob_particle* UpdatedParticle = Particles + ParticleSpawnCount;
@@ -651,9 +835,9 @@ OffbeatRenderParticleSystem(ob_draw_list* DrawList, u32* IndexMemory, ob_draw_ve
     ob_appearance* Appearance = &ParticleSystem->Appearance;
 
     *DrawList = {};
-    DrawList->TextureID = Appearance->TextureID;
     DrawList->Indices = IndexMemory;
     DrawList->Vertices = VertexMemory;
+    DrawList->TextureID = Appearance->TextureID;
 
     for(u32 ParticleIndex = 0; ParticleIndex < ParticleSystem->ParticleCount; ++ParticleIndex)
     {
@@ -663,7 +847,7 @@ OffbeatRenderParticleSystem(ob_draw_list* DrawList, u32* IndexMemory, ob_draw_ve
     }
 }
 
-static void
+static u32
 OffbeatUpdateParticleCount(ob_history_entry* History, ob_particle_system* ParticleSystem, f32 t, f32 dt)
 {
     ob_emission* Emission = &ParticleSystem->Emission;
@@ -699,6 +883,8 @@ OffbeatUpdateParticleCount(ob_history_entry* History, ob_particle_system* Partic
 
     ParticleSystem->HistoryEntryCount = NewHistoryEntryCount;
     ParticleSystem->History = History;
+
+    return ParticleSpawnCount;
 }
 
 static void
@@ -737,12 +923,17 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
         QuadData.Vertical = ObNormalize(ObCross(QuadData.Horizontal, Camera.Forward));
         OffbeatState->QuadData = QuadData;
         OffbeatState->CameraPosition = Camera.Position;
+#ifdef OFFBEAT_DEBUG
+        OffbeatGlobalData.DebugQuadData = QuadData;
+#endif
 
         OffbeatUpdateMemoryManager(&OffbeatState->MemoryManager);
     }
 
-    ov4 PointColor = ov4{1.0f, 1.0f, 0.0f, 1.0f};
     OffbeatState->DrawData.DrawListCount = OffbeatState->ParticleSystemCount;
+#ifdef OFFBEAT_DEBUG
+    OffbeatGlobalData.DebugDrawData.DrawListCount = OffbeatState->ParticleSystemCount;
+#endif
     for(u32 i = 0; i < OffbeatState->ParticleSystemCount; ++i)
     {
         ob_particle_system* ParticleSystem = &OffbeatState->ParticleSystems[i];
@@ -754,16 +945,32 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
                                                      (ParticleSystem->HistoryEntryCount + 1) *
                                                      sizeof(ob_history_entry));
 
-        OffbeatUpdateParticleCount(History, ParticleSystem, OffbeatState->t, OffbeatState->dt);
+        u32 ParticleSpawnCount =
+            OffbeatUpdateParticleCount(History, ParticleSystem, OffbeatState->t, OffbeatState->dt);
+
+#ifdef OFFBEAT_DEBUG
+        OffbeatGlobalData.CurrentParticleSystem = i;
+        OffbeatGlobalData.DebugDrawData.DrawLists[i] = {};
+        OffbeatGlobalData.DebugDrawData.DrawLists[i].TextureID = OffbeatGlobalData.TextureIDs[OFFBEAT_TextureSquare];
+        OffbeatGlobalData.DebugDrawData.DrawLists[i].Indices =
+            (u32*)OffbeatAllocateMemory(&OffbeatState->MemoryManager,
+                                        (ParticleSpawnCount + 1) *
+                                        sizeof(u32) * 6);
+        OffbeatGlobalData.DebugDrawData.DrawLists[i].Vertices =
+            (ob_draw_vertex*)OffbeatAllocateMemory(&OffbeatState->MemoryManager,
+                                                   (ParticleSpawnCount + 1) *
+                                                   sizeof(ob_draw_vertex) * 4);
+#endif
 
         ob_particle* Particles =
             (ob_particle*)OffbeatAllocateMemory(&OffbeatState->MemoryManager,
                                                 ParticleSystem->ParticleCount *
                                                 sizeof(ob_particle));
         OffbeatSpawnParticles(Particles, ParticleSystem, &OffbeatState->EffectsEntropy,
-                              OffbeatState->dt, &OffbeatState->CameraPosition,
+                              OffbeatState->dt, ParticleSpawnCount, &OffbeatState->CameraPosition,
                               &OffbeatState->RunningParticleID);
-        OffbeatUpdateParticleSystem(Particles, ParticleSystem, OffbeatState->dt, &OffbeatState->CameraPosition);
+        OffbeatUpdateParticleSystem(Particles, ParticleSystem, OffbeatState->dt, ParticleSpawnCount,
+                                    &OffbeatState->CameraPosition);
 
         u32* IndexMemory =
             (u32*)OffbeatAllocateMemory(&OffbeatState->MemoryManager,
@@ -776,12 +983,7 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
         OffbeatRenderParticleSystem(&OffbeatState->DrawData.DrawLists[i], IndexMemory, VertexMemory,
                                     ParticleSystem, &OffbeatState->QuadData);
 
-        // NOTE(rytis): Motion primitive position render
-        // ov3 Point = ParticleSystem->Motion.Point.Position = ov3{-3.0f * ObSin(0.25f * PI * OffbeatState->t), 1.0f, 1.0f};
-        if(ParticleSystem->Motion.Primitive == OFFBEAT_MotionPoint)
-        {
-            Debug::PushWireframeSphere(OV3ToVec3(ParticleSystem->Motion.Point.Position), 0.05f, OV4ToVec4(PointColor));
-        }
+        OffbeatDebugMotionPrimitive(&ParticleSystem->Motion);
     }
 
     OffbeatState->CycleCount = __rdtsc() - StartCycleCount;

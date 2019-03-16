@@ -1,1 +1,2 @@
+#define OFFBEAT_DEBUG
 #define OFFBEAT_OPENGL

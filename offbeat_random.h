@@ -530,7 +530,7 @@ inline ob_random_series ObRandomSeed(u32 Value)
 {
     ob_random_series Series;
 
-    Series.Index = Value % ArrayCount(OffbeatRandomNumberTable);
+    Series.Index = Value % OffbeatArrayCount(OffbeatRandomNumberTable);
 
     return Series;
 }
@@ -538,7 +538,7 @@ inline ob_random_series ObRandomSeed(u32 Value)
 inline u32 ObRandomNextRandomUInt32(ob_random_series* Series)
 {
     u32 Result = OffbeatRandomNumberTable[Series->Index++];
-    if(Series->Index >= ArrayCount(OffbeatRandomNumberTable))
+    if(Series->Index >= OffbeatArrayCount(OffbeatRandomNumberTable))
     {
         Series->Index = 0;
     }

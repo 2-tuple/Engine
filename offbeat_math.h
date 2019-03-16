@@ -49,43 +49,6 @@ union ov4
     float E[4];
 };
 
-// TODO(rytis): Move conversion functions elsewhere (maybe a config.h file?).
-static ov2
-OV2(vec2 A)
-{
-    return ov2{A.X, A.Y};
-}
-
-static ov3
-OV3(vec3 A)
-{
-    return ov3{A.X, A.Y, A.Z};
-}
-
-static ov4
-OV4(vec4 A)
-{
-    return ov4{A.X, A.Y, A.Z, A.W};
-}
-
-static vec2
-OV2ToVec2(ov2 A)
-{
-    return vec2{A.x, A.y};
-}
-
-static vec3
-OV3ToVec3(ov3 A)
-{
-    return vec3{A.x, A.y, A.z};
-}
-
-static vec4
-OV4ToVec4(ov4 A)
-{
-    return vec4{A.x, A.y, A.z, A.w};
-}
-
 // NOTE(rytis): Matrices are ROW MAJOR (E[ROW][COLUMN])!!!
 union om3
 {

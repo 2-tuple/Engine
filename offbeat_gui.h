@@ -16,11 +16,14 @@ static char* g_EmissionVelocityStrings[OFFBEAT_VelocityCount] = {
 static char* g_MotionPrimitiveStrings[OFFBEAT_MotionCount] = {
     "None",
     "Point",
+    "Line",
 };
 
 static char* g_TextureStrings[OFFBEAT_TextureCount] = {
     "Square",
     "Disc",
+    "Fat Cross",
+    "Slim Cross",
     // "Ring",
 };
 
@@ -224,8 +227,15 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
             {
                 case OFFBEAT_MotionPoint:
                 {
+                    OffbeatGUIExpressionF32("Strength", &ParticleSystem->Motion.Strength, false);
                     UI::DragFloat3("Position", ParticleSystem->Motion.Point.Position.E, -INFINITY, INFINITY, 10.0f);
-                    OffbeatGUIExpressionF32("Strength", &ParticleSystem->Motion.Point.Strength, false);
+                } break;
+
+                case OFFBEAT_MotionLine:
+                {
+                    OffbeatGUIExpressionF32("Strength", &ParticleSystem->Motion.Strength, false);
+                    UI::DragFloat3("Position", ParticleSystem->Motion.Line.Position.E, -INFINITY, INFINITY, 10.0f);
+                    UI::DragFloat3("Direction", ParticleSystem->Motion.Line.Direction.E, -INFINITY, INFINITY, 10.0f);
                 } break;
             }
         }
