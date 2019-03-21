@@ -2,6 +2,7 @@
 
 #include "offbeat.h"
 #include "ui.h"
+#include "file_io.h"
 
 static char* g_EmissionShapeStrings[OFFBEAT_EmissionCount] = {
     "Point",
@@ -45,6 +46,40 @@ static char* g_ParameterStrings[OFFBEAT_ParameterCount] = {
     "ID",
 };
 
+char*
+OffbeatGUIPathArrayToString(void* Data, int Index)
+{
+  path* Paths = (path*)Data;
+  return Paths[Index].Name;
+}
+
+void
+OffbeatExportParticleSystem(ob_state* OffbeatState, u32 ParticleSystemIndex, char* Path)
+{
+    ob_file_data FileData = OffbeatPackParticleSystem(OffbeatState, ParticleSystemIndex);
+    Platform::WriteEntireFile(Path, FileData.Size, FileData.Data);
+}
+
+void
+OffbeatExportCurrentParticleSystem(ob_state* OffbeatState, char* Path)
+{
+    OffbeatExportParticleSystem(OffbeatState, OffbeatState->CurrentParticleSystem, Path);
+}
+
+void
+OffbeatImportParticleSystem(game_state* GameState, ob_state* OffbeatState, char* Path)
+{
+    GameState->TemporaryMemStack->NullifyClear();
+    debug_read_file_result ReadResult = Platform::ReadEntireFile(GameState->TemporaryMemStack, Path);
+    OffbeatAssert(ReadResult.Contents);
+
+    ob_particle_system NewParticleSystem = {};
+    // TODO(rytis): Check if unpack succeeded.
+    OffbeatUnpackParticleSystem(&NewParticleSystem, ReadResult.Contents);
+    OffbeatState->CurrentParticleSystem = OffbeatState->ParticleSystemCount;
+    OffbeatState->ParticleSystems[OffbeatState->ParticleSystemCount++] = NewParticleSystem;
+}
+
 static void
 OffbeatDragF32(const char* Label, float* Value, float MinValue, float MaxValue, float ScreenDelta, float Width = 0)
 {
@@ -63,7 +98,7 @@ OffbeatDragOV4(const char* Label, ov4* Value, float MinValue, float MaxValue, fl
     UI::DragFloat4(Label, Value->E, MinValue, MaxValue, ScreenDelta);
 }
 
-#define OffbeatGUIExpression(type, Type) void OffbeatGUIExpression##Type(const char* Name, ob_expr_##type* Expression, bool MinZero)\
+#define OffbeatGUIExpression(type, Type) void OffbeatGUIExpression##Type(const char* Name, ob_expr_##type* Expression, bool* Header, bool MinZero)\
 {\
     char FunctionName[50];\
     char ParameterName[50];\
@@ -79,32 +114,35 @@ OffbeatDragOV4(const char* Label, ov4* Value, float MinValue, float MaxValue, fl
     strcpy(HighName, Name);\
     strcat(HighName, " High");\
 \
-    UI::Combo(FunctionName, (int*)&Expression->Function, g_FunctionStrings, OFFBEAT_FunctionCount, UI::StringArrayToString);\
-\
-    if(Expression->Function == OFFBEAT_FunctionConst)\
+    if(UI::CollapsingHeader(Name, Header))\
     {\
-        if(MinZero)\
+        UI::Combo(FunctionName, (int*)&Expression->Function, g_FunctionStrings, OFFBEAT_FunctionCount, UI::StringArrayToString);\
+    \
+        if(Expression->Function == OFFBEAT_FunctionConst)\
         {\
-            OffbeatDrag##Type(HighName, &Expression->High, 0.0f, INFINITY, 5.0f);\
+            if(MinZero)\
+            {\
+                OffbeatDrag##Type(HighName, &Expression->High, 0.0f, INFINITY, 5.0f);\
+            }\
+            else\
+            {\
+                OffbeatDrag##Type(HighName, &Expression->High, -INFINITY, INFINITY, 5.0f);\
+            }\
         }\
         else\
         {\
-            OffbeatDrag##Type(HighName, &Expression->High, -INFINITY, INFINITY, 5.0f);\
-        }\
-    }\
-    else\
-    {\
-        UI::Combo(ParameterName, (int*)&Expression->Parameter, g_ParameterStrings, OFFBEAT_ParameterCount, UI::StringArrayToString);\
-\
-        if(MinZero)\
-        {\
-            OffbeatDrag##Type(LowName, &Expression->Low, 0.0f, INFINITY, 5.0f);\
-            OffbeatDrag##Type(HighName, &Expression->High, 0.0f, INFINITY, 5.0f);\
-        }\
-        else\
-        {\
-            OffbeatDrag##Type(LowName, &Expression->Low, -INFINITY, INFINITY, 5.0f);\
-            OffbeatDrag##Type(HighName, &Expression->High, -INFINITY, INFINITY, 5.0f);\
+            UI::Combo(ParameterName, (int*)&Expression->Parameter, g_ParameterStrings, OFFBEAT_ParameterCount, UI::StringArrayToString);\
+    \
+            if(MinZero)\
+            {\
+                OffbeatDrag##Type(LowName, &Expression->Low, 0.0f, INFINITY, 5.0f);\
+                OffbeatDrag##Type(HighName, &Expression->High, 0.0f, INFINITY, 5.0f);\
+            }\
+            else\
+            {\
+                OffbeatDrag##Type(LowName, &Expression->Low, -INFINITY, INFINITY, 5.0f);\
+                OffbeatDrag##Type(HighName, &Expression->High, -INFINITY, INFINITY, 5.0f);\
+            }\
         }\
     }\
 }
@@ -129,49 +167,70 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
         static bool s_OffbeatShowAppearance = false;
 
         char SystemIDBuffer[50];
-        sprintf(SystemIDBuffer, "Current particle system ID: %u", s_OffbeatCurrentParticleSystem);
+        sprintf(SystemIDBuffer, "Current particle system ID: %u", OffbeatState->CurrentParticleSystem);
         UI::Text(SystemIDBuffer);
 
         if(UI::Button("<"))
         {
-            if(s_OffbeatCurrentParticleSystem > 0)
-            {
-                ParticleSystem = &OffbeatState->ParticleSystems[--s_OffbeatCurrentParticleSystem];
-            }
+            ParticleSystem = OffbeatPreviousParticleSystem(OffbeatState);
         }
 
         UI::SameLine();
         if(UI::Button("Add Particle System"))
         {
-            s_OffbeatCurrentParticleSystem = OffbeatNewParticleSystem(OffbeatState, &ParticleSystem);
+            ParticleSystem = OffbeatNewParticleSystem(OffbeatState);
         }
 
         UI::SameLine();
         if(UI::Button(">"))
         {
-            if(s_OffbeatCurrentParticleSystem + 1 < OffbeatState->ParticleSystemCount)
-            {
-                ParticleSystem = &OffbeatState->ParticleSystems[++s_OffbeatCurrentParticleSystem];
-            }
+            ParticleSystem = OffbeatNextParticleSystem(OffbeatState);
         }
 
         UI::NewLine();
         if(UI::Button("Remove Particle System"))
         {
-            OffbeatRemoveParticleSystem(OffbeatState, s_OffbeatCurrentParticleSystem);
-            if(s_OffbeatCurrentParticleSystem >= OffbeatState->ParticleSystemCount)
-            {
-                s_OffbeatCurrentParticleSystem = OffbeatState->ParticleSystemCount - 1;
-            }
+            OffbeatRemoveCurrentParticleSystem(OffbeatState);
+            ParticleSystem = OffbeatGetCurrentParticleSystem(OffbeatState);
         }
 
         UI::NewLine();
-        if(UI::Button("Save Particle System"))
+        if(UI::Button("Save Current As New"))
         {
+            struct tm* TimeInfo;
+            time_t CurrentTime;
+            char Path[100];
+            time(&CurrentTime);
+            TimeInfo = localtime(&CurrentTime);
+            strftime(Path, sizeof(Path), "data/offbeat/%H_%M_%S.obp", TimeInfo);
+
+            OffbeatExportCurrentParticleSystem(OffbeatState, Path);
         }
 
-        // TODO(rytis): Combo box here for file loading.
-        // UI::Combo("OPB files", &s_OffbeatCurrentFile, );
+        UI::NewLine();
+        if(GameState->Resources.ParticleSystemPathCount > 0)
+        {
+            {
+                static s32 SelectedParticleSystemIndex = 0;
+                if(UI::Button("Save"))
+                {
+                    OffbeatExportCurrentParticleSystem(OffbeatState, GameState->Resources.ParticleSystemPaths[SelectedParticleSystemIndex].Name);
+                }
+                UI::SameLine();
+                UI::Combo("Save Path", &SelectedParticleSystemIndex, GameState->Resources.ParticleSystemPaths, GameState->Resources.ParticleSystemPathCount, OffbeatGUIPathArrayToString);
+                UI::NewLine();
+            }
+            {
+                static s32 SelectedParticleSystemIndex = 0;
+                if(UI::Button("Load"))
+                {
+                    OffbeatImportParticleSystem(GameState, OffbeatState, GameState->Resources.ParticleSystemPaths[SelectedParticleSystemIndex].Name);
+                }
+                UI::SameLine();
+                UI::Combo("Load Path", &SelectedParticleSystemIndex, GameState->Resources.ParticleSystemPaths, GameState->Resources.ParticleSystemPathCount, OffbeatGUIPathArrayToString);
+                UI::NewLine();
+            }
+        }
 
         if(UI::CollapsingHeader("Emission", &s_OffbeatShowEmission))
         {
@@ -227,23 +286,29 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
             {
                 case OFFBEAT_MotionPoint:
                 {
-                    OffbeatGUIExpressionF32("Strength", &ParticleSystem->Motion.Strength, false);
+                    static bool s_OffbeatMotionStrength = false;
+                    OffbeatGUIExpressionF32("Strength", &ParticleSystem->Motion.Strength,
+                                            &s_OffbeatMotionStrength, false);
                     UI::DragFloat3("Position", ParticleSystem->Motion.Point.Position.E, -INFINITY, INFINITY, 10.0f);
                 } break;
 
                 case OFFBEAT_MotionLine:
                 {
-                    OffbeatGUIExpressionF32("Strength", &ParticleSystem->Motion.Strength, false);
+                    static bool s_OffbeatMotionStrength = false;
                     UI::DragFloat3("Position", ParticleSystem->Motion.Line.Position.E, -INFINITY, INFINITY, 10.0f);
-                    UI::DragFloat3("Direction", ParticleSystem->Motion.Line.Direction.E, -INFINITY, INFINITY, 10.0f);
+                    UI::DragFloat3("Direction", ParticleSystem->Motion.Line.Position.E, -INFINITY, INFINITY, 10.0f);
                 } break;
             }
         }
 
         if(UI::CollapsingHeader("Appearance", &s_OffbeatShowAppearance))
         {
-            OffbeatGUIExpressionOV4("Color", &ParticleSystem->Appearance.Color, true);
-            OffbeatGUIExpressionF32("Size", &ParticleSystem->Appearance.Size, true);
+            static bool s_OffbeatAppearanceColor = false;
+            static bool s_OffbeatAppearanceSize = false;
+            OffbeatGUIExpressionOV4("Color", &ParticleSystem->Appearance.Color,
+                                    &s_OffbeatAppearanceColor, true);
+            OffbeatGUIExpressionF32("Size", &ParticleSystem->Appearance.Size,
+                                    &s_OffbeatAppearanceSize, true);
 
             static ob_texture_type CurrentTexture = OffbeatGetCurrentTextureType(ParticleSystem);
             ob_texture_type NewTexture = CurrentTexture;

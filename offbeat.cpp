@@ -321,20 +321,71 @@ OffbeatGenerateGridRGBATexture(void* Memory, u64 MemorySize, u32 Width, u32 Heig
 ob_texture_type
 OffbeatGetCurrentTextureType(ob_particle_system* ParticleSystem)
 {
-    for(u32 i = 0; i < OFFBEAT_TextureCount; ++i)
-    {
-        if(ParticleSystem->Appearance.TextureID == OffbeatGlobalData.TextureIDs[i])
-        {
-            return (ob_texture_type)i;
-        }
-    }
-    return OFFBEAT_TextureCount;
+    return ParticleSystem->Appearance.Texture;
 }
 
 void
 OffbeatSetTextureID(ob_particle_system* ParticleSystem, ob_texture_type NewType)
 {
-    ParticleSystem->Appearance.TextureID = OffbeatGlobalData.TextureIDs[NewType];
+    ParticleSystem->Appearance.Texture = NewType;
+}
+
+ob_file_data
+OffbeatPackParticleSystem(ob_state* OffbeatState, u32 ParticleSystemIndex)
+{
+    OffbeatAssert(ParticleSystemIndex < OFFBEAT_PARTICLE_SYSTEM_COUNT);
+    ob_file_data Result = {};
+
+    ob_particle_system* ParticleSystem = &OffbeatState->ParticleSystems[ParticleSystemIndex];
+    Result.Size = sizeof(u32) * 4 + sizeof(ob_emission) + sizeof(ob_motion) + sizeof(ob_appearance);
+    Result.Data = OffbeatAllocateMemory(&OffbeatState->MemoryManager, Result.Size);
+
+    u32* U32Memory = (u32*)Result.Data;
+    *U32Memory++ = 0x0F;
+    *U32Memory++ = 0xFB;
+    *U32Memory++ = 0xEA;
+    *U32Memory++ = 0x70;
+
+    ob_emission* EmissionMemory = (ob_emission*)U32Memory;
+    *EmissionMemory++ = ParticleSystem->Emission;
+
+    ob_motion* MotionMemory = (ob_motion*)EmissionMemory;
+    *MotionMemory++ = ParticleSystem->Motion;
+
+    ob_appearance* AppearanceMemory = (ob_appearance*)MotionMemory;
+    *AppearanceMemory++ = ParticleSystem->Appearance;
+
+    OffbeatAssert((((u8*)Result.Data) + Result.Size) == ((u8*)AppearanceMemory));
+    return Result;
+}
+
+b32
+OffbeatUnpackParticleSystem(ob_particle_system* Result, void* PackedMemory)
+{
+    u32* U32Memory = (u32*)PackedMemory;
+    if((U32Memory[0] != 0x0F) &&
+       (U32Memory[1] != 0xFB) &&
+       (U32Memory[2] != 0xEA) &&
+       (U32Memory[3] != 0x70))
+    {
+        return false;
+    }
+
+    U32Memory += 4;
+
+    ob_emission* EmissionMemory = (ob_emission*)U32Memory;
+    Result->Emission = *EmissionMemory;
+    ++EmissionMemory;
+
+    ob_motion* MotionMemory = (ob_motion*)EmissionMemory;
+    Result->Motion = *MotionMemory;
+    ++MotionMemory;
+
+    ob_appearance* AppearanceMemory = (ob_appearance*)MotionMemory;
+    Result->Appearance = *AppearanceMemory;
+    ++AppearanceMemory;
+
+    return true;
 }
 
 static f32
@@ -575,7 +626,7 @@ OffbeatInit(void* Memory, u64 MemorySize)
             ObRandomBetween(&OffbeatState->EffectsEntropy, 0.8f, 1.0f),
             1.0f};
         TestAppearance.Size.Low = TestAppearance.Size.High = 0.05f;
-        TestAppearance.TextureID = OffbeatGlobalData.TextureIDs[OFFBEAT_TextureCircle];
+        TestAppearance.Texture = OFFBEAT_TextureCircle;
 
         ob_particle_system TestSystem = {};
         TestSystem.Emission = TestEmission;
@@ -583,6 +634,7 @@ OffbeatInit(void* Memory, u64 MemorySize)
         TestSystem.Appearance = TestAppearance;
 
         OffbeatState->ParticleSystems[0] = TestSystem;
+        OffbeatState->CurrentParticleSystem = 0;
         OffbeatState->ParticleSystemCount = 1;
     }
     return OffbeatState;
@@ -629,6 +681,42 @@ OffbeatRemoveParticleSystem(ob_state* OffbeatState, u32 Index)
         OffbeatState->ParticleSystems[i] = OffbeatState->ParticleSystems[i + 1];
     }
     --OffbeatState->ParticleSystemCount;
+    if(OffbeatState->CurrentParticleSystem >= OffbeatState->ParticleSystemCount)
+    {
+        --OffbeatState->CurrentParticleSystem;
+    }
+}
+
+void
+OffbeatRemoveCurrentParticleSystem(ob_state* OffbeatState)
+{
+    OffbeatRemoveParticleSystem(OffbeatState, OffbeatState->CurrentParticleSystem);
+}
+
+ob_particle_system*
+OffbeatGetCurrentParticleSystem(ob_state* OffbeatState)
+{
+    return &OffbeatState->ParticleSystems[OffbeatState->CurrentParticleSystem];
+}
+
+ob_particle_system*
+OffbeatPreviousParticleSystem(ob_state* OffbeatState)
+{
+    if(OffbeatState->CurrentParticleSystem > 0)
+    {
+        --OffbeatState->CurrentParticleSystem;
+    }
+    return OffbeatGetCurrentParticleSystem(OffbeatState);
+}
+
+ob_particle_system*
+OffbeatNextParticleSystem(ob_state* OffbeatState)
+{
+    if((OffbeatState->CurrentParticleSystem + 1) < OffbeatState->ParticleSystemCount)
+    {
+        ++OffbeatState->CurrentParticleSystem;
+    }
+    return OffbeatGetCurrentParticleSystem(OffbeatState);
 }
 
 static ov3
@@ -754,7 +842,7 @@ OffbeatUpdateParticleddP(ob_motion* Motion, ob_particle* Particle)
             Direction = ov3{0.0f, 0.0f, 0.0f};
         } break;
     }
-    Result += Strength * ObNormalize(Direction);
+    Result += Strength * ObNOZ(Direction);
 
     return Result;
 }
@@ -764,6 +852,8 @@ OffbeatUpdateParticleSystem(ob_particle* Particles, ob_particle_system* Particle
 {
     ob_motion* Motion = &ParticleSystem->Motion;
 
+    // TODO(rytis): Should also update the newly spawned particles to avoid visual glitches when
+    // particle lifetime is increased and the emitter is offset from the origin point.
     u32 LastParticleCount = ParticleSystem->ParticleCount - ParticleSpawnCount;
 
     ob_particle* UpdatedParticle = Particles + ParticleSpawnCount;
@@ -837,7 +927,7 @@ OffbeatRenderParticleSystem(ob_draw_list* DrawList, u32* IndexMemory, ob_draw_ve
     *DrawList = {};
     DrawList->Indices = IndexMemory;
     DrawList->Vertices = VertexMemory;
-    DrawList->TextureID = Appearance->TextureID;
+    DrawList->TextureID = OffbeatGlobalData.TextureIDs[Appearance->Texture];
 
     for(u32 ParticleIndex = 0; ParticleIndex < ParticleSystem->ParticleCount; ++ParticleIndex)
     {

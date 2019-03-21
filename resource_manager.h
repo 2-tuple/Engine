@@ -48,6 +48,7 @@ namespace Resource
     file_stat MaterialStats[RESOURCE_MAX_COUNT];
     file_stat SceneStats[RESOURCE_MAX_COUNT];
     file_stat ShaderStats[RESOURCE_MAX_COUNT];
+    file_stat ParticleSystemStats[RESOURCE_MAX_COUNT];
 
     bool LoadModel(rid RID);
     bool LoadTexture(rid RID);
@@ -79,6 +80,7 @@ namespace Resource
     path MaterialPaths[RESOURCE_MAX_COUNT];
     path ShaderPaths[RESOURCE_MAX_COUNT];
     path ScenePaths[RESOURCE_MAX_COUNT];
+    path ParticleSystemPaths[RESOURCE_MAX_COUNT];
 
     int32_t ModelPathCount;
     int32_t TexturePathCount;
@@ -86,6 +88,7 @@ namespace Resource
     int32_t MaterialPathCount;
     int32_t ShaderPathCount;
     int32_t ScenePathCount;
+    int32_t ParticleSystemPathCount;
 
     rid CreateMaterial(material Material, const char* Path);
 

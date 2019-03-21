@@ -449,6 +449,9 @@ namespace Resource
     this->DiffedShaderCount =
       Platform::ReadPaths(this->DiffedShaders, this->ShaderPaths, this->ShaderStats,
                           RESOURCE_MAX_COUNT, &this->ShaderPathCount, "shaders", NULL);
+    // Update scene paths
+    Platform::ReadPaths(this->DiffedMaterials, this->ParticleSystemPaths, this->ParticleSystemStats,
+                        RESOURCE_MAX_COUNT, &this->ParticleSystemPathCount, "data/offbeat", "obp");
   }
 
   void

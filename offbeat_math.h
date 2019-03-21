@@ -295,7 +295,21 @@ ObLength(ov3 A)
 inline ov3
 ObNormalize(ov3 A)
 {
-    ov3 Result = A / ObLength(A);
+    ov3 Result = A * (1.0f / ObLength(A));
+    return Result;
+}
+
+inline ov3
+ObNOZ(ov3 A)
+{
+    ov3 Result = {};
+
+    f32 LengthSq = ObLengthSq(A);
+    if(LengthSq > ObSquare(0.0001f))
+    {
+        Result = ObNormalize(A);
+    }
+
     return Result;
 }
 
@@ -445,7 +459,21 @@ ObLength(ov4 A)
 inline ov4
 ObNormalize(ov4 A)
 {
-    ov4 Result = A / ObLength(A);
+    ov4 Result = A * (1.0f / ObLength(A));
+    return Result;
+}
+
+inline ov4
+ObNOZ(ov4 A)
+{
+    ov4 Result = {};
+
+    f32 LengthSq = ObLengthSq(A);
+    if(LengthSq > ObSquare(0.0001f))
+    {
+        Result = ObNormalize(A);
+    }
+
     return Result;
 }
 

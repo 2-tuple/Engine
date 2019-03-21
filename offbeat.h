@@ -84,10 +84,10 @@ typedef u32 ob_program;
 #define OFFBEAT_PARTICLE_SYSTEM_COUNT 512
 #define OFFBEAT_DRAW_LIST_COUNT OFFBEAT_PARTICLE_SYSTEM_COUNT
 
-struct ob_grid_line
+struct ob_file_data
 {
-    ov3 A;
-    ov3 B;
+    void* Data;
+    u64 Size;
 };
 
 enum ob_texture_type
@@ -259,7 +259,7 @@ struct ob_appearance
     ob_expr_ov4 Color;
     ob_expr_f32 Size;
     // ov3 Scale;
-    ob_texture TextureID;
+    ob_texture_type Texture;
 };
 
 struct ob_history_entry
@@ -353,6 +353,7 @@ struct ob_state
 
     ob_random_series EffectsEntropy;
 
+    // TODO(rytis): Not sure if current particle system is even needed. For now, it seems to be ok?
     u32 CurrentParticleSystem;
     u32 ParticleSystemCount;
     ob_particle_system ParticleSystems[OFFBEAT_PARTICLE_SYSTEM_COUNT];
@@ -375,6 +376,10 @@ OFFBEAT_API ob_state* OffbeatInit();
 OFFBEAT_API ob_particle_system* OffbeatNewParticleSystem(ob_state* OffbeatState);
 OFFBEAT_API u32 OffbeatNewParticleSystem(ob_state* OffbeatState, ob_particle_system** NewParticleSystem);
 OFFBEAT_API void OffbeatRemoveParticleSystem(ob_state* OffbeatState, u32 Index);
+OFFBEAT_API void OffbeatRemoveCurrentParticleSystem(ob_state* OffbeatState);
+OFFBEAT_API ob_particle_system* OffbeatGetCurrentParticleSystem(ob_state* OffbeatState);
+OFFBEAT_API ob_particle_system* OffbeatPreviousParticleSystem(ob_state* OffbeatState);
+OFFBEAT_API ob_particle_system* OffbeatNextParticleSystem(ob_state* OffbeatState);
 OFFBEAT_API ob_texture_type OffbeatGetCurrentTextureType(ob_particle_system* ParticleSystem);
 OFFBEAT_API void OffbeatSetTextureID(ob_particle_system* ParticleSystem, ob_texture_type NewType);
 
@@ -385,3 +390,7 @@ OFFBEAT_API void OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
 OFFBEAT_API ob_draw_data* OffbeatGetDrawData(ob_state* OffbeatState);
 OFFBEAT_API ob_draw_data* OffbeatGetDebugDrawData();
 OFFBEAT_API void OffbeatRenderParticles(ob_state* OffbeatState, float* ViewMatrix, float* ProjectionMatrix);
+
+// NOTE(rytis): Particle system pack/unpack.
+OFFBEAT_API ob_file_data OffbeatPackParticleSystem(ob_state* OffbeatState, u32 ParticleSystemIndex);
+OFFBEAT_API b32 OffbeatUnpackParticleSystem(ob_particle_system* Result, void* PackedMemory);
