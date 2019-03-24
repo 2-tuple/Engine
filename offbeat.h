@@ -115,18 +115,20 @@ enum ob_function
 {
     OFFBEAT_FunctionConst,
     OFFBEAT_FunctionLerp,
-    OFFBEAT_FunctionSin,
-    OFFBEAT_FunctionCos,
-    OFFBEAT_FunctionFloor,
-    OFFBEAT_FunctionRound,
-    OFFBEAT_FunctionCeil,
+    OFFBEAT_FunctionSmoothstep,
+    OFFBEAT_FunctionSquared,
+    OFFBEAT_FunctionCubed,
+    OFFBEAT_FunctionFourth,
+    OFFBEAT_FunctionTriangle,
+    OFFBEAT_FunctionTwoTriangles,
+    OFFBEAT_FunctionFourTriangles,
+    OFFBEAT_FunctionPeriodic,
 
     OFFBEAT_FunctionCount,
 };
 
 enum ob_parameter
 {
-    OFFBEAT_ParameterGlobalTime,
     OFFBEAT_ParameterAge,
     OFFBEAT_ParameterRandom,
     OFFBEAT_ParameterCameraDistance,
@@ -135,29 +137,18 @@ enum ob_parameter
     OFFBEAT_ParameterCount,
 };
 
-struct ob_expr_f32
-{
-    ob_function Function;
-    ob_parameter Parameter;
-    f32 Low;
-    f32 High;
-};
+#define ob_expr(type) ob_expr_##type\
+{\
+    ob_function Function;\
+    ob_parameter Parameter;\
+    f32 Frequency;\
+    type Low;\
+    type High;\
+}
 
-struct ob_expr_ov3
-{
-    ob_function Function;
-    ob_parameter Parameter;
-    ov3 Low;
-    ov3 High;
-};
-
-struct ob_expr_ov4
-{
-    ob_function Function;
-    ob_parameter Parameter;
-    ov4 Low;
-    ov4 High;
-};
+struct ob_expr(f32);
+struct ob_expr(ov3);
+struct ob_expr(ov4);
 
 enum ob_emission_shape_type
 {
@@ -217,7 +208,7 @@ struct ob_emission
 {
     ov3 Location;
     f32 EmissionRate;
-    f32 ParticleLifetime;
+    ob_expr_f32 ParticleLifetime;
     ob_emission_shape Shape;
 
     f32 InitialVelocityScale;
@@ -277,9 +268,11 @@ struct ob_particle_system
     ob_motion Motion;
     ob_appearance Appearance;
 
+    u32 ParticleSpawnCount;
     u32 ParticleCount;
     ob_particle* Particles;
 
+    u32 MaxParticleCount;
     u32 HistoryEntryCount;
     ob_history_entry* History;
 };
@@ -343,6 +336,7 @@ struct ob_state
     ob_program RenderProgramID;
 
     u64 CycleCount;
+    f32 MilisecondCount;
 
     ob_quad_data QuadData;
     ov3 CameraPosition;
@@ -353,7 +347,7 @@ struct ob_state
 
     ob_random_series EffectsEntropy;
 
-    // TODO(rytis): Not sure if current particle system is even needed. For now, it seems to be ok?
+    // TODO(rytis): Not sure if CurrentParticleSystem is even needed. For now, it seems to be ok?
     u32 CurrentParticleSystem;
     u32 ParticleSystemCount;
     ob_particle_system ParticleSystems[OFFBEAT_PARTICLE_SYSTEM_COUNT];

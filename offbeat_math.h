@@ -6,6 +6,7 @@
 #define PI 3.1415926535f
 
 #define ObMin(A, B) ((A) < (B) ? (A) : (B))
+#define ObMax(A, B) ((A) > (B) ? (A) : (B))
 
 // NOTE(rytis): Linear types
 
@@ -534,8 +535,11 @@ ObRotationAlign(ov3 Start, ov3 Destination)
         return ObIdentity();
     }
 
+    // IMPORTANT(rytis): We assume that Start and Destination are normalized already.
+#if 0
     Start = ObNormalize(Start);
     Destination = ObNormalize(Destination);
+#endif
 
     ov3 Axis = ObCross(Start, Destination);
     f32 CosTheta = ObInner(Start, Destination);

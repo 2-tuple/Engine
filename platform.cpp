@@ -483,16 +483,17 @@ main(int argc, char* argv[])
   ProcessInput(&OldInput, &NewInput, &Event, Window);
   OldInput = NewInput;
 
-  float LastFrameStart = Platform::GetTimeInSeconds();
+  Platform::InitPerformanceFrequency();
+  int64_t LastFrameStart = Platform::GetCurrentCounter();
   while(true)
   {
-    float CurrentFrameStart = Platform::GetTimeInSeconds();
+    int64_t CurrentFrameStart = Platform::GetCurrentCounter();
 
     if(!ProcessInput(&OldInput, &NewInput, &Event, Window))
     {
       break;
     }
-    NewInput.dt = CurrentFrameStart - LastFrameStart;
+    NewInput.dt = Platform::GetTimeInSeconds(LastFrameStart, CurrentFrameStart);
     if(NewInput.LeftCtrl.EndedDown)
     {
       NewInput.dt *= SLOW_MOTION_COEFFICIENT;

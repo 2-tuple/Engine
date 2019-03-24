@@ -31,15 +31,17 @@ static char* g_TextureStrings[OFFBEAT_TextureCount] = {
 static char* g_FunctionStrings[OFFBEAT_FunctionCount] = {
     "Const",
     "Lerp",
-    "Sin",
-    "Cos",
-    "Floor",
-    "Round",
-    "Ceil",
+    "Smoothstep",
+    "Squared",
+    "Cubed",
+    "Fourth",
+    "Triangle",
+    "Two Triangles",
+    "Four Triangles",
+    "Periodic",
 };
 
 static char* g_ParameterStrings[OFFBEAT_ParameterCount] = {
-    "GlobalTime",
     "Age",
     "Random",
     "CameraDistance",
@@ -102,6 +104,7 @@ OffbeatDragOV4(const char* Label, ov4* Value, float MinValue, float MaxValue, fl
 {\
     char FunctionName[50];\
     char ParameterName[50];\
+    char FreqName[50];\
     char LowName[50];\
     char HighName[50];\
 \
@@ -109,6 +112,8 @@ OffbeatDragOV4(const char* Label, ov4* Value, float MinValue, float MaxValue, fl
     strcat(FunctionName, " Function");\
     strcpy(ParameterName, Name);\
     strcat(ParameterName, " Parameter");\
+    strcpy(FreqName, Name);\
+    strcat(FreqName, " Frequency");\
     strcpy(LowName, Name);\
     strcat(LowName, " Low");\
     strcpy(HighName, Name);\
@@ -117,7 +122,7 @@ OffbeatDragOV4(const char* Label, ov4* Value, float MinValue, float MaxValue, fl
     if(UI::CollapsingHeader(Name, Header))\
     {\
         UI::Combo(FunctionName, (int*)&Expression->Function, g_FunctionStrings, OFFBEAT_FunctionCount, UI::StringArrayToString);\
-    \
+\
         if(Expression->Function == OFFBEAT_FunctionConst)\
         {\
             if(MinZero)\
@@ -131,8 +136,15 @@ OffbeatDragOV4(const char* Label, ov4* Value, float MinValue, float MaxValue, fl
         }\
         else\
         {\
-            UI::Combo(ParameterName, (int*)&Expression->Parameter, g_ParameterStrings, OFFBEAT_ParameterCount, UI::StringArrayToString);\
-    \
+            if(Expression->Function == OFFBEAT_FunctionPeriodic)\
+            {\
+                OffbeatDragF32(FreqName, &Expression->Frequency, -INFINITY, INFINITY, 5.0f);\
+            }\
+            else\
+            {\
+                UI::Combo(ParameterName, (int*)&Expression->Parameter, g_ParameterStrings, OFFBEAT_ParameterCount, UI::StringArrayToString);\
+            }\
+\
             if(MinZero)\
             {\
                 OffbeatDrag##Type(LowName, &Expression->Low, 0.0f, INFINITY, 5.0f);\
@@ -225,6 +237,7 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
                 if(UI::Button("Load"))
                 {
                     OffbeatImportParticleSystem(GameState, OffbeatState, GameState->Resources.ParticleSystemPaths[SelectedParticleSystemIndex].Name);
+                    ParticleSystem = OffbeatGetCurrentParticleSystem(OffbeatState);
                 }
                 UI::SameLine();
                 UI::Combo("Load Path", &SelectedParticleSystemIndex, GameState->Resources.ParticleSystemPaths, GameState->Resources.ParticleSystemPathCount, OffbeatGUIPathArrayToString);
@@ -236,7 +249,9 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
         {
             UI::DragFloat3("Location", ParticleSystem->Emission.Location.E, -INFINITY, INFINITY, 10.0f);
             UI::DragFloat("Emission Rate", &ParticleSystem->Emission.EmissionRate, 0.0f, INFINITY, 500.0f);
-            UI::DragFloat("Particle Lifetime", &ParticleSystem->Emission.ParticleLifetime, 0.0f, INFINITY, 5.0f);
+            static bool s_OffbeatEmissionLifetime = false;
+            OffbeatGUIExpressionF32("Particle Lifetime", &ParticleSystem->Emission.ParticleLifetime,
+                                    &s_OffbeatEmissionLifetime, true);
 
             ob_emission_shape_type* CurrentShapeType = &ParticleSystem->Emission.Shape.Type;
             UI::Combo("Emission Shape", (int*)CurrentShapeType, g_EmissionShapeStrings, OFFBEAT_EmissionCount, UI::StringArrayToString);
@@ -296,7 +311,7 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
                 {
                     static bool s_OffbeatMotionStrength = false;
                     UI::DragFloat3("Position", ParticleSystem->Motion.Line.Position.E, -INFINITY, INFINITY, 10.0f);
-                    UI::DragFloat3("Direction", ParticleSystem->Motion.Line.Position.E, -INFINITY, INFINITY, 10.0f);
+                    UI::DragFloat3("Direction", ParticleSystem->Motion.Line.Direction.E, -INFINITY, INFINITY, 10.0f);
                 } break;
             }
         }
@@ -327,15 +342,29 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
             }
 
             u64 CycleCount = OffbeatState->CycleCount;
-            f32 CyclesPerParticle = TotalParticleCount ? CycleCount / (float)TotalParticleCount : 0.0f;
-
-            char CountBuffer[50];
-            sprintf(CountBuffer, "Cycles: %llu", CycleCount);
-            UI::Text(CountBuffer);
+            f32 CyclesPerParticle = TotalParticleCount ? CycleCount / (f32)TotalParticleCount : 0.0f;
+            f32 MSCount = OffbeatState->MilisecondCount;
+            f32 ParticlesPerMS = (MSCount > 0.0f) ? ((f32)TotalParticleCount / MSCount) : 0.0f;
 
             char ParticleBuffer[50];
             sprintf(ParticleBuffer, "Particles: %llu", TotalParticleCount);
             UI::Text(ParticleBuffer);
+
+            char TimeBuffer[50];
+            sprintf(TimeBuffer, "%.2f s", OffbeatState->t);
+            UI::Text(TimeBuffer);
+
+            char MSBuffer[50];
+            sprintf(MSBuffer, "%.3f ms", MSCount);
+            UI::Text(MSBuffer);
+
+            char ParticlesPerMSBuffer[50];
+            sprintf(ParticlesPerMSBuffer, "%d particles/ms", (s32)ParticlesPerMS);
+            UI::Text(ParticlesPerMSBuffer);
+
+            char CountBuffer[50];
+            sprintf(CountBuffer, "Cycles: %llu", CycleCount);
+            UI::Text(CountBuffer);
 
             char PerParticleBuffer[50];
             sprintf(PerParticleBuffer, "%.2f cycles/particle", CyclesPerParticle);

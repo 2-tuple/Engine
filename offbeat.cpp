@@ -1,3 +1,5 @@
+// TODO(rytis): Remove this.
+#include "common.h"
 #include "offbeat.h"
 
 // Windows perf counter header
@@ -388,38 +390,18 @@ OffbeatUnpackParticleSystem(ob_particle_system* Result, void* PackedMemory)
     return true;
 }
 
-static f32
-EvaluateParameter(ob_parameter Parameter, ob_particle* Particle)
-{
-    f32 Result;
+static f32 EvaluateParameter(ob_parameter Parameter, ob_particle_system* ParticleSystem, ob_particle* Particle);
 
-    switch(Parameter)
-    {
-        case OFFBEAT_ParameterGlobalTime:
-        {
-            Result = *OffbeatGlobalData.t;
-        } break;
-
-        case OFFBEAT_ParameterAge:
-        case OFFBEAT_ParameterRandom:
-        case OFFBEAT_ParameterCameraDistance:
-        case OFFBEAT_ParameterID:
-        {
-            Result = *(f32*)((u8*)Particle + OffbeatGlobalData.ParameterOffsets[Parameter]);
-        } break;
-
-        default:
-        {
-            Result = 0.0f;
-        } break;
-    }
-
-    return Result;
-}
-
-#define OffbeatEvaluateExpression_(type) type OffbeatEvaluateExpression(ob_expr_##type* Expr, ob_particle* Particle)\
+#define OffbeatEvaluateExpression_(type) type OffbeatEvaluateExpression(ob_expr_##type* Expr, ob_particle_system* ParticleSystem, ob_particle* Particle = 0)\
 {\
-    f32 Param = EvaluateParameter(Expr->Parameter, Particle);\
+    if(Expr->Function == OFFBEAT_FunctionPeriodic)\
+    {\
+        return ObLerp(Expr->Low,\
+                      0.5f * (ObSin(2.0f * PI * Expr->Frequency * (*OffbeatGlobalData.t)) + 1.0f),\
+                      Expr->High);\
+    }\
+\
+    f32 Param = ObClamp01(EvaluateParameter(Expr->Parameter, ParticleSystem, Particle));\
     switch(Expr->Function)\
     {\
         case OFFBEAT_FunctionConst:\
@@ -429,37 +411,45 @@ EvaluateParameter(ob_parameter Parameter, ob_particle* Particle)
 \
         case OFFBEAT_FunctionLerp:\
         {\
-            return ObLerp(Expr->Low, ObClamp01(Param), Expr->High);\
         } break;\
 \
-        case OFFBEAT_FunctionSin:\
+        case OFFBEAT_FunctionSmoothstep:\
         {\
-            f32 Sin01 = 0.5f * (ObSin(2.0f * PI * Param) + 1.0f);\
-            return ObLerp(Expr->Low, Sin01, Expr->High);\
+            Param = Param * Param * (3.0f - 2.0f * Param);\
         } break;\
 \
-        case OFFBEAT_FunctionCos:\
+        case OFFBEAT_FunctionSquared:\
         {\
-            f32 Cos01 = 0.5f * (ObCos(2.0f * PI * Param) + 1.0f);\
-            return ObLerp(Expr->Low, Cos01, Expr->High);\
+            Param *= Param;\
         } break;\
 \
-        case OFFBEAT_FunctionFloor:\
+        case OFFBEAT_FunctionCubed:\
         {\
-            f32 Floor = ObFloor(Param);\
-            return ObLerp(Expr->Low, ObClamp01(Floor), Expr->High);\
+            Param = Param * Param * Param;\
         } break;\
 \
-        case OFFBEAT_FunctionRound:\
+        case OFFBEAT_FunctionFourth:\
         {\
-            f32 Round = ObRound(Param);\
-            return ObLerp(Expr->Low, ObClamp01(Round), Expr->High);\
+            Param *= Param;\
+            Param *= Param;\
         } break;\
 \
-        case OFFBEAT_FunctionCeil:\
+        case OFFBEAT_FunctionTriangle:\
         {\
-            f32 Ceil = ObCeil(Param);\
-            return ObLerp(Expr->Low, ObClamp01(Ceil), Expr->High);\
+            Param = 1.0f - ObAbsoluteValue(2.0f * Param - 1.0f);\
+        } break;\
+\
+        case OFFBEAT_FunctionTwoTriangles:\
+        {\
+            Param = 1.0f - ObAbsoluteValue(2.0f * Param - 1.0f);\
+            Param = 1.0f - ObAbsoluteValue(2.0f * Param - 1.0f);\
+        } break;\
+\
+        case OFFBEAT_FunctionFourTriangles:\
+        {\
+            Param = 1.0f - ObAbsoluteValue(2.0f * Param - 1.0f);\
+            Param = 1.0f - ObAbsoluteValue(2.0f * Param - 1.0f);\
+            Param = 1.0f - ObAbsoluteValue(2.0f * Param - 1.0f);\
         } break;\
 \
         default:\
@@ -467,11 +457,46 @@ EvaluateParameter(ob_parameter Parameter, ob_particle* Particle)
             return type{};\
         } break;\
     }\
+    return ObLerp(Expr->Low, Param, Expr->High);\
 }
 
 static OffbeatEvaluateExpression_(f32);
 static OffbeatEvaluateExpression_(ov3);
 static OffbeatEvaluateExpression_(ov4);
+
+static f32
+EvaluateParameter(ob_parameter Parameter, ob_particle_system* ParticleSystem, ob_particle* Particle)
+{
+    f32 Result = 0.0f;
+
+    if(!Particle)
+    {
+        return Result;
+    }
+
+    switch(Parameter)
+    {
+        case OFFBEAT_ParameterAge:
+        {
+            Result = *(f32*)((u8*)Particle + OffbeatGlobalData.ParameterOffsets[Parameter]);
+            // TODO(rytis): Handle the case of ParameterAge as a parameter for ParticleLifetime.
+            Result /= OffbeatEvaluateExpression(&ParticleSystem->Emission.ParticleLifetime, ParticleSystem);
+        } break;
+
+        case OFFBEAT_ParameterRandom:
+        case OFFBEAT_ParameterCameraDistance:
+        case OFFBEAT_ParameterID:
+        {
+            Result = *(f32*)((u8*)Particle + OffbeatGlobalData.ParameterOffsets[Parameter]);
+        } break;
+
+        default:
+        {
+        } break;
+    }
+
+    return Result;
+}
 
 ob_state*
 OffbeatInit(void* Memory, u64 MemorySize)
@@ -582,11 +607,10 @@ OffbeatInit(void* Memory, u64 MemorySize)
 
     // NOTE(rytis): Offbeat parameter offset init.
     {
-        OffbeatGlobalData.ParameterOffsets[0] = 0;
-        OffbeatGlobalData.ParameterOffsets[1] = OffbeatOffsetOf(ob_particle, Age);
-        OffbeatGlobalData.ParameterOffsets[2] = OffbeatOffsetOf(ob_particle, Random);
-        OffbeatGlobalData.ParameterOffsets[3] = OffbeatOffsetOf(ob_particle, CameraDistance);
-        OffbeatGlobalData.ParameterOffsets[4] = OffbeatOffsetOf(ob_particle, ID);
+        OffbeatGlobalData.ParameterOffsets[0] = OffbeatOffsetOf(ob_particle, Age);
+        OffbeatGlobalData.ParameterOffsets[1] = OffbeatOffsetOf(ob_particle, Random);
+        OffbeatGlobalData.ParameterOffsets[2] = OffbeatOffsetOf(ob_particle, CameraDistance);
+        OffbeatGlobalData.ParameterOffsets[3] = OffbeatOffsetOf(ob_particle, ID);
     }
 
     // NOTE(rytis): OffbeatState init.
@@ -601,7 +625,8 @@ OffbeatInit(void* Memory, u64 MemorySize)
         ob_emission TestEmission = {};
         TestEmission.Location = ov3{0.0f, 0.0f, 0.0f};
         TestEmission.EmissionRate = 60.0f;
-        TestEmission.ParticleLifetime = 1.5f;
+        TestEmission.ParticleLifetime.Function = OFFBEAT_FunctionConst;
+        TestEmission.ParticleLifetime.High = 1.5f;
 
         TestEmission.Shape.Type = OFFBEAT_EmissionRing;
         TestEmission.Shape.Ring.Radius = 0.5f;
@@ -719,6 +744,82 @@ OffbeatNextParticleSystem(ob_state* OffbeatState)
     return OffbeatGetCurrentParticleSystem(OffbeatState);
 }
 
+static void
+OffbeatUpdateSystemRotationsAndNormalize(ob_particle_system* ParticleSystem)
+{
+    ob_emission* Emission = &ParticleSystem->Emission;
+    ob_motion* Motion = &ParticleSystem->Motion;
+    ov3 Z = ov3{0.0f, 0.0f, 1.0f};
+
+    switch(Emission->Shape.Type)
+    {
+        case OFFBEAT_EmissionRing:
+        {
+            Emission->Shape.Ring.Normal = ObNOZ(Emission->Shape.Ring.Normal);
+            Emission->Shape.Ring.Rotation = ObRotationAlign(Z, Emission->Shape.Ring.Normal);
+        } break;
+    }
+
+    switch(Emission->Velocity.Type)
+    {
+        case OFFBEAT_VelocityCone:
+        {
+            Emission->Velocity.Cone.Direction = ObNOZ(Emission->Velocity.Cone.Direction);
+            Emission->Velocity.Cone.Rotation = ObRotationAlign(Z, Emission->Velocity.Cone.Direction);
+        } break;
+    }
+
+    switch(Motion->Primitive)
+    {
+        case OFFBEAT_MotionLine:
+        {
+            Motion->Line.Direction = ObNOZ(Motion->Line.Direction);
+        } break;
+    }
+}
+
+static void
+OffbeatUpdateParticleCount(ob_history_entry* History, ob_particle_system* ParticleSystem, f32 t, f32 dt)
+{
+    ob_emission* Emission = &ParticleSystem->Emission;
+
+    ParticleSystem->t += dt;
+    ParticleSystem->tSpawn += dt;
+
+    f32 TimePerParticle = Emission->EmissionRate > 0.0f ? 1.0f / Emission->EmissionRate : 0.0f;
+    f32 RealParticleSpawn =  ParticleSystem->tSpawn * Emission->EmissionRate;
+    OffbeatAssert(RealParticleSpawn >= 0.0f);
+
+    u32 ParticleSpawnCount = TruncateF32ToU32(RealParticleSpawn);
+    ParticleSystem->tSpawn -= ParticleSpawnCount * TimePerParticle;
+    ParticleSystem->ParticleCount += ParticleSpawnCount;
+    ParticleSystem->MaxParticleCount += ParticleSpawnCount;
+
+    f32 MaxLifetime = ObMax(ParticleSystem->Emission.ParticleLifetime.Low, ParticleSystem->Emission.ParticleLifetime.High) + dt;
+    f32 MinTimeElapsed = ObClamp(0.0f, t - MaxLifetime, t);
+    u32 NewHistoryEntryCount = 0;
+    for(u32 HistoryIndex = 0; HistoryIndex < ParticleSystem->HistoryEntryCount; ++HistoryIndex)
+    {
+        ob_history_entry* HistoryEntry = ParticleSystem->History + HistoryIndex;
+        if(HistoryEntry->TimeElapsed < MinTimeElapsed)
+        {
+            ParticleSystem->MaxParticleCount -= HistoryEntry->ParticlesEmitted;
+        }
+        else
+        {
+            History[NewHistoryEntryCount++] = *HistoryEntry;
+        }
+    }
+
+    History[NewHistoryEntryCount].TimeElapsed = t;
+    History[NewHistoryEntryCount].ParticlesEmitted = ParticleSpawnCount;
+    ++NewHistoryEntryCount;
+
+    ParticleSystem->ParticleSpawnCount = ParticleSpawnCount;
+    ParticleSystem->HistoryEntryCount = NewHistoryEntryCount;
+    ParticleSystem->History = History;
+}
+
 static ov3
 OffbeatParticleInitialPosition(ob_random_series* Entropy, ob_emission* Emission)
 {
@@ -796,13 +897,13 @@ OffbeatParticleInitialVelocity(ob_random_series* Entropy, ob_emission* Emission)
 }
 
 static void
-OffbeatSpawnParticles(ob_particle* Particles, ob_particle_system* ParticleSystem, ob_random_series* Entropy, f32 dt, u32 ParticleSpawnCount, ov3* CameraPosition, u32* RunningParticleID)
+OffbeatSpawnParticles(ob_particle* Particles, ob_particle_system* ParticleSystem, ob_random_series* Entropy, f32 dt, ov3* CameraPosition, u32* RunningParticleID)
 {
     ob_emission* Emission = &ParticleSystem->Emission;
 
-    for(u32 ParticleSpawnIndex = 0; ParticleSpawnIndex < ParticleSpawnCount; ++ParticleSpawnIndex)
+    for(u32 ParticleIndex = 0; ParticleIndex < ParticleSystem->ParticleSpawnCount; ++ParticleIndex)
     {
-        ob_particle* Particle = Particles + ParticleSpawnIndex;
+        ob_particle* Particle = Particles + ParticleIndex;
 
         Particle->P = OffbeatParticleInitialPosition(Entropy, Emission);
         Particle->dP = OffbeatParticleInitialVelocity(Entropy, Emission);
@@ -815,12 +916,13 @@ OffbeatSpawnParticles(ob_particle* Particles, ob_particle_system* ParticleSystem
 }
 
 static ov3
-OffbeatUpdateParticleddP(ob_motion* Motion, ob_particle* Particle)
+OffbeatUpdateParticleddP(ob_particle_system* ParticleSystem, ob_particle* Particle)
 {
+    ob_motion* Motion = &ParticleSystem->Motion;
     f32 LengthSq = ObLengthSq(Particle->dP);
     ov3 Drag = Motion->Drag * LengthSq * ObNormalize(-Particle->dP);
     ov3 Result = Motion->Gravity + Drag;
-    f32 Strength = OffbeatEvaluateExpression(&Motion->Strength, Particle);
+    f32 Strength = OffbeatEvaluateExpression(&Motion->Strength, ParticleSystem, Particle);
     ov3 Direction;
     switch(Motion->Primitive)
     {
@@ -848,29 +950,28 @@ OffbeatUpdateParticleddP(ob_motion* Motion, ob_particle* Particle)
 }
 
 static void
-OffbeatUpdateParticleSystem(ob_particle* Particles, ob_particle_system* ParticleSystem, f32 dt, u32 ParticleSpawnCount, ov3* CameraPosition)
+OffbeatUpdateParticleSystem(ob_particle* Particles, ob_particle_system* ParticleSystem, f32 dt, ov3* CameraPosition)
 {
     ob_motion* Motion = &ParticleSystem->Motion;
 
-    // TODO(rytis): Should also update the newly spawned particles to avoid visual glitches when
-    // particle lifetime is increased and the emitter is offset from the origin point.
-    u32 LastParticleCount = ParticleSystem->ParticleCount - ParticleSpawnCount;
+    u32 OldParticleCount = ParticleSystem->ParticleCount - ParticleSystem->ParticleSpawnCount;
 
-    ob_particle* UpdatedParticle = Particles + ParticleSpawnCount;
-    for(u32 ParticleIndex = 0; ParticleIndex < LastParticleCount; ++ParticleIndex)
+    ob_particle* UpdatedParticle = Particles + ParticleSystem->ParticleSpawnCount;
+    for(u32 ParticleIndex = 0; ParticleIndex < OldParticleCount; ++ParticleIndex)
     {
-        ob_particle* LastParticle = ParticleSystem->Particles + ParticleIndex;
+        ob_particle* OldParticle = ParticleSystem->Particles + ParticleIndex;
 
-        if(LastParticle->Age >= 1.0f)
+        OldParticle->Age += dt;
+        f32 Lifetime = OffbeatEvaluateExpression(&ParticleSystem->Emission.ParticleLifetime, ParticleSystem, OldParticle);
+        if(OldParticle->Age >= Lifetime)
         {
+            --ParticleSystem->ParticleCount;
             continue;
         }
 
-        *UpdatedParticle = *LastParticle;
+        *UpdatedParticle = *OldParticle;
 
-        UpdatedParticle->Age += dt / ParticleSystem->Emission.ParticleLifetime;
-
-        ov3 ddP = OffbeatUpdateParticleddP(Motion, UpdatedParticle);
+        ov3 ddP = OffbeatUpdateParticleddP(ParticleSystem, UpdatedParticle);
 
         UpdatedParticle->P += 0.5f * ObSquare(dt) * ddP + dt * UpdatedParticle->dP;
         UpdatedParticle->dP += dt * ddP;
@@ -878,13 +979,15 @@ OffbeatUpdateParticleSystem(ob_particle* Particles, ob_particle_system* Particle
         ++UpdatedParticle;
     }
 
+    OffbeatAssert(ParticleSystem->ParticleCount <= ParticleSystem->MaxParticleCount);
+
     ParticleSystem->Particles = Particles;
 }
 
 static void
-OffbeatConstructQuad(ob_draw_list* DrawList, ob_quad_data* QuadData, ob_appearance* Appearance, ob_particle* Particle)
+OffbeatConstructQuad(ob_draw_list* DrawList, ob_quad_data* QuadData, ob_particle_system* ParticleSystem, ob_particle* Particle)
 {
-    f32 Size = OffbeatEvaluateExpression(&Appearance->Size, Particle);
+    f32 Size = OffbeatEvaluateExpression(&ParticleSystem->Appearance.Size, ParticleSystem, Particle);
     // NOTE(rytis): Vertices (facing the camera plane)
     ov3 BottomLeft = Particle->P + 0.5f * Size * (-QuadData->Horizontal - QuadData->Vertical);
     ov3 BottomRight = Particle->P + 0.5f * Size * (QuadData->Horizontal - QuadData->Vertical);
@@ -897,7 +1000,7 @@ OffbeatConstructQuad(ob_draw_list* DrawList, ob_quad_data* QuadData, ob_appearan
     ov2 TopRightUV = ov2{1.0f, 1.0f};
     ov2 TopLeftUV = ov2{0.0f, 1.0f};
 
-    ov4 Color = OffbeatEvaluateExpression(&Appearance->Color, Particle);
+    ov4 Color = OffbeatEvaluateExpression(&ParticleSystem->Appearance.Color, ParticleSystem, Particle);
 
     u32 VertexIndex = DrawList->VertexCount;
     // NOTE(rytis): Updating draw list vertex array
@@ -933,70 +1036,7 @@ OffbeatRenderParticleSystem(ob_draw_list* DrawList, u32* IndexMemory, ob_draw_ve
     {
         ob_particle* Particle = ParticleSystem->Particles + ParticleIndex;
 
-        OffbeatConstructQuad(DrawList, QuadData, Appearance, Particle);
-    }
-}
-
-static u32
-OffbeatUpdateParticleCount(ob_history_entry* History, ob_particle_system* ParticleSystem, f32 t, f32 dt)
-{
-    ob_emission* Emission = &ParticleSystem->Emission;
-
-    ParticleSystem->t += dt;
-    ParticleSystem->tSpawn += dt;
-
-    f32 TimePerParticle = Emission->EmissionRate > 0.0f ? 1.0f / Emission->EmissionRate : 0.0f;
-    f32 RealParticleSpawn =  ParticleSystem->tSpawn * Emission->EmissionRate;
-    OffbeatAssert(RealParticleSpawn >= 0.0f);
-
-    u32 ParticleSpawnCount = TruncateF32ToU32(RealParticleSpawn);
-    ParticleSystem->tSpawn -= ParticleSpawnCount * TimePerParticle;
-    ParticleSystem->ParticleCount += ParticleSpawnCount;
-
-    f32 MinTimeElapsed = ObClamp(0.0f, t - ParticleSystem->Emission.ParticleLifetime, t);
-    u32 NewHistoryEntryCount = 0;
-    for(u32 HistoryIndex = 0; HistoryIndex < ParticleSystem->HistoryEntryCount; ++HistoryIndex)
-    {
-        ob_history_entry* HistoryEntry = ParticleSystem->History + HistoryIndex;
-        if(HistoryEntry->TimeElapsed < MinTimeElapsed)
-        {
-            ParticleSystem->ParticleCount -= HistoryEntry->ParticlesEmitted;
-        }
-        else
-        {
-            History[NewHistoryEntryCount++] = *HistoryEntry;
-        }
-    }
-
-    History[NewHistoryEntryCount].TimeElapsed = t;
-    History[NewHistoryEntryCount++].ParticlesEmitted = ParticleSpawnCount;
-
-    ParticleSystem->HistoryEntryCount = NewHistoryEntryCount;
-    ParticleSystem->History = History;
-
-    return ParticleSpawnCount;
-}
-
-static void
-OffbeatUpdateSystemRotations(ob_particle_system* ParticleSystem)
-{
-    ob_emission* Emission = &ParticleSystem->Emission;
-    ov3 Z = ov3{0.0f, 0.0f, 1.0f};
-
-    switch(Emission->Shape.Type)
-    {
-        case OFFBEAT_EmissionRing:
-        {
-            Emission->Shape.Ring.Rotation = ObRotationAlign(Z, Emission->Shape.Ring.Normal);
-        } break;
-    }
-
-    switch(Emission->Velocity.Type)
-    {
-        case OFFBEAT_VelocityCone:
-        {
-            Emission->Velocity.Cone.Rotation = ObRotationAlign(Z, Emission->Velocity.Cone.Direction);
-        } break;
+        OffbeatConstructQuad(DrawList, QuadData, ParticleSystem, Particle);
     }
 }
 
@@ -1004,6 +1044,8 @@ void
 OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
 {
     u64 StartCycleCount = __rdtsc();
+    // TODO(rytis): Remove this.
+    int64_t StartSecondCount = Platform::GetCurrentCounter();
     {
         OffbeatState->dt = dt;
         OffbeatState->t += OffbeatState->dt;
@@ -1028,15 +1070,14 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
     {
         ob_particle_system* ParticleSystem = &OffbeatState->ParticleSystems[i];
 
-        OffbeatUpdateSystemRotations(ParticleSystem);
+        OffbeatUpdateSystemRotationsAndNormalize(ParticleSystem);
 
         ob_history_entry* History =
             (ob_history_entry*)OffbeatAllocateMemory(&OffbeatState->MemoryManager,
                                                      (ParticleSystem->HistoryEntryCount + 1) *
                                                      sizeof(ob_history_entry));
 
-        u32 ParticleSpawnCount =
-            OffbeatUpdateParticleCount(History, ParticleSystem, OffbeatState->t, OffbeatState->dt);
+        OffbeatUpdateParticleCount(History, ParticleSystem, OffbeatState->t, OffbeatState->dt);
 
 #ifdef OFFBEAT_DEBUG
         OffbeatGlobalData.CurrentParticleSystem = i;
@@ -1044,22 +1085,22 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
         OffbeatGlobalData.DebugDrawData.DrawLists[i].TextureID = OffbeatGlobalData.TextureIDs[OFFBEAT_TextureSquare];
         OffbeatGlobalData.DebugDrawData.DrawLists[i].Indices =
             (u32*)OffbeatAllocateMemory(&OffbeatState->MemoryManager,
-                                        (ParticleSpawnCount + 1) *
+                                        (ParticleSystem->ParticleSpawnCount + 1) *
                                         sizeof(u32) * 6);
         OffbeatGlobalData.DebugDrawData.DrawLists[i].Vertices =
             (ob_draw_vertex*)OffbeatAllocateMemory(&OffbeatState->MemoryManager,
-                                                   (ParticleSpawnCount + 1) *
+                                                   (ParticleSystem->ParticleSpawnCount + 1) *
                                                    sizeof(ob_draw_vertex) * 4);
 #endif
 
         ob_particle* Particles =
             (ob_particle*)OffbeatAllocateMemory(&OffbeatState->MemoryManager,
-                                                ParticleSystem->ParticleCount *
+                                                ParticleSystem->MaxParticleCount *
                                                 sizeof(ob_particle));
         OffbeatSpawnParticles(Particles, ParticleSystem, &OffbeatState->EffectsEntropy,
-                              OffbeatState->dt, ParticleSpawnCount, &OffbeatState->CameraPosition,
+                              OffbeatState->dt, &OffbeatState->CameraPosition,
                               &OffbeatState->RunningParticleID);
-        OffbeatUpdateParticleSystem(Particles, ParticleSystem, OffbeatState->dt, ParticleSpawnCount,
+        OffbeatUpdateParticleSystem(Particles, ParticleSystem, OffbeatState->dt,
                                     &OffbeatState->CameraPosition);
 
         u32* IndexMemory =
@@ -1077,6 +1118,9 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
     }
 
     OffbeatState->CycleCount = __rdtsc() - StartCycleCount;
+    // TODO(rytis): Remove this.
+    int64_t EndSecondCount = Platform::GetCurrentCounter();
+    OffbeatState->MilisecondCount = 1000.0f * Platform::GetTimeInSeconds(StartSecondCount, EndSecondCount);
 }
 
 ob_draw_data*

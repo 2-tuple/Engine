@@ -97,7 +97,10 @@ struct game_memory
 
 namespace Platform
 {
+  void InitPerformanceFrequency();
+  int64_t GetCurrentCounter();
   float GetTimeInSeconds();
+  float GetTimeInSeconds(int64_t Start, int64_t End);
   void  SetHighDPIAwareness();
 }
 
