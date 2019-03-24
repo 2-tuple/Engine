@@ -104,11 +104,12 @@ enum ob_texture_type
 struct ob_particle
 {
     ov3 P;
-    ov3 dP;
     f32 Age;
+    ov3 dP;
+    f32 ID;
     f32 Random;
     f32 CameraDistance;
-    u32 ID;
+    f32 Padding[2];
 };
 
 enum ob_function
@@ -137,20 +138,18 @@ enum ob_parameter
     OFFBEAT_ParameterCount,
 };
 
-#define ob_expr(type) ob_expr_##type\
-{\
-    ob_function Function;\
-    ob_parameter Parameter;\
-    f32 Frequency;\
-    type Low;\
-    type High;\
-}
+// TODO(rytis): Use this for packing???
+struct ob_expr
+{
+    ob_function Function;
+    ob_parameter Parameter;
+    f32 Frequency;
+    f32 Padding;
+    ov4 Low;
+    ov4 High;
+};
 
-struct ob_expr(f32);
-struct ob_expr(ov3);
-struct ob_expr(ov4);
-
-enum ob_emission_shape_type
+enum ob_emission_shape
 {
     OFFBEAT_EmissionPoint,
     OFFBEAT_EmissionRing,
@@ -158,26 +157,7 @@ enum ob_emission_shape_type
     OFFBEAT_EmissionCount,
 };
 
-struct ob_emission_shape
-{
-    ob_emission_shape_type Type;
-
-    union
-    {
-        struct
-        {
-        } Point;
-
-        struct
-        {
-            f32 Radius;
-            ov3 Normal;
-            om3 Rotation;
-        } Ring;
-    };
-};
-
-enum ob_emission_velocity_type
+enum ob_emission_velocity
 {
     OFFBEAT_VelocityCone,
     OFFBEAT_VelocityRandom,
@@ -185,34 +165,24 @@ enum ob_emission_velocity_type
     OFFBEAT_VelocityCount,
 };
 
-struct ob_emission_velocity
-{
-    ob_emission_velocity_type Type;
-    union
-    {
-        struct
-        {
-            ov3 Direction;
-            f32 Height;
-            f32 Radius;
-            om3 Rotation;
-        } Cone;
-
-        struct
-        {
-        } Random;
-    };
-};
-
 struct ob_emission
 {
     ov3 Location;
     f32 EmissionRate;
-    ob_expr_f32 ParticleLifetime;
+    ob_expr ParticleLifetime;
+
     ob_emission_shape Shape;
+    f32 RingRadius;
+    ov3 RingNormal;
+    om3 RingRotation;
 
     f32 InitialVelocityScale;
-    ob_emission_velocity Velocity;
+
+    ob_emission_velocity VelocityType;
+    ov3 ConeDirection;
+    f32 ConeHeight;
+    f32 ConeRadius;
+    om3 ConeRotation;
 };
 
 enum ob_motion_primitive
@@ -228,27 +198,17 @@ struct ob_motion
 {
     ov3 Gravity;
     f32 Drag;
-    ob_motion_primitive Primitive;
-    ob_expr_f32 Strength;
-    union
-    {
-        struct
-        {
-            ov3 Position;
-        } Point;
+    ob_expr Strength;
 
-        struct
-        {
-            ov3 Position;
-            ov3 Direction;
-        } Line;
-    };
+    ob_motion_primitive Primitive;
+    ov3 Position;
+    ov3 LineDirection;
 };
 
 struct ob_appearance
 {
-    ob_expr_ov4 Color;
-    ob_expr_f32 Size;
+    ob_expr Color;
+    ob_expr Size;
     // ov3 Scale;
     ob_texture_type Texture;
 };
@@ -333,6 +293,8 @@ struct ob_state
 
     u32 RunningParticleID;
 
+    ob_program SpawnProgramID;
+    ob_program UpdateProgramID;
     ob_program RenderProgramID;
 
     u64 CycleCount;

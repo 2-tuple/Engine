@@ -1,6 +1,136 @@
 #pragma once
 
 static GLuint
+OffbeatCompileAndLinkComputeProgram(char* HeaderCode, char* ComputeCode)
+{
+    GLuint ComputeShaderID = glCreateShader(GL_COMPUTE_SHADER);
+    GLchar* ComputeShaderCode[] =
+    {
+        HeaderCode,
+        ComputeCode,
+    };
+    glShaderSource(ComputeShaderID, OffbeatArrayCount(ComputeShaderCode), ComputeShaderCode, 0);
+    glCompileShader(ComputeShaderID);
+
+    GLuint ProgramID = glCreateProgram();
+    glAttachShader(ProgramID, ComputeShaderID);
+    glLinkProgram(ProgramID);
+
+    glValidateProgram(ProgramID);
+    GLint Linked = false;
+    glGetProgramiv(ProgramID, GL_LINK_STATUS, &Linked);
+    if(!Linked)
+    {
+        GLsizei Ignored;
+        char ComputeErrors[4096];
+        char ProgramErrors[4096];
+        glGetShaderInfoLog(ComputeShaderID, sizeof(ComputeErrors), &Ignored, ComputeErrors);
+        glGetProgramInfoLog(ProgramID, sizeof(ProgramErrors), &Ignored, ProgramErrors);
+
+        OffbeatAssert(!"Shader validation failed");
+    }
+
+    return ProgramID;
+}
+
+static void
+OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram)
+{
+    char* HeaderCode = R"SHADER(
+    #version 430 core
+    layout(std430) buffer;
+
+    struct ob_particle
+    {
+        vec4 PositionAge;
+        vec4 VelocityID;
+        vec4 RandomCamera;
+    };
+
+    struct ob_expr
+    {
+        uint Type;
+        uint Function;
+        uint Parameter;
+        float Frequency;
+        vec4 Low;
+        vec4 High;
+    };
+
+    struct ob_emission
+    {
+        vec3 Location;
+        f32 EmissionRate;
+        ob_expr ParticleLifetime;
+
+        uint Shape;
+        float RingRadius;
+        vec3 RingNormal;
+        mat3 RingRotation;
+
+        float InitialVelocityScale;
+
+        uint VelocityType;
+        vec3 ConeDirection;
+        float ConeHeight;
+        float ConeRadius;
+        mat3 ConeRotation;
+    };
+
+    struct ob_motion
+    {
+        vec3 Gravity;
+        float Drag;
+        ob_expr Strength;
+
+        uint Primitive;
+        vec3 Position;
+        vec3 LineDirection;
+    };
+
+    struct ob_appearance
+    {
+        ob_expr Color;
+        ob_expr Size;
+        uint Texture;
+    };
+
+    struct ob_globals
+    {
+        vec3 EmissionLocation;
+        float EmissionRate;
+    };
+    )SHADER";
+
+    char* SpawnCode = R"SHADER(
+    layout(binding = 0) writeonly buffer output
+    {
+        ob_particle Particles[];
+    } Output;
+    )SHADER";
+
+    char* UpdateCode = R"SHADER(
+    layout(binding = 0) readonly buffer input
+    {
+        ob_particle Particles[];
+    } Input;
+
+    layout(binding = 1) writeonly buffer output
+    {
+        ob_particle Particles[];
+    } Output;
+    )SHADER";
+
+    *SpawnProgram = OffbeatCompileAndLinkComputeProgram(HeaderCode, SpawnCode);
+    *UpdateProgram = OffbeatCompileAndLinkComputeProgram(HeaderCode, UpdateCode);
+}
+
+static void
+OffbeatComputeSpawnParticles(ob_particle* Particles, ob_particle_system* ParticleSystem, f32 dt)
+{
+}
+
+static GLuint
 OffbeatRGBATextureID(void* TextureData, u32 Width, u32 Height)
 {
     ob_texture LastBoundTexture;
@@ -20,7 +150,7 @@ OffbeatRGBATextureID(void* TextureData, u32 Width, u32 Height)
 }
 
 static GLuint
-OffbeatCreateProgram(char* HeaderCode, char* VertexCode, char* FragmentCode)
+OffbeatCompileAndLinkRenderProgram(char* HeaderCode, char* VertexCode, char* FragmentCode)
 {
     GLuint VertexShaderID = glCreateShader(GL_VERTEX_SHADER);
     GLchar* VertexShaderCode[] =
@@ -62,18 +192,6 @@ OffbeatCreateProgram(char* HeaderCode, char* VertexCode, char* FragmentCode)
     }
 
     return ProgramID;
-}
-
-static GLuint
-OffbeatCreateSpawnProgram()
-{
-    return 0;
-}
-
-static GLuint
-OffbeatCreateUpdateProgram()
-{
-    return 0;
 }
 
 static GLuint
@@ -125,7 +243,7 @@ OffbeatCreateRenderProgram()
     }
     )SHADER";
 
-    return OffbeatCreateProgram(HeaderCode, VertexCode, FragmentCode);
+    return OffbeatCompileAndLinkRenderProgram(HeaderCode, VertexCode, FragmentCode);
 }
 
 void

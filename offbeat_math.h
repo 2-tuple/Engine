@@ -37,9 +37,18 @@ union ov3
 
 union ov4
 {
-    struct
+    union
     {
-        f32 x, y, z, w;
+        struct
+        {
+            f32 x, y, z, w;
+        };
+
+        struct
+        {
+            ov3 xyz;
+            f32 w;
+        };
     };
 
     struct
