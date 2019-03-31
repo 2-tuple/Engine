@@ -572,3 +572,8 @@ inline s32 ObRandomBetween(ob_random_series* Series, s32 Min, s32 Max)
     OffbeatAssert(Max >= Min);
     return (Min + (ObRandomNextRandomUInt32(Series) % (Max - Min)));
 }
+
+inline u32* ObGetRandomNumberTable()
+{
+    return OffbeatRandomNumberTable;
+}

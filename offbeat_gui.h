@@ -10,8 +10,8 @@ static char* g_EmissionShapeStrings[OFFBEAT_EmissionCount] = {
 };
 
 static char* g_EmissionVelocityStrings[OFFBEAT_VelocityCount] = {
-    "Cone",
     "Random",
+    "Cone",
 };
 
 static char* g_MotionPrimitiveStrings[OFFBEAT_MotionCount] = {
@@ -177,6 +177,10 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
         static bool s_OffbeatShowEmission = false;
         static bool s_OffbeatShowMotion = false;
         static bool s_OffbeatShowAppearance = false;
+        static bool s_OffbeatEmissionLifetime = false;
+        static bool s_OffbeatMotionStrength = false;
+        static bool s_OffbeatAppearanceColor = false;
+        static bool s_OffbeatAppearanceSize = false;
 
         char SystemIDBuffer[50];
         sprintf(SystemIDBuffer, "Current particle system ID: %u", OffbeatState->CurrentParticleSystem);
@@ -207,6 +211,44 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
         }
 
         UI::NewLine();
+        if(GameState->Resources.ParticleSystemPathCount > 0)
+        {
+            static s32 SelectedParticleSystemIndex = 0;
+            if(UI::Button("Load"))
+            {
+                OffbeatImportParticleSystem(GameState, OffbeatState, GameState->Resources.ParticleSystemPaths[SelectedParticleSystemIndex].Name);
+                ParticleSystem = OffbeatGetCurrentParticleSystem(OffbeatState);
+            }
+            UI::SameLine();
+            UI::Combo("Load Path", &SelectedParticleSystemIndex, GameState->Resources.ParticleSystemPaths, GameState->Resources.ParticleSystemPathCount, OffbeatGUIPathArrayToString);
+            UI::NewLine();
+        }
+
+        if(OffbeatState->ParticleSystemCount == 0)
+        {
+            s_OffbeatShowEmission = false;
+            s_OffbeatShowMotion = false;
+            s_OffbeatShowAppearance = false;
+            s_OffbeatEmissionLifetime = false;
+            s_OffbeatMotionStrength = false;
+            s_OffbeatAppearanceColor = false;
+            s_OffbeatAppearanceSize = false;
+            goto end_window;
+        }
+
+        if(GameState->Resources.ParticleSystemPathCount > 0)
+        {
+            static s32 SelectedParticleSystemIndex = 0;
+            if(UI::Button("Save"))
+            {
+                OffbeatExportCurrentParticleSystem(OffbeatState, GameState->Resources.ParticleSystemPaths[SelectedParticleSystemIndex].Name);
+            }
+            UI::SameLine();
+            UI::Combo("Save Path", &SelectedParticleSystemIndex, GameState->Resources.ParticleSystemPaths, GameState->Resources.ParticleSystemPathCount, OffbeatGUIPathArrayToString);
+            UI::NewLine();
+        }
+
+        UI::NewLine();
         if(UI::Button("Save Current As New"))
         {
             struct tm* TimeInfo;
@@ -219,37 +261,10 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
             OffbeatExportCurrentParticleSystem(OffbeatState, Path);
         }
 
-        UI::NewLine();
-        if(GameState->Resources.ParticleSystemPathCount > 0)
-        {
-            {
-                static s32 SelectedParticleSystemIndex = 0;
-                if(UI::Button("Save"))
-                {
-                    OffbeatExportCurrentParticleSystem(OffbeatState, GameState->Resources.ParticleSystemPaths[SelectedParticleSystemIndex].Name);
-                }
-                UI::SameLine();
-                UI::Combo("Save Path", &SelectedParticleSystemIndex, GameState->Resources.ParticleSystemPaths, GameState->Resources.ParticleSystemPathCount, OffbeatGUIPathArrayToString);
-                UI::NewLine();
-            }
-            {
-                static s32 SelectedParticleSystemIndex = 0;
-                if(UI::Button("Load"))
-                {
-                    OffbeatImportParticleSystem(GameState, OffbeatState, GameState->Resources.ParticleSystemPaths[SelectedParticleSystemIndex].Name);
-                    ParticleSystem = OffbeatGetCurrentParticleSystem(OffbeatState);
-                }
-                UI::SameLine();
-                UI::Combo("Load Path", &SelectedParticleSystemIndex, GameState->Resources.ParticleSystemPaths, GameState->Resources.ParticleSystemPathCount, OffbeatGUIPathArrayToString);
-                UI::NewLine();
-            }
-        }
-
         if(UI::CollapsingHeader("Emission", &s_OffbeatShowEmission))
         {
             UI::DragFloat3("Location", ParticleSystem->Emission.Location.E, -INFINITY, INFINITY, 10.0f);
             UI::DragFloat("Emission Rate", &ParticleSystem->Emission.EmissionRate, 0.0f, INFINITY, 500.0f);
-            static bool s_OffbeatEmissionLifetime = false;
             OffbeatGUIExpressionF32("Particle Lifetime", &ParticleSystem->Emission.ParticleLifetime,
                                     &s_OffbeatEmissionLifetime, true);
 
@@ -276,15 +291,15 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
 
             switch(*CurrentVelocityType)
             {
+                case OFFBEAT_VelocityRandom:
+                {
+                } break;
+
                 case OFFBEAT_VelocityCone:
                 {
                     UI::DragFloat3("Cone Direction", ParticleSystem->Emission.ConeDirection.E, -INFINITY, INFINITY, 10.0f);
                     UI::DragFloat("Cone Height", &ParticleSystem->Emission.ConeHeight, 0.0f, INFINITY, 10.0f);
                     UI::DragFloat("Cone Radius", &ParticleSystem->Emission.ConeRadius, 0.0f, INFINITY, 10.0f);
-                } break;
-
-                case OFFBEAT_VelocityRandom:
-                {
                 } break;
             }
         }
@@ -301,7 +316,6 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
             {
                 case OFFBEAT_MotionPoint:
                 {
-                    static bool s_OffbeatMotionStrength = false;
                     OffbeatGUIExpressionF32("Strength", &ParticleSystem->Motion.Strength,
                                             &s_OffbeatMotionStrength, false);
                     UI::DragFloat3("Position", ParticleSystem->Motion.Position.E, -INFINITY, INFINITY, 10.0f);
@@ -309,7 +323,8 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
 
                 case OFFBEAT_MotionLine:
                 {
-                    static bool s_OffbeatMotionStrength = false;
+                    OffbeatGUIExpressionF32("Strength", &ParticleSystem->Motion.Strength,
+                                            &s_OffbeatMotionStrength, false);
                     UI::DragFloat3("Position", ParticleSystem->Motion.Position.E, -INFINITY, INFINITY, 10.0f);
                     UI::DragFloat3("Direction", ParticleSystem->Motion.LineDirection.E, -INFINITY, INFINITY, 10.0f);
                 } break;
@@ -318,8 +333,6 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
 
         if(UI::CollapsingHeader("Appearance", &s_OffbeatShowAppearance))
         {
-            static bool s_OffbeatAppearanceColor = false;
-            static bool s_OffbeatAppearanceSize = false;
             OffbeatGUIExpressionOV4("Color", &ParticleSystem->Appearance.Color,
                                     &s_OffbeatAppearanceColor, true);
             OffbeatGUIExpressionF32("Size", &ParticleSystem->Appearance.Size,
@@ -371,5 +384,6 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
             UI::Text(PerParticleBuffer);
         }
     }
+end_window:
     UI::EndWindow();
 }

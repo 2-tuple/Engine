@@ -31,7 +31,7 @@ timer_event_autoclose_wrapper::~timer_event_autoclose_wrapper()
     __rdtsc();
   GLOBAL_TIMER_FRAME_SUMMARY_TABLE[g_CurrentProfilerFrameIndex][this->NameTableIndex].CycleCount +=
     GLOBAL_FRAME_TIMER_EVENT_TABLE[g_CurrentProfilerFrameIndex][this->IndexInFrame].EndCycleCount -
-    GLOBAL_FRAME_TIMER_EVENT_TABLE[g_CurrentProfilerFrameIndex][g_CurrentTimerEventCount]
+    GLOBAL_FRAME_TIMER_EVENT_TABLE[g_CurrentProfilerFrameIndex][this->IndexInFrame]
       .StartCycleCount;
   GLOBAL_TIMER_FRAME_SUMMARY_TABLE[g_CurrentProfilerFrameIndex][this->NameTableIndex].Calls++;
   --g_CurrentTimerEventDepth;

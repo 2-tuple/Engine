@@ -114,31 +114,30 @@ struct ob_particle
 
 enum ob_function
 {
-    OFFBEAT_FunctionConst,
-    OFFBEAT_FunctionLerp,
-    OFFBEAT_FunctionSmoothstep,
-    OFFBEAT_FunctionSquared,
-    OFFBEAT_FunctionCubed,
-    OFFBEAT_FunctionFourth,
-    OFFBEAT_FunctionTriangle,
-    OFFBEAT_FunctionTwoTriangles,
-    OFFBEAT_FunctionFourTriangles,
-    OFFBEAT_FunctionPeriodic,
+    OFFBEAT_FunctionConst = 0,
+    OFFBEAT_FunctionLerp = 1,
+    OFFBEAT_FunctionSmoothstep = 2,
+    OFFBEAT_FunctionSquared = 3,
+    OFFBEAT_FunctionCubed = 4,
+    OFFBEAT_FunctionFourth = 5,
+    OFFBEAT_FunctionTriangle = 6,
+    OFFBEAT_FunctionTwoTriangles = 7,
+    OFFBEAT_FunctionFourTriangles = 8,
+    OFFBEAT_FunctionPeriodic = 9,
 
     OFFBEAT_FunctionCount,
 };
 
 enum ob_parameter
 {
-    OFFBEAT_ParameterAge,
-    OFFBEAT_ParameterRandom,
-    OFFBEAT_ParameterCameraDistance,
-    OFFBEAT_ParameterID,
+    OFFBEAT_ParameterAge = 0,
+    OFFBEAT_ParameterRandom = 1,
+    OFFBEAT_ParameterCameraDistance = 2,
+    OFFBEAT_ParameterID = 3,
 
     OFFBEAT_ParameterCount,
 };
 
-// TODO(rytis): Use this for packing???
 struct ob_expr
 {
     ob_function Function;
@@ -151,16 +150,16 @@ struct ob_expr
 
 enum ob_emission_shape
 {
-    OFFBEAT_EmissionPoint,
-    OFFBEAT_EmissionRing,
+    OFFBEAT_EmissionPoint = 0,
+    OFFBEAT_EmissionRing = 1,
 
     OFFBEAT_EmissionCount,
 };
 
 enum ob_emission_velocity
 {
-    OFFBEAT_VelocityCone,
-    OFFBEAT_VelocityRandom,
+    OFFBEAT_VelocityRandom = 0,
+    OFFBEAT_VelocityCone = 1,
 
     OFFBEAT_VelocityCount,
 };
@@ -187,9 +186,9 @@ struct ob_emission
 
 enum ob_motion_primitive
 {
-    OFFBEAT_MotionNone,
-    OFFBEAT_MotionPoint,
-    OFFBEAT_MotionLine,
+    OFFBEAT_MotionNone = 0,
+    OFFBEAT_MotionPoint = 1,
+    OFFBEAT_MotionLine = 2,
 
     OFFBEAT_MotionCount,
 };
@@ -257,6 +256,22 @@ struct ob_draw_vertex
     ov4 Color;
 };
 
+#ifdef OFFBEAT_OPENGL
+struct ob_draw_list_compute
+{
+    ob_texture TextureID;
+    GLuint VBO;
+    GLuint EBO;
+    u32 IndexCount;
+};
+
+struct ob_draw_data_compute
+{
+    u32 DrawListCount;
+    ob_draw_list_compute DrawLists[OFFBEAT_DRAW_LIST_COUNT];
+};
+#endif
+
 struct ob_draw_list
 {
     ob_texture TextureID;
@@ -295,6 +310,7 @@ struct ob_state
 
     ob_program SpawnProgramID;
     ob_program UpdateProgramID;
+    ob_program StatelessEvaluationProgramID;
     ob_program RenderProgramID;
 
     u64 CycleCount;
@@ -314,7 +330,11 @@ struct ob_state
     u32 ParticleSystemCount;
     ob_particle_system ParticleSystems[OFFBEAT_PARTICLE_SYSTEM_COUNT];
 
+#ifdef OFFBEAT_OPENGL_COMPUTE
+    ob_draw_data_compute DrawData;
+#else
     ob_draw_data DrawData;
+#endif
 
     ob_memory_manager MemoryManager;
 };
@@ -337,13 +357,16 @@ OFFBEAT_API ob_particle_system* OffbeatGetCurrentParticleSystem(ob_state* Offbea
 OFFBEAT_API ob_particle_system* OffbeatPreviousParticleSystem(ob_state* OffbeatState);
 OFFBEAT_API ob_particle_system* OffbeatNextParticleSystem(ob_state* OffbeatState);
 OFFBEAT_API ob_texture_type OffbeatGetCurrentTextureType(ob_particle_system* ParticleSystem);
+OFFBEAT_API ob_texture OffbeatGetTextureID(ob_particle_system* ParticleSystem);
 OFFBEAT_API void OffbeatSetTextureID(ob_particle_system* ParticleSystem, ob_texture_type NewType);
 
 // NOTE(rytis): Calculation.
 OFFBEAT_API void OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt);
 
 // NOTE(rytis): Render data.
+#ifndef OFFBEAT_OPENGL_COMPUTE
 OFFBEAT_API ob_draw_data* OffbeatGetDrawData(ob_state* OffbeatState);
+#endif
 OFFBEAT_API ob_draw_data* OffbeatGetDebugDrawData();
 OFFBEAT_API void OffbeatRenderParticles(ob_state* OffbeatState, float* ViewMatrix, float* ProjectionMatrix);
 

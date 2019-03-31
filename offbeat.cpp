@@ -326,6 +326,12 @@ OffbeatGetCurrentTextureType(ob_particle_system* ParticleSystem)
     return ParticleSystem->Appearance.Texture;
 }
 
+ob_texture
+OffbeatGetTextureID(ob_particle_system* ParticleSystem)
+{
+    return OffbeatGlobalData.TextureIDs[ParticleSystem->Appearance.Texture];
+}
+
 void
 OffbeatSetTextureID(ob_particle_system* ParticleSystem, ob_texture_type NewType)
 {
@@ -617,7 +623,8 @@ OffbeatInit(void* Memory, u64 MemorySize)
 
         OffbeatState->RenderProgramID = OffbeatCreateRenderProgram();
 #if 1
-        // OffbeatCreateComputePrograms(&OffbeatState->SpawnProgramID, &OffbeatState->UpdateProgramID);
+        OffbeatCreateComputePrograms(&OffbeatState->SpawnProgramID, &OffbeatState->UpdateProgramID,
+                                     &OffbeatState->StatelessEvaluationProgramID);
 #else
         OffbeatState->SpawnProgramID = OffbeatCreateSpawnProgram();
         OffbeatState->UpdateProgramID = OffbeatCreateUpdateProgram();
@@ -648,11 +655,13 @@ OffbeatInit(void* Memory, u64 MemorySize)
         TestMotion.Strength.High.x = 10.0f;
 
         ob_appearance TestAppearance = {};
+        TestAppearance.Color.Function = OFFBEAT_FunctionConst;
         TestAppearance.Color.Low = TestAppearance.Color.High =
             ov4{ObRandomBetween(&OffbeatState->EffectsEntropy, 0.45f, 0.5f),
             ObRandomBetween(&OffbeatState->EffectsEntropy, 0.5f, 0.8f),
             ObRandomBetween(&OffbeatState->EffectsEntropy, 0.8f, 1.0f),
             1.0f};
+        TestAppearance.Size.Function = OFFBEAT_FunctionConst;
         TestAppearance.Size.Low.x = TestAppearance.Size.High.x = 0.05f;
         TestAppearance.Texture = OFFBEAT_TextureCircle;
 
@@ -665,6 +674,7 @@ OffbeatInit(void* Memory, u64 MemorySize)
         OffbeatState->CurrentParticleSystem = 0;
         OffbeatState->ParticleSystemCount = 1;
     }
+    OffbeatComputeInit();
     return OffbeatState;
 }
 
@@ -862,6 +872,17 @@ OffbeatParticleInitialVelocity(ob_random_series* Entropy, ob_emission* Emission)
 
     switch(Emission->VelocityType)
     {
+        case OFFBEAT_VelocityRandom:
+        {
+            f32 Theta = ObRandomBetween(Entropy, 0.0f, 2.0f * PI);
+            f32 Z = ObRandomBilateral(Entropy);
+
+            // NOTE(rytis): This generates a vector in a unit sphere, so no normalization is required.
+            Result.x = ObSquareRoot(1.0f - ObSquare(Z)) * ObCos(Theta);
+            Result.y = ObSquareRoot(1.0f - ObSquare(Z)) * ObSin(Theta);
+            Result.z = Z;
+        } break;
+
         case OFFBEAT_VelocityCone:
         {
             f32 Denom = ObSquareRoot(ObSquare(Emission->ConeHeight) + ObSquare(Emission->ConeRadius));
@@ -877,17 +898,6 @@ OffbeatParticleInitialVelocity(ob_random_series* Entropy, ob_emission* Emission)
             RandomVector.z = Z;
 
             Result = Emission->ConeRotation * RandomVector;
-        } break;
-
-        case OFFBEAT_VelocityRandom:
-        {
-            f32 Theta = ObRandomBetween(Entropy, 0.0f, 2.0f * PI);
-            f32 Z = ObRandomBilateral(Entropy);
-
-            // NOTE(rytis): This generates a vector in a unit sphere, so no normalization is required.
-            Result.x = ObSquareRoot(1.0f - ObSquare(Z)) * ObCos(Theta);
-            Result.y = ObSquareRoot(1.0f - ObSquare(Z)) * ObSin(Theta);
-            Result.z = Z;
         } break;
 
         default:
@@ -1005,22 +1015,33 @@ OffbeatConstructQuad(ob_draw_list* DrawList, ob_quad_data* QuadData, ob_particle
 
     ov4 Color = OffbeatEvaluateExpression(&ParticleSystem->Appearance.Color, ParticleSystem, Particle);
 
-    u32 VertexIndex = DrawList->VertexCount;
+    u32 VertexIndex0 = DrawList->VertexCount;
+    u32 VertexIndex1 = DrawList->VertexCount + 1;
+    u32 VertexIndex2 = DrawList->VertexCount + 2;
+    u32 VertexIndex3 = DrawList->VertexCount + 3;
     // NOTE(rytis): Updating draw list vertex array
-    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomLeft, BottomLeftUV, Color};
-    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomRight, BottomRightUV, Color};
-    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopRight, TopRightUV, Color};
-    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopLeft, TopLeftUV, Color};
+    DrawList->Vertices[VertexIndex0] = ob_draw_vertex{BottomLeft, BottomLeftUV, Color};
+    DrawList->Vertices[VertexIndex1] = ob_draw_vertex{BottomRight, BottomRightUV, Color};
+    DrawList->Vertices[VertexIndex2] = ob_draw_vertex{TopRight, TopRightUV, Color};
+    DrawList->Vertices[VertexIndex3] = ob_draw_vertex{TopLeft, TopLeftUV, Color};
+    DrawList->VertexCount += 4;
 
     // NOTE(rytis): Updating draw list index array
+    u32 Index0 = DrawList->IndexCount;
+    u32 Index1 = DrawList->IndexCount + 1;
+    u32 Index2 = DrawList->IndexCount + 2;
+    u32 Index3 = DrawList->IndexCount + 3;
+    u32 Index4 = DrawList->IndexCount + 4;
+    u32 Index5 = DrawList->IndexCount + 5;
     // NOTE(rytis): CCW bottom right triangle
-    DrawList->Indices[DrawList->IndexCount++] = VertexIndex;
-    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 1;
-    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 2;
+    DrawList->Indices[Index0] = VertexIndex0;
+    DrawList->Indices[Index1] = VertexIndex1;
+    DrawList->Indices[Index2] = VertexIndex2;
     // NOTE(rytis): CCW top left triangle
-    DrawList->Indices[DrawList->IndexCount++] = VertexIndex;
-    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 2;
-    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 3;
+    DrawList->Indices[Index3] = VertexIndex0;
+    DrawList->Indices[Index4] = VertexIndex2;
+    DrawList->Indices[Index5] = VertexIndex3;
+    DrawList->IndexCount += 6;
 
     ++DrawList->ElementCount;
 }
@@ -1096,6 +1117,18 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
                                                    sizeof(ob_draw_vertex) * 4);
 #endif
 
+        // TODO(rytis): Leave a single macro function, changed depending on the flag.
+#ifdef OFFBEAT_OPENGL_COMPUTE
+        // TODO(rytis): Sorting is NECESSARY for GPU! Preferable for CPU, too.
+        // TODO(rytis): GPU problems:
+        // * Particle Age not working on GPU (no global lifetime set?)
+        // * Assert on max particle count when adding 2nd particle system.
+        OffbeatComputeSwapBuffers();
+        OffbeatComputeSpawnParticles(ParticleSystem, OffbeatState);
+        OffbeatComputeUpdateParticles(ParticleSystem, OffbeatState);
+        OffbeatComputeStatelessEvaluation(&OffbeatState->DrawData.DrawLists[i], ParticleSystem,
+                                          OffbeatState);
+#else
         ob_particle* Particles =
             (ob_particle*)OffbeatAllocateMemory(&OffbeatState->MemoryManager,
                                                 ParticleSystem->MaxParticleCount *
@@ -1116,6 +1149,7 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
                                                    sizeof(ob_draw_vertex) * 4);
         OffbeatRenderParticleSystem(&OffbeatState->DrawData.DrawLists[i], IndexMemory, VertexMemory,
                                     ParticleSystem, &OffbeatState->QuadData);
+#endif
 
         OffbeatDebugMotionPrimitive(&ParticleSystem->Motion);
     }
@@ -1126,8 +1160,10 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
     OffbeatState->MilisecondCount = 1000.0f * Platform::GetTimeInSeconds(StartSecondCount, EndSecondCount);
 }
 
+#ifndef OFFBEAT_OPENGL_COMPUTE
 ob_draw_data*
 OffbeatGetDrawData(ob_state* OffbeatState)
 {
     return &OffbeatState->DrawData;
 }
+#endif
