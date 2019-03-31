@@ -37,21 +37,12 @@ typedef uintptr_t umm;
  * per-particle values (age, distance to camera, etc.). Add distance to camera.
  * UPDATE: For now, expression evaluation seems to be decent enough, although it's not very flexible.
  *
- * SIMD-ize the calculations where possible. Try to add a possibility to do calculations on GPU
- * using the compute shaders.
- * UPDATE: SIMD is likely not possible, since it messes up the particle emission pretty hard -
- * cannot have exact values (got to have multiples of 4) or do some stuff with masks, which
- * in the end might be overly calculation intensive.
- * Seems like it's better to just do a GPU version.
- *
  * Add memory alignment (16 byte, preferably changeable with macro or function parameter)
  * in OffbeatInit and memory manager.
  *
  * Add more emission, initial velocity and motion primitive shapes.
  *
  * Add selectors (plane, sphere, cube ???). Allow testing selectors against a ray.
- *
- * Add import from / export to files.
  */
 
 #define OffbeatAssert(Expression) if(!(Expression)) {*(int *)0 = 0;}

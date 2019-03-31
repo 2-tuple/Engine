@@ -21,9 +21,11 @@ struct ob_emission_uniform_block
     ob_expr ParticleLifetime;
 
     ob_emission_shape Shape; f32 RingRadius; ov2 P0;
+    ov3 RingNormal; f32 P1;
     om3x4 RingRotation;
 
     f32 InitialVelocityScale; ob_emission_velocity VelocityType; f32 ConeHeight; f32 ConeRadius;
+    ov3 ConeDirection; f32 P2;
     om3x4 ConeRotation;
 };
 
@@ -158,6 +160,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
 
         uint Shape;
         float RingRadius;
+        vec3 RingNormal;
         mat3 RingRotation;
 
         float InitialVelocityScale;
@@ -165,6 +168,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
         uint VelocityType;
         float ConeHeight;
         float ConeRadius;
+        vec3 ConeDirection;
         mat3 ConeRotation;
     } Emission;
 
@@ -191,11 +195,13 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
         float EmissionParticleLifetime;
         uint EmissionShape;
         float EmissionRingRadius;
+        vec3 EmissionRingNormal;
         mat3 EmissionRingRotation;
         float EmissionInitialVelocity;
         uint EmissionVelocityType;
         float EmissionConeHeight;
         float EmissionConeRadius;
+        vec3 EmissionConeDirection;
         mat3 EmissionConeRotation;
 
         vec3 MotionGravity;
@@ -345,6 +351,83 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
 
         return mix(Expr.Low, Expr.High, Param);
     }
+
+    mat3
+    ObRotationAlign(vec3 Start, vec3 Destination)
+    {
+        if((length(Start) == 0.0f) || (length(Destination) == 0.0f))
+        {
+            return mat3(1.0f);
+        }
+
+        // IMPORTANT(rytis): We assume that Start and Destination are normalized already.
+        // Start = normalize(Start);
+        // Destination = normalize(Destination);
+
+        vec3 Axis = cross(Start, Destination);
+        float CosTheta = dot(Start, Destination);
+        float K = 1.0f / (1.0f + CosTheta);
+
+        mat3 Result;
+
+#if 1
+        vec3 Col0 = vec3(CosTheta, Axis.z, -Axis.y);
+        vec3 Col1 = vec3(-Axis.z, CosTheta, Axis.x);
+        vec3 Col2 = vec3(Axis.y, -Axis.x, CosTheta);
+        Result[0] = Axis.xxx * Axis.xyz * K + Col0;
+        Result[1] = Axis.yyy * Axis.xyz * K + Col1;
+        Result[2] = Axis.zzz * Axis.xyz * K + Col2;
+#else
+        Result[0][0] = Axis.x * Axis.x * K + CosTheta;
+        Result[0][1] = Axis.x * Axis.y * K + Axis.z;
+        Result[0][2] = Axis.x * Axis.z * K - Axis.y;
+
+        Result[1][0] = Axis.y * Axis.x * K - Axis.z;
+        Result[1][1] = Axis.y * Axis.y * K + CosTheta;
+        Result[1][2] = Axis.y * Axis.z * K + Axis.x;
+
+        Result[2][0] = Axis.z * Axis.x * K + Axis.y;
+        Result[2][1] = Axis.z * Axis.y * K - Axis.x;
+        Result[2][2] = Axis.z * Axis.z * K + CosTheta;
+#endif
+
+        return Result;
+    }
+
+    void
+    OffbeatUpdateRotationMatrices()
+    {
+        vec3 Z = vec3(0.0f, 0.0f, 1.0f);
+
+        // NOTE(rytis): Assuming all used vectors are normalized.
+        switch(Globals.EmissionShape)
+        {
+            case OFFBEAT_EmissionRing:
+            {
+                // Globals.EmissionRingNormal = ObNOZ(Globals.EmissionRingNormal);
+                Globals.EmissionRingRotation = ObRotationAlign(Z, Globals.EmissionRingNormal);
+            } break;
+        }
+
+        switch(Globals.EmissionVelocityType)
+        {
+            case OFFBEAT_VelocityCone:
+            {
+                Globals.EmissionConeDirection = ObNOZ(Globals.EmissionConeDirection);
+                Globals.EmissionConeRotation = ObRotationAlign(Z, Globals.EmissionConeDirection);
+            } break;
+        }
+
+        /*
+        switch(Globals.MotionPrimitive)
+        {
+            case OFFBEAT_MotionLine:
+            {
+                Globals.MotionLineDirection = ObNOZ(Globals.MotionLineDirection);
+            } break;
+        }
+        */
+    }
     )SHADER";
 
     // TODO(rytis): Use subroutines instead of switch-case statements???
@@ -438,12 +521,15 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
         Globals.EmissionParticleLifetime = OffbeatEvaluateExpression(Emission.ParticleLifetime, ZeroP).x;
         Globals.EmissionShape = Emission.Shape;
         Globals.EmissionRingRadius = Emission.RingRadius;
-        Globals.EmissionRingRotation = Emission.RingRotation;
+        Globals.EmissionRingNormal = Emission.RingNormal;
+        // Globals.EmissionRingRotation = Emission.RingRotation;
         Globals.EmissionInitialVelocity = Emission.InitialVelocityScale;
         Globals.EmissionVelocityType = Emission.VelocityType;
         Globals.EmissionConeHeight = Emission.ConeHeight;
         Globals.EmissionConeRadius = Emission.ConeRadius;
-        Globals.EmissionConeRotation = Emission.ConeRotation;
+        Globals.EmissionConeDirection = Emission.ConeDirection;
+        // Globals.EmissionConeRotation = Emission.ConeRotation;
+        OffbeatUpdateRotationMatrices();
 
         vec3 Position = OffbeatParticleInitialPosition();
         vec3 Velocity = OffbeatParticleInitialVelocity();
@@ -514,6 +600,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
         float Age = Particle.PositionAge.w;
         if(Age < Globals.EmissionParticleLifetime)
         {
+            Globals.EmissionParticleLifetime = OffbeatEvaluateExpression(Emission.ParticleLifetime, ZeroP).x;
             Globals.MotionGravity = Motion.Gravity;
             Globals.MotionDrag = Motion.Drag;
             Globals.MotionStrength = OffbeatEvaluateExpression(Motion.Strength, Particle).x;
@@ -565,8 +652,11 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
     main()
     {
         Index = gl_GlobalInvocationID.x;
+
+        ob_particle ZeroP = ob_particle(vec4(0.0f), vec4(0.0f), vec4(0.0f));
         ob_particle Particle = Particles[Index];
 
+        Globals.EmissionParticleLifetime = OffbeatEvaluateExpression(Emission.ParticleLifetime, ZeroP).x;
         Globals.AppearanceColor = OffbeatEvaluateExpression(Appearance.Color, Particle);
         Globals.AppearanceSize = OffbeatEvaluateExpression(Appearance.Size, Particle).x;
 
@@ -709,6 +799,7 @@ OffbeatTranslateEmission(ob_emission* Emission)
 
     Result.Shape = Emission->Shape;
     Result.RingRadius = Emission->RingRadius;
+    Result.RingNormal = Emission->RingNormal;
     {
         Result.RingRotation._11 = Emission->RingRotation._11;
         Result.RingRotation._12 = Emission->RingRotation._12;
@@ -726,6 +817,7 @@ OffbeatTranslateEmission(ob_emission* Emission)
     Result.VelocityType = Emission->VelocityType;
     Result.ConeHeight = Emission->ConeHeight;
     Result.ConeRadius = Emission->ConeRadius;
+    Result.ConeDirection = Emission->ConeDirection;
     {
         Result.ConeRotation._11 = Emission->ConeRotation._11;
         Result.ConeRotation._12 = Emission->ConeRotation._12;

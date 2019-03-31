@@ -1123,6 +1123,11 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
         // TODO(rytis): GPU problems:
         // * Particle Age not working on GPU (no global lifetime set?)
         // * Assert on max particle count when adding 2nd particle system.
+        // TODO(rytis): General stuff:
+        // * Change age calculation.
+        // * Add more different expression functions (steps, etc.).
+        // * Try to optimize GPU calculations?
+        // * Probably should update just spawned particles.
         OffbeatComputeSwapBuffers();
         OffbeatComputeSpawnParticles(ParticleSystem, OffbeatState);
         OffbeatComputeUpdateParticles(ParticleSystem, OffbeatState);
