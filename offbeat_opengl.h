@@ -1,13 +1,9 @@
 #pragma once
 
 static GLuint GlobalRandomTable;
-static GLuint GlobalRandomTableIndex;
 static GLuint GlobalEmissionBlock;
 static GLuint GlobalMotionBlock;
 static GLuint GlobalAppearanceBlock;
-static GLuint GlobalRunningID;
-static GLuint GlobalSpawnedParticleCount;
-static GLuint GlobalOldParticleIndex;
 static GLuint GlobalUpdatedParticleCount;
 static GLuint GlobalOldParticles;
 static GLuint GlobalUpdatedParticles;
@@ -129,6 +125,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
 
     uniform float u_t;
     uniform float dt;
+    uniform uint RunningParticleID;
     uniform vec3 CameraPosition;
     uniform uint ParticleSpawnCount;
     uniform uint RandomTableIndex;
@@ -413,7 +410,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
         {
             case OFFBEAT_VelocityCone:
             {
-                Globals.EmissionConeDirection = ObNOZ(Globals.EmissionConeDirection);
+                // Globals.EmissionConeDirection = ObNOZ(Globals.EmissionConeDirection);
                 Globals.EmissionConeRotation = ObRotationAlign(Z, Globals.EmissionConeDirection);
             } break;
         }
@@ -430,11 +427,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
     }
     )SHADER";
 
-    // TODO(rytis): Use subroutines instead of switch-case statements???
     char* SpawnCode = R"SHADER(
-    layout(binding = 1) uniform atomic_uint RunningParticleID;
-    layout(binding = 2) uniform atomic_uint SpawnedParticleCount;
-
     layout(binding = 1) writeonly buffer particle_buffer
     {
         ob_particle Particles[];
@@ -510,10 +503,9 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
     void
     main()
     {
-        // Index = gl_GlobalInvocationID.x;
-        Index = atomicCounterIncrement(SpawnedParticleCount);
+        Index = gl_GlobalInvocationID.x;
         Offset = 0;
-        UID = atomicCounterIncrement(RunningParticleID);
+        UID = RunningParticleID + Index;
 
         ob_particle ZeroP = ob_particle(vec4(0.0f), vec4(0.0f), vec4(0.0f));
 
@@ -544,8 +536,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
     )SHADER";
 
     char* UpdateCode = R"SHADER(
-    layout(binding = 3) uniform atomic_uint OldParticleIndex;
-    layout(binding = 4) uniform atomic_uint UpdatedParticleCount;
+    layout(binding = 0) uniform atomic_uint UpdatedParticleCount;
     layout(binding = 2) readonly buffer particle_input_buffer
     {
         ob_particle InputParticles[];
@@ -589,7 +580,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
     void
     main()
     {
-        Index = atomicCounterIncrement(OldParticleIndex);
+        Index = gl_GlobalInvocationID.x;
 
         ob_particle ZeroP = ob_particle(vec4(0.0f), vec4(0.0f), vec4(0.0f));
         ob_particle Particle = InputParticles[Index];
@@ -713,35 +704,11 @@ void
 OffbeatComputeInit()
 {
     u32 Seed = 1234;
-    glGenBuffers(1, &GlobalRandomTableIndex);
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, GlobalRandomTableIndex);
-    glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(u32), &Seed, GL_STREAM_DRAW);
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
-    glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, GlobalRandomTableIndex);
-
-    glGenBuffers(1, &GlobalRunningID);
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, GlobalRunningID);
-    glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(u32), 0, GL_STREAM_DRAW);
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
-    glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 1, GlobalRunningID);
-
-    glGenBuffers(1, &GlobalSpawnedParticleCount);
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, GlobalSpawnedParticleCount);
-    glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(u32), 0, GL_STREAM_DRAW);
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
-    glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 2, GlobalSpawnedParticleCount);
-
-    glGenBuffers(1, &GlobalOldParticleIndex);
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, GlobalOldParticleIndex);
-    glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(u32), 0, GL_STREAM_DRAW);
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
-    glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 3, GlobalOldParticleIndex);
-
     glGenBuffers(1, &GlobalUpdatedParticleCount);
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, GlobalUpdatedParticleCount);
     glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(u32), 0, GL_STREAM_DRAW);
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
-    glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 4, GlobalUpdatedParticleCount);
+    glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, GlobalUpdatedParticleCount);
 
     glGenBuffers(1, &GlobalEmissionBlock);
     glBindBuffer(GL_UNIFORM_BUFFER, GlobalEmissionBlock);
@@ -871,6 +838,7 @@ OffbeatComputeSpawnParticles(ob_particle_system* ParticleSystem, ob_state* Offbe
 
     glUniform1f(glGetUniformLocation(SpawnProgramID, "u_t"), OffbeatState->t);
     glUniform1f(glGetUniformLocation(SpawnProgramID, "dt"), OffbeatState->dt);
+    glUniform1ui(glGetUniformLocation(SpawnProgramID, "RunningParticleID"), OffbeatState->RunningParticleID);
     glUniform3fv(glGetUniformLocation(SpawnProgramID, "CameraPosition"), 1, (float*)OffbeatState->CameraPosition.E);
     glUniform1ui(glGetUniformLocation(SpawnProgramID, "ParticleSpawnCount"), ParticleSystem->ParticleSpawnCount);
     glUniform1ui(glGetUniformLocation(SpawnProgramID, "RandomTableIndex"), ObRandomNextRandomUInt32(&OffbeatState->EffectsEntropy));
@@ -880,14 +848,6 @@ OffbeatComputeSpawnParticles(ob_particle_system* ParticleSystem, ob_state* Offbe
     glBindBuffer(GL_UNIFORM_BUFFER, GlobalEmissionBlock);
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(ob_emission_uniform_block), &Emission);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
-
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, GlobalRunningID);
-    glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(u32), &OffbeatState->RunningParticleID);
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
-
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, GlobalSpawnedParticleCount);
-    glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(u32), &Zero);
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, GlobalUpdatedParticles);
     glBufferData(GL_SHADER_STORAGE_BUFFER, ParticleSystem->ParticleCount * sizeof(ob_particle),
@@ -909,6 +869,7 @@ OffbeatComputeUpdateParticles(ob_particle_system* ParticleSystem, ob_state* Offb
 
     glUniform1f(glGetUniformLocation(UpdateProgramID, "u_t"), OffbeatState->t);
     glUniform1f(glGetUniformLocation(UpdateProgramID, "dt"), OffbeatState->dt);
+    glUniform1ui(glGetUniformLocation(UpdateProgramID, "RunningParticleID"), OffbeatState->RunningParticleID);
     glUniform3fv(glGetUniformLocation(UpdateProgramID, "CameraPosition"), 1, (float*)OffbeatState->CameraPosition.E);
     glUniform1ui(glGetUniformLocation(UpdateProgramID, "ParticleSpawnCount"), ParticleSystem->ParticleSpawnCount);
     glUniform1ui(glGetUniformLocation(UpdateProgramID, "RandomTableIndex"), ObRandomNextRandomUInt32(&OffbeatState->EffectsEntropy));
@@ -921,10 +882,6 @@ OffbeatComputeUpdateParticles(ob_particle_system* ParticleSystem, ob_state* Offb
     glBindBuffer(GL_UNIFORM_BUFFER, GlobalMotionBlock);
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(ob_motion_uniform_block), &Motion);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
-
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, GlobalOldParticleIndex);
-    glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(u32), &Zero);
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
 
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, GlobalUpdatedParticleCount);
     glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(u32), &Zero);
@@ -949,6 +906,7 @@ OffbeatComputeStatelessEvaluation(ob_draw_list_compute* DrawList, ob_particle_sy
 
     glUniform1f(glGetUniformLocation(StatelessEvaluationProgramID, "u_t"), OffbeatState->t);
     glUniform1f(glGetUniformLocation(StatelessEvaluationProgramID, "dt"), OffbeatState->dt);
+    glUniform1ui(glGetUniformLocation(StatelessEvaluationProgramID, "RunningParticleID"), OffbeatState->RunningParticleID);
     glUniform3fv(glGetUniformLocation(StatelessEvaluationProgramID, "CameraPosition"), 1, (float*)OffbeatState->CameraPosition.E);
     glUniform1ui(glGetUniformLocation(StatelessEvaluationProgramID, "ParticleSpawnCount"), ParticleSystem->ParticleSpawnCount);
     glUniform1ui(glGetUniformLocation(StatelessEvaluationProgramID, "RandomTableIndex"), ObRandomNextRandomUInt32(&OffbeatState->EffectsEntropy));
