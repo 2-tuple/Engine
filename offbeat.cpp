@@ -629,7 +629,6 @@ OffbeatInit(void* Memory, u64 MemorySize)
         OffbeatState->SpawnProgramID = OffbeatCreateSpawnProgram();
         OffbeatState->UpdateProgramID = OffbeatCreateUpdateProgram();
 #endif
-
         OffbeatState->EffectsEntropy = ObRandomSeed(1234);
 
         ob_emission TestEmission = {};
@@ -1070,6 +1069,15 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
     u64 StartCycleCount = __rdtsc();
     // TODO(rytis): Remove this.
     int64_t StartSecondCount = Platform::GetCurrentCounter();
+    if(!(OffbeatState->FrameCount % 120))
+    {
+        OffbeatState->FrameCount = 0;
+        OffbeatState->CycleSum = 0;
+        OffbeatState->MSSum = 0.0f;
+        OffbeatState->ParticleSum = 0;
+    }
+
+    OffbeatState->TotalParticleCount = 0;
     {
         OffbeatState->dt = dt;
         OffbeatState->t += OffbeatState->dt;
@@ -1085,7 +1093,6 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
 
         OffbeatUpdateMemoryManager(&OffbeatState->MemoryManager);
     }
-
     OffbeatState->DrawData.DrawListCount = OffbeatState->ParticleSystemCount;
 #ifdef OFFBEAT_DEBUG
     OffbeatGlobalData.DebugDrawData.DrawListCount = OffbeatState->ParticleSystemCount;
@@ -1127,7 +1134,7 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
         // * Change age calculation.
         // * Add more different expression functions (steps, etc.).
         // * Try to optimize GPU calculations?
-        // * Probably should update just spawned particles.
+        // * Probably should update spawned particles, too.
         OffbeatComputeSwapBuffers();
         OffbeatComputeSpawnParticles(ParticleSystem, OffbeatState);
         OffbeatComputeUpdateParticles(ParticleSystem, OffbeatState);
@@ -1157,12 +1164,15 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
 #endif
 
         OffbeatDebugMotionPrimitive(&ParticleSystem->Motion);
+        OffbeatState->TotalParticleCount += ParticleSystem->ParticleCount;
     }
 
-    OffbeatState->CycleCount = __rdtsc() - StartCycleCount;
+    OffbeatState->ParticleSum += OffbeatState->TotalParticleCount;
+    OffbeatState->CycleSum += __rdtsc() - StartCycleCount;
     // TODO(rytis): Remove this.
     int64_t EndSecondCount = Platform::GetCurrentCounter();
-    OffbeatState->MilisecondCount = 1000.0f * Platform::GetTimeInSeconds(StartSecondCount, EndSecondCount);
+    OffbeatState->MSSum += 1000.0f * Platform::GetTimeInSeconds(StartSecondCount, EndSecondCount);
+    ++OffbeatState->FrameCount;
 }
 
 #ifndef OFFBEAT_OPENGL_COMPUTE

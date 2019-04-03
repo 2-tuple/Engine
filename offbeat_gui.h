@@ -348,39 +348,37 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
             }
         }
         {
-            u64 TotalParticleCount = 0;
-            for(u32 i = 0; i < OffbeatState->ParticleSystemCount; ++i)
+            u64 FrameCount = OffbeatState->FrameCount ? OffbeatState->FrameCount : 1;
+            u64 AvgParticleCount = OffbeatState->ParticleSum / FrameCount;
+            u64 AvgCycleCount = OffbeatState->CycleSum / FrameCount;
+            f32 AvgCyclesPerParticle = AvgParticleCount ? ((f32)AvgCycleCount / (f32)AvgParticleCount) : 0.0f;
+            f32 AvgMSCount = OffbeatState->MSSum / (f32)FrameCount;
+            u32 AvgParticlesPerMS = (u32)((f32)AvgParticleCount / AvgMSCount);
+
+            static bool BufferInit = false;
+            static char ParticleBuffer[50];
+            static char TimeBuffer[50];
+            static char MSBuffer[50];
+            static char ParticlesPerMSBuffer[50];
+            static char CountBuffer[50];
+            static char PerParticleBuffer[50];
+
+            sprintf(ParticleBuffer, "Particles: %llu", OffbeatState->TotalParticleCount);
+            sprintf(TimeBuffer, "%.2f s", OffbeatState->t);
+            if(!(OffbeatState->FrameCount % 60) || !BufferInit)
             {
-                TotalParticleCount += OffbeatState->ParticleSystems[i].ParticleCount;
+                BufferInit = true;
+                sprintf(MSBuffer, "%.3f ms average", AvgMSCount);
+                sprintf(ParticlesPerMSBuffer, "%u particles/ms", AvgParticlesPerMS);
+                sprintf(CountBuffer, "%llu cycle average", AvgCycleCount);
+                sprintf(PerParticleBuffer, "%.2f cycles/particle", AvgCyclesPerParticle);
             }
 
-            u64 CycleCount = OffbeatState->CycleCount;
-            f32 CyclesPerParticle = TotalParticleCount ? CycleCount / (f32)TotalParticleCount : 0.0f;
-            f32 MSCount = OffbeatState->MilisecondCount;
-            f32 ParticlesPerMS = (MSCount > 0.0f) ? ((f32)TotalParticleCount / MSCount) : 0.0f;
-
-            char ParticleBuffer[50];
-            sprintf(ParticleBuffer, "Particles: %llu", TotalParticleCount);
             UI::Text(ParticleBuffer);
-
-            char TimeBuffer[50];
-            sprintf(TimeBuffer, "%.2f s", OffbeatState->t);
             UI::Text(TimeBuffer);
-
-            char MSBuffer[50];
-            sprintf(MSBuffer, "%.3f ms", MSCount);
             UI::Text(MSBuffer);
-
-            char ParticlesPerMSBuffer[50];
-            sprintf(ParticlesPerMSBuffer, "%d particles/ms", (s32)ParticlesPerMS);
             UI::Text(ParticlesPerMSBuffer);
-
-            char CountBuffer[50];
-            sprintf(CountBuffer, "Cycles: %llu", CycleCount);
             UI::Text(CountBuffer);
-
-            char PerParticleBuffer[50];
-            sprintf(PerParticleBuffer, "%.2f cycles/particle", CyclesPerParticle);
             UI::Text(PerParticleBuffer);
         }
     }

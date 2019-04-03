@@ -255,7 +255,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
                 {
                     return Result;
                 }
-                Result = Particle.PositionAge.w / Globals.EmissionParticleLifetime;
+                Result = Particle.PositionAge.w / Emission.ParticleLifetime.High.x;
             } break;
 
             case OFFBEAT_ParameterRandom:
@@ -587,11 +587,10 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
 
         Particle.PositionAge.w += dt;
 
-        Globals.EmissionParticleLifetime = OffbeatEvaluateExpression(Emission.ParticleLifetime, Particle).x;
+        Globals.EmissionParticleLifetime = OffbeatEvaluateExpression(Emission.ParticleLifetime, ZeroP).x;
         float Age = Particle.PositionAge.w;
         if(Age < Globals.EmissionParticleLifetime)
         {
-            Globals.EmissionParticleLifetime = OffbeatEvaluateExpression(Emission.ParticleLifetime, ZeroP).x;
             Globals.MotionGravity = Motion.Gravity;
             Globals.MotionDrag = Motion.Drag;
             Globals.MotionStrength = OffbeatEvaluateExpression(Motion.Strength, Particle).x;
