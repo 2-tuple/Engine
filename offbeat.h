@@ -43,9 +43,13 @@ typedef uintptr_t umm;
  * Add more emission, initial velocity and motion primitive shapes.
  *
  * Add selectors (plane, sphere, cube ???). Allow testing selectors against a ray.
+ *
+ * Add option to enable / disable GPU dispatch for selected particle system in runtime.
  */
 
-#define OffbeatAssert(Expression) if(!(Expression)) {*(int *)0 = 0;}
+//#define OffbeatAssert(Expression) if(!(Expression)) {*(int *)0 = 0;}
+#include <assert.h>
+#define OffbeatAssert(Expression) assert(Expression)
 
 #define OffbeatKibibytes(Value) (1024LL * (Value))
 #define OffbeatMibibytes(Value) (1024LL * OffbeatKibibytes(Value))
@@ -225,7 +229,52 @@ struct ob_particle_system
     u32 MaxParticleCount;
     u32 HistoryEntryCount;
     ob_history_entry* History;
+
+#ifdef OFFBEAT_OPENGL_COMPUTE
+    GLuint ParticleSSBO;
+    GLuint OldParticleSSBO;
+#endif
 };
+
+// NOTE(rytis): Aligned vvv
+struct ob_emission_uniform_aligned
+{
+    ov3 Location; f32 EmissionRate;
+    ob_expr ParticleLifetime;
+
+    ob_emission_shape Shape; f32 RingRadius; ov2 P0;
+    ov3 RingNormal; f32 P1;
+    om3x4 RingRotation;
+
+    f32 InitialVelocityScale; ob_emission_velocity VelocityType; f32 ConeHeight; f32 ConeRadius;
+    ov3 ConeDirection; f32 P2;
+    om3x4 ConeRotation;
+};
+
+struct ob_motion_uniform_aligned
+{
+    ov3 Gravity; f32 Drag;
+    ob_expr Strength;
+
+    ob_motion_primitive Primitive; ov3 P0;
+    ov3 Position; f32 P1;
+    ov3 LineDirection; f32 P2;
+};
+
+struct ob_appearance_uniform_aligned
+{
+    ob_expr Color;
+    ob_expr Size;
+    // ov3 Scale;
+};
+
+struct ob_draw_vertex_aligned
+{
+    ov3 Position; f32 P0;
+    ov2 UV; ov2 P1;
+    ov4 Color;
+};
+// NOTE(rytis): Aligned ^^^
 
 struct ob_camera
 {
@@ -247,22 +296,22 @@ struct ob_draw_vertex
     ov4 Color;
 };
 
-#ifdef OFFBEAT_OPENGL
-struct ob_draw_list_compute
+#ifdef OFFBEAT_OPENGL_COMPUTE
+struct ob_draw_list
 {
     ob_texture TextureID;
+    GLuint VAO;
     GLuint VBO;
     GLuint EBO;
     u32 IndexCount;
 };
 
-struct ob_draw_data_compute
+struct ob_draw_data
 {
     u32 DrawListCount;
-    ob_draw_list_compute DrawLists[OFFBEAT_DRAW_LIST_COUNT];
+    ob_draw_list DrawLists[OFFBEAT_DRAW_LIST_COUNT];
 };
-#endif
-
+#else
 struct ob_draw_list
 {
     ob_texture TextureID;
@@ -279,6 +328,25 @@ struct ob_draw_data
 {
     u32 DrawListCount;
     ob_draw_list DrawLists[OFFBEAT_DRAW_LIST_COUNT];
+};
+#endif
+
+struct ob_draw_list_debug
+{
+    ob_texture TextureID;
+    u32 ElementCount;
+
+    u32 IndexCount;
+    u32* Indices;
+
+    u32 VertexCount;
+    ob_draw_vertex* Vertices;
+};
+
+struct ob_draw_data_debug
+{
+    u32 DrawListCount;
+    ob_draw_list_debug DrawLists[OFFBEAT_DRAW_LIST_COUNT];
 };
 
 struct ob_memory_manager
@@ -324,11 +392,7 @@ struct ob_state
     u32 ParticleSystemCount;
     ob_particle_system ParticleSystems[OFFBEAT_PARTICLE_SYSTEM_COUNT];
 
-#ifdef OFFBEAT_OPENGL_COMPUTE
-    ob_draw_data_compute DrawData;
-#else
     ob_draw_data DrawData;
-#endif
 
     ob_memory_manager MemoryManager;
 };
@@ -346,6 +410,7 @@ OFFBEAT_API ob_state* OffbeatInit();
 OFFBEAT_API ob_particle_system* OffbeatNewParticleSystem(ob_state* OffbeatState);
 OFFBEAT_API u32 OffbeatNewParticleSystem(ob_state* OffbeatState, ob_particle_system** NewParticleSystem);
 OFFBEAT_API void OffbeatRemoveParticleSystem(ob_state* OffbeatState, u32 Index);
+OFFBEAT_API void OffbeatAddParticleSystem(ob_state* OffbeatState, ob_particle_system* NewParticleSystem);
 OFFBEAT_API void OffbeatRemoveCurrentParticleSystem(ob_state* OffbeatState);
 OFFBEAT_API ob_particle_system* OffbeatGetCurrentParticleSystem(ob_state* OffbeatState);
 OFFBEAT_API ob_particle_system* OffbeatPreviousParticleSystem(ob_state* OffbeatState);
@@ -361,7 +426,7 @@ OFFBEAT_API void OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
 #ifndef OFFBEAT_OPENGL_COMPUTE
 OFFBEAT_API ob_draw_data* OffbeatGetDrawData(ob_state* OffbeatState);
 #endif
-OFFBEAT_API ob_draw_data* OffbeatGetDebugDrawData();
+OFFBEAT_API ob_draw_data_debug* OffbeatGetDebugDrawData();
 OFFBEAT_API void OffbeatRenderParticles(ob_state* OffbeatState, float* ViewMatrix, float* ProjectionMatrix);
 
 // NOTE(rytis): Particle system pack/unpack.

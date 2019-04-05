@@ -52,7 +52,7 @@ struct ob_global_data
 #ifdef OFFBEAT_DEBUG
     u32 CurrentParticleSystem;
     ob_quad_data DebugQuadData;
-    ob_draw_data DebugDrawData;
+    ob_draw_data_debug DebugDrawData;
 #endif
 };
 
@@ -66,7 +66,7 @@ static ob_global_data OffbeatGlobalData;
 static void
 OffbeatDebugSpawnPoint_(ov3 Point)
 {
-    ob_draw_list* DrawList = &OffbeatGlobalData.DebugDrawData.DrawLists[OffbeatGlobalData.CurrentParticleSystem];
+    ob_draw_list_debug* DrawList = &OffbeatGlobalData.DebugDrawData.DrawLists[OffbeatGlobalData.CurrentParticleSystem];
     ob_quad_data* QuadData = &OffbeatGlobalData.DebugQuadData;
     f32 Size = 0.05f;
     ov4 Color = ov4{1.0f, 0.0f, 0.0f, 1.0f};
@@ -105,7 +105,7 @@ OffbeatDebugSpawnPoint_(ov3 Point)
 static void
 OffbeatDebugMotionPrimitive_(ob_motion* Motion)
 {
-    ob_draw_list* DrawList = &OffbeatGlobalData.DebugDrawData.DrawLists[OffbeatGlobalData.CurrentParticleSystem];
+    ob_draw_list_debug* DrawList = &OffbeatGlobalData.DebugDrawData.DrawLists[OffbeatGlobalData.CurrentParticleSystem];
     ov3 Point;
     ov3 Horizontal;
     ov3 Vertical;
@@ -173,7 +173,7 @@ OffbeatDebugMotionPrimitive_(ob_motion* Motion)
     ++DrawList->ElementCount;
 }
 
-ob_draw_data*
+ob_draw_data_debug*
 OffbeatGetDebugDrawData()
 {
     return &OffbeatGlobalData.DebugDrawData;
@@ -392,6 +392,12 @@ OffbeatUnpackParticleSystem(ob_particle_system* Result, void* PackedMemory)
     ob_appearance* AppearanceMemory = (ob_appearance*)MotionMemory;
     Result->Appearance = *AppearanceMemory;
     ++AppearanceMemory;
+
+    // TODO(rytis): Avoid this somehow???
+#ifdef OFFBEAT_OPENGL_COMPUTE
+    glGenBuffers(1, &Result->ParticleSSBO);
+    glGenBuffers(1, &Result->OldParticleSSBO);
+#endif
 
     return true;
 }
@@ -622,58 +628,13 @@ OffbeatInit(void* Memory, u64 MemorySize)
         OffbeatGlobalData.t = &OffbeatState->t;
 
         OffbeatState->RenderProgramID = OffbeatCreateRenderProgram();
-#if 1
-        OffbeatCreateComputePrograms(&OffbeatState->SpawnProgramID, &OffbeatState->UpdateProgramID,
-                                     &OffbeatState->StatelessEvaluationProgramID);
-#else
-        OffbeatState->SpawnProgramID = OffbeatCreateSpawnProgram();
-        OffbeatState->UpdateProgramID = OffbeatCreateUpdateProgram();
-#endif
         OffbeatState->EffectsEntropy = ObRandomSeed(1234);
-
-        ob_emission TestEmission = {};
-        TestEmission.Location = ov3{0.0f, 0.0f, 0.0f};
-        TestEmission.EmissionRate = 60.0f;
-        TestEmission.ParticleLifetime.Function = OFFBEAT_FunctionConst;
-        TestEmission.ParticleLifetime.High.x = 1.5f;
-
-        TestEmission.Shape = OFFBEAT_EmissionRing;
-        TestEmission.RingRadius = 0.5f;
-        TestEmission.RingNormal = ov3{0.0f, 1.0f, 0.0f};
-
-        TestEmission.InitialVelocityScale = 1.0f;
-        TestEmission.VelocityType = OFFBEAT_VelocityCone;
-        TestEmission.ConeDirection = ov3{0.0f, 1.0f, 0.0f};
-        TestEmission.ConeHeight = 5.0f;
-        TestEmission.ConeRadius = 3.0f;
-
-        ob_motion TestMotion = {};
-        TestMotion.Gravity = ov3{0.0f, 0.0f, 0.0f};
-        TestMotion.Primitive = OFFBEAT_MotionPoint;
-        TestMotion.Position = ov3{0.0f, 1.0f, 1.0f};
-        TestMotion.Strength.High.x = 10.0f;
-
-        ob_appearance TestAppearance = {};
-        TestAppearance.Color.Function = OFFBEAT_FunctionConst;
-        TestAppearance.Color.Low = TestAppearance.Color.High =
-            ov4{ObRandomBetween(&OffbeatState->EffectsEntropy, 0.45f, 0.5f),
-            ObRandomBetween(&OffbeatState->EffectsEntropy, 0.5f, 0.8f),
-            ObRandomBetween(&OffbeatState->EffectsEntropy, 0.8f, 1.0f),
-            1.0f};
-        TestAppearance.Size.Function = OFFBEAT_FunctionConst;
-        TestAppearance.Size.Low.x = TestAppearance.Size.High.x = 0.05f;
-        TestAppearance.Texture = OFFBEAT_TextureCircle;
-
-        ob_particle_system TestSystem = {};
-        TestSystem.Emission = TestEmission;
-        TestSystem.Motion = TestMotion;
-        TestSystem.Appearance = TestAppearance;
-
-        OffbeatState->ParticleSystems[0] = TestSystem;
-        OffbeatState->CurrentParticleSystem = 0;
-        OffbeatState->ParticleSystemCount = 1;
     }
+#ifdef OFFBEAT_OPENGL_COMPUTE
+    OffbeatCreateComputePrograms(&OffbeatState->SpawnProgramID, &OffbeatState->UpdateProgramID,
+                                 &OffbeatState->StatelessEvaluationProgramID);
     OffbeatComputeInit();
+#endif
     return OffbeatState;
 }
 
@@ -691,13 +652,86 @@ OffbeatInit()
     return OffbeatInit(OffbeatGlobalAlloc);
 }
 
+static void
+OffbeatInitParticleSystem(ob_particle_system* ParticleSystem)
+{
+    *ParticleSystem = {};
+    ParticleSystem->Emission.EmissionRate = 60.0f;
+    ParticleSystem->Emission.InitialVelocityScale = 1.0f;
+    ParticleSystem->Emission.ParticleLifetime.High.x = 1.0f;
+    ParticleSystem->Emission.VelocityType = OFFBEAT_VelocityCone;
+    ParticleSystem->Emission.ConeHeight = 20.0f;
+    ParticleSystem->Emission.ConeRadius = 10.0f;
+    ParticleSystem->Emission.ConeDirection = ov3{0.0f, 1.0f, 0.0f};
+    ParticleSystem->Appearance.Color.High = ov4{1.0f, 1.0f, 1.0f, 1.0f};
+    ParticleSystem->Appearance.Size.High.x = 0.05f;
+#ifdef OFFBEAT_OPENGL_COMPUTE
+    glGenBuffers(1, &ParticleSystem->ParticleSSBO);
+    glGenBuffers(1, &ParticleSystem->OldParticleSSBO);
+#endif
+}
+
+#ifdef OFFBEAT_OPENGL_COMPUTE
+static void
+OffbeatInitDrawList(ob_draw_list* DrawList)
+{
+    *DrawList = {};
+
+    glGenVertexArrays(1, &DrawList->VAO);
+    glGenBuffers(1, &DrawList->VBO);
+    glGenBuffers(1, &DrawList->EBO);
+
+    glBindVertexArray(DrawList->VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, DrawList->VBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, DrawList->EBO);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex_aligned), (GLvoid*)(OffbeatOffsetOf(ob_draw_vertex_aligned, Position)));
+
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex_aligned), (GLvoid*)(OffbeatOffsetOf(ob_draw_vertex_aligned, UV)));
+
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex_aligned), (GLvoid*)(OffbeatOffsetOf(ob_draw_vertex_aligned, Color)));
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+}
+
+static void
+OffbeatCleanupParticleSystem(ob_particle_system* ParticleSystem)
+{
+    glDeleteBuffers(1, &ParticleSystem->ParticleSSBO);
+    glDeleteBuffers(1, &ParticleSystem->OldParticleSSBO);
+}
+
+static void
+OffbeatCleanupDrawList(ob_draw_list* DrawList)
+{
+    glDeleteBuffers(1, &DrawList->VBO);
+    glDeleteBuffers(1, &DrawList->EBO);
+}
+#else
+static void
+OffbeatInitDrawList(ob_draw_list* DrawList)
+{
+    *DrawList = {};
+}
+
+#define OffbeatCleanupParticleSystem(ParticleSystem)
+#define OffbeatCleanupDrawList(DrawList)
+#endif
+
 u32
 OffbeatNewParticleSystem(ob_state* OffbeatState, ob_particle_system** NewParticleSystem)
 {
     OffbeatAssert(OffbeatState->ParticleSystemCount + 1 <= OFFBEAT_PARTICLE_SYSTEM_COUNT);
     u32 Result = OffbeatState->ParticleSystemCount;
     *NewParticleSystem = &OffbeatState->ParticleSystems[OffbeatState->ParticleSystemCount++];
-    OffbeatState->ParticleSystems[Result] = {};
+    OffbeatInitParticleSystem(*NewParticleSystem);
+    ob_draw_list* NewDrawList = &OffbeatState->DrawData.DrawLists[OffbeatState->DrawData.DrawListCount++];
+    OffbeatInitDrawList(NewDrawList);
     return Result;
 }
 
@@ -705,19 +739,37 @@ ob_particle_system*
 OffbeatNewParticleSystem(ob_state* OffbeatState)
 {
     OffbeatAssert(OffbeatState->ParticleSystemCount + 1 <= OFFBEAT_PARTICLE_SYSTEM_COUNT);
+    OffbeatState->CurrentParticleSystem = OffbeatState->ParticleSystemCount;
     ob_particle_system* Result = &OffbeatState->ParticleSystems[OffbeatState->ParticleSystemCount++];
-    *Result = {};
+    OffbeatInitParticleSystem(Result);
+    ob_draw_list* NewDrawList = &OffbeatState->DrawData.DrawLists[OffbeatState->DrawData.DrawListCount++];
+    OffbeatInitDrawList(NewDrawList);
     return Result;
+}
+
+void
+OffbeatAddParticleSystem(ob_state* OffbeatState, ob_particle_system* NewParticleSystem)
+{
+    OffbeatState->CurrentParticleSystem = OffbeatState->ParticleSystemCount;
+    OffbeatState->ParticleSystems[OffbeatState->ParticleSystemCount++] = *NewParticleSystem;
+
+    ob_draw_list NewDrawList;
+    OffbeatInitDrawList(&NewDrawList);
+    OffbeatState->DrawData.DrawLists[OffbeatState->DrawData.DrawListCount++] = NewDrawList;
 }
 
 void
 OffbeatRemoveParticleSystem(ob_state* OffbeatState, u32 Index)
 {
+    OffbeatCleanupParticleSystem(&OffbeatState->ParticleSystems[Index]);
+    OffbeatCleanupDrawList(&OffbeatState->DrawData.DrawLists[Index]);
     for(u32 i = Index; i < OffbeatState->ParticleSystemCount - 1; ++i)
     {
         OffbeatState->ParticleSystems[i] = OffbeatState->ParticleSystems[i + 1];
+        OffbeatState->DrawData.DrawLists[i] = OffbeatState->DrawData.DrawLists[i + 1];
     }
     --OffbeatState->ParticleSystemCount;
+    --OffbeatState->DrawData.DrawListCount;
     if(OffbeatState->CurrentParticleSystem >= OffbeatState->ParticleSystemCount)
     {
         --OffbeatState->CurrentParticleSystem;
@@ -996,6 +1048,7 @@ OffbeatUpdateParticleSystem(ob_particle* Particles, ob_particle_system* Particle
     ParticleSystem->Particles = Particles;
 }
 
+#ifndef OFFBEAT_OPENGL_COMPUTE
 static void
 OffbeatConstructQuad(ob_draw_list* DrawList, ob_quad_data* QuadData, ob_particle_system* ParticleSystem, ob_particle* Particle)
 {
@@ -1062,6 +1115,7 @@ OffbeatRenderParticleSystem(ob_draw_list* DrawList, u32* IndexMemory, ob_draw_ve
         OffbeatConstructQuad(DrawList, QuadData, ParticleSystem, Particle);
     }
 }
+#endif
 
 void
 OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
@@ -1093,7 +1147,6 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
 
         OffbeatUpdateMemoryManager(&OffbeatState->MemoryManager);
     }
-    OffbeatState->DrawData.DrawListCount = OffbeatState->ParticleSystemCount;
 #ifdef OFFBEAT_DEBUG
     OffbeatGlobalData.DebugDrawData.DrawListCount = OffbeatState->ParticleSystemCount;
 #endif
@@ -1127,15 +1180,10 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
         // TODO(rytis): Leave a single macro function, changed depending on the flag.
 #ifdef OFFBEAT_OPENGL_COMPUTE
         // TODO(rytis): Sorting is NECESSARY for GPU! Preferable for CPU, too.
-        // TODO(rytis): GPU problems:
-        // * Particle Age not working on GPU (no global lifetime set?)
-        // * Assert on max particle count when adding 2nd particle system.
         // TODO(rytis): General stuff:
-        // * Change age calculation.
+        // * Different age calculation seems to be slower, so for now this version is fine.
         // * Add more different expression functions (steps, etc.).
-        // * Try to optimize GPU calculations?
-        // * Probably should update spawned particles, too.
-        OffbeatComputeSwapBuffers();
+        OffbeatComputeSwapBuffers(ParticleSystem);
         OffbeatComputeSpawnParticles(ParticleSystem, OffbeatState);
         OffbeatComputeUpdateParticles(ParticleSystem, OffbeatState);
         OffbeatComputeStatelessEvaluation(&OffbeatState->DrawData.DrawLists[i], ParticleSystem,
@@ -1175,10 +1223,8 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
     ++OffbeatState->FrameCount;
 }
 
-#ifndef OFFBEAT_OPENGL_COMPUTE
 ob_draw_data*
 OffbeatGetDrawData(ob_state* OffbeatState)
 {
     return &OffbeatState->DrawData;
 }
-#endif

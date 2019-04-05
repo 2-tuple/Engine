@@ -78,8 +78,7 @@ OffbeatImportParticleSystem(game_state* GameState, ob_state* OffbeatState, char*
     ob_particle_system NewParticleSystem = {};
     // TODO(rytis): Check if unpack succeeded.
     OffbeatUnpackParticleSystem(&NewParticleSystem, ReadResult.Contents);
-    OffbeatState->CurrentParticleSystem = OffbeatState->ParticleSystemCount;
-    OffbeatState->ParticleSystems[OffbeatState->ParticleSystemCount++] = NewParticleSystem;
+    OffbeatAddParticleSystem(OffbeatState, &NewParticleSystem);
 }
 
 static void
