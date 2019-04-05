@@ -204,7 +204,7 @@ struct ob_appearance
     ob_expr Color;
     ob_expr Size;
     // ov3 Scale;
-    ob_texture_type Texture;
+    ob_texture Texture;
 };
 
 struct ob_history_entry

@@ -323,19 +323,28 @@ OffbeatGenerateGridRGBATexture(void* Memory, u64 MemorySize, u32 Width, u32 Heig
 ob_texture_type
 OffbeatGetCurrentTextureType(ob_particle_system* ParticleSystem)
 {
-    return ParticleSystem->Appearance.Texture;
+    ob_texture_type Result = (ob_texture_type)0;
+    for(u32 i = 0; i < OFFBEAT_TextureCount; ++i)
+    {
+        if(OffbeatGlobalData.TextureIDs[i] == ParticleSystem->Appearance.Texture)
+        {
+            Result = (ob_texture_type)i;
+            break;
+        }
+    }
+    return Result;
 }
 
 ob_texture
 OffbeatGetTextureID(ob_particle_system* ParticleSystem)
 {
-    return OffbeatGlobalData.TextureIDs[ParticleSystem->Appearance.Texture];
+    return ParticleSystem->Appearance.Texture;
 }
 
 void
 OffbeatSetTextureID(ob_particle_system* ParticleSystem, ob_texture_type NewType)
 {
-    ParticleSystem->Appearance.Texture = NewType;
+    ParticleSystem->Appearance.Texture = OffbeatGlobalData.TextureIDs[NewType];
 }
 
 ob_file_data
