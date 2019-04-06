@@ -3,13 +3,13 @@
 #endif
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
 #include <stdio.h>
 #include <assert.h>
 
 #include "common.h"
 #include "profile.h"
+#include "load_texture.h"
 
 static bool
 ProcessInput(const game_input* OldInput, game_input* NewInput, SDL_Event* Event, SDL_Window* Window)
@@ -437,11 +437,7 @@ main(int argc, char* argv[])
     return -1;
   }
 
-  if(IMG_Init(IMG_INIT_PNG | IMG_INIT_JPG | IMG_INIT_TIF) !=
-     (IMG_INIT_PNG | IMG_INIT_JPG | IMG_INIT_TIF))
-  {
-    printf("Image loading could not be initialized!\nError: %s\n", SDL_GetError());
-  }
+  Texture::SetTextureVerticalFlipOnLoad();
 
   // Init TrueType Font API
   if(TTF_Init() == -1)
@@ -512,7 +508,6 @@ main(int argc, char* argv[])
 
   free(GameMemory.TemporaryMemory);
   free(GameMemory.PersistentMemory);
-  IMG_Quit();
   TTF_Quit();
   SDL_DestroyWindow(Window);
   SDL_Quit();
