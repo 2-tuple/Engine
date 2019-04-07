@@ -428,6 +428,22 @@ SetGameStatePODFields(game_state* GameState)
   {
       GameState->ParticleMode = true;
       GameState->UpdateParticles = true;
+      OffbeatGUIAddTexture(&GameState->Resources,
+                           "DiskA",         "./data/textures/particle_alpha_disk.png");
+      OffbeatGUIAddTexture(&GameState->Resources,
+                           "LandA",         "./data/textures/particle_alpha_land.png");
+      OffbeatGUIAddTexture(&GameState->Resources,
+                           "RingA",         "./data/textures/particle_alpha_ring.png");
+      OffbeatGUIAddTexture(&GameState->Resources,
+                           "SquareA",       "./data/textures/particle_alpha_square.png");
+      OffbeatGUIAddTexture(&GameState->Resources,
+                           "Disk",          "./data/textures/particle_disk.png");
+      OffbeatGUIAddTexture(&GameState->Resources,
+                           "KTU_Logo",      "./data/textures/particle_ktu_logo.png");
+      OffbeatGUIAddTexture(&GameState->Resources,
+                           "Ring",          "./data/textures/particle_ring.png");
+      OffbeatGUIAddTexture(&GameState->Resources,
+                           "Square",        "./data/textures/particle_square.png");
       GameState->OffbeatMemorySize = Mibibytes(50);
       GameState->OffbeatState =
         OffbeatInit(GameState->PersistentMemStack->Alloc(GameState->OffbeatMemorySize),

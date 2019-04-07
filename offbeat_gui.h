@@ -40,44 +40,33 @@ static char* g_ParameterStrings[OFFBEAT_ParameterCount] = {
     "ID",
 };
 
-static rid g_TextureRIDs[OFFBEAT_PARTICLE_SYSTEM_COUNT];
+static u32 g_TextureCount;
+static char g_TextureStrings[OFFBEAT_PARTICLE_SYSTEM_COUNT][50];
+
+void
+OffbeatGUIAddTexture(Resource::resource_manager* Resources, char* Name, char* Path)
+{
+    strcpy(g_TextureStrings[g_TextureCount++], Name);
+
+    rid TextureRID;
+    if(!Resources->GetTexturePathRID(&TextureRID, Path))
+    {
+        TextureRID = Resources->RegisterTexture(Path);
+    }
+    OffbeatAddTexture(Resources->GetTexture(TextureRID));
+}
+
+char*
+OffbeatGUITextureString(void* Data, int Index)
+{
+    return g_TextureStrings[Index];
+}
 
 char*
 OffbeatGUIPathArrayToString(void* Data, int Index)
 {
-  path* Paths = (path*)Data;
-  return Paths[Index].Name;
-}
-
-static void
-OffbeatSetSquareTexture(ob_particle_system* ParticleSystem, u32 CurrentIndex, Resource::resource_manager* Resources)
-{
-    if(ParticleSystem->Appearance.Texture == 0)
-    {
-        for(u32 i = 0; i < Resources->TexturePathCount; ++i)
-        {
-            if(strstr(Resources->TexturePaths[i].Name, "particle_square"))
-            {
-                rid RID;
-                if(!Resources->GetTexturePathRID(&RID, Resources->TexturePaths[i].Name))
-                {
-                    RID = Resources->RegisterTexture(Resources->TexturePaths[i].Name);
-                }
-                g_TextureRIDs[CurrentIndex] = RID;
-                ParticleSystem->Appearance.Texture = Resources->GetTexture(RID);
-                break;
-            }
-        }
-    }
-}
-
-static void
-OffbeatRemoveTextureRID(ob_state* OffbeatState)
-{
-    for(u32 i = OffbeatState->CurrentParticleSystem; i < OffbeatState->ParticleSystemCount + 1; ++i)
-    {
-        g_TextureRIDs[i] = g_TextureRIDs[i + 1];
-    }
+    path* Paths = (path*)Data;
+    return Paths[Index].Name;
 }
 
 void
@@ -219,7 +208,6 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
         if(UI::Button("Add Particle System"))
         {
             ParticleSystem = OffbeatNewParticleSystem(OffbeatState);
-            OffbeatSetSquareTexture(ParticleSystem, OffbeatState->CurrentParticleSystem, &GameState->Resources);
         }
 
         UI::SameLine();
@@ -231,7 +219,6 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
         UI::NewLine();
         if(UI::Button("Remove Particle System"))
         {
-            OffbeatRemoveTextureRID(OffbeatState);
             OffbeatRemoveCurrentParticleSystem(OffbeatState);
             ParticleSystem = OffbeatGetCurrentParticleSystem(OffbeatState);
         }
@@ -366,19 +353,13 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
 
             if(GameState->Resources.TexturePathCount > 0)
             {
-                s32 CurrentTextureIndex = GameState->Resources.GetTexturePathIndex(g_TextureRIDs[OffbeatState->CurrentParticleSystem]);
+                static s32 CurrentTextureIndex = ParticleSystem->Appearance.TextureIndex;
                 s32 NewTextureIndex = CurrentTextureIndex;
-                UI::Combo("Texture", &NewTextureIndex, GameState->Resources.TexturePaths, GameState->Resources.TexturePathCount, OffbeatGUIPathArrayToString);
+                UI::Combo("Texture", &NewTextureIndex, g_TextureStrings, g_TextureCount, OffbeatGUITextureString);
                 if(NewTextureIndex != CurrentTextureIndex)
                 {
                     CurrentTextureIndex = NewTextureIndex;
-                    rid TextureRID;
-                    if(!GameState->Resources.GetTexturePathRID(&TextureRID, GameState->Resources.TexturePaths[CurrentTextureIndex].Name))
-                    {
-                        TextureRID = GameState->Resources.RegisterTexture(GameState->Resources.TexturePaths[CurrentTextureIndex].Name);
-                    }
-                    g_TextureRIDs[OffbeatState->CurrentParticleSystem] = TextureRID;
-                    ParticleSystem->Appearance.Texture = GameState->Resources.GetTexture(TextureRID);
+                    ParticleSystem->Appearance.TextureIndex = CurrentTextureIndex;
                 }
             }
         }

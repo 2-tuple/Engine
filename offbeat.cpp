@@ -13,11 +13,6 @@
 #error "ERROR: No intrinsics library available!"
 #endif
 
-#ifdef OFFBEAT_OPENGL
-#include "offbeat_opengl.h"
-#endif
-
-
 #ifndef OFFBEAT_USE_DEFAULT_ALLOCATOR
 static void* _Malloc(u64 Size) { OffbeatAssert(!"No custom allocator set!"); return 0; }
 static void _Free(void* Pointer) { OffbeatAssert(!"No custom allocator set!"); }
@@ -29,7 +24,6 @@ static void _Free(void* Pointer) { free(Pointer); }
 
 static void* (*OffbeatGlobalAlloc)(u64) = _Malloc;
 static void (*OffbeatGlobalFree)(void*) = _Free;
-static ob_texture (*OffbeatGlobalRGBATextureID)(void*, u32, u32) = OffbeatRGBATextureID;
 
 void
 OffbeatSetAllocatorFunctions(void* (*Malloc)(u64), void (*Free)(void*))
@@ -38,16 +32,14 @@ OffbeatSetAllocatorFunctions(void* (*Malloc)(u64), void (*Free)(void*))
     OffbeatGlobalFree = Free;
 }
 
-void
-OffbeatSetTextureFunction(ob_texture (*TextureFunction)(void*, u32, u32))
-{
-    OffbeatGlobalRGBATextureID = TextureFunction;
-}
-
 struct ob_global_data
 {
     f32* t;
-    ob_texture TextureIDs[OFFBEAT_TextureCount];
+    b32 TexturesLoaded;
+    u32 AdditionalTextureCount; // NOTE(rytis): 2 additional slots for grid and debug textures.
+    u32 TextureCount;
+    ob_texture Textures[OFFBEAT_PARTICLE_SYSTEM_COUNT + 2];
+    u64 TextureHandles[OFFBEAT_PARTICLE_SYSTEM_COUNT + 2];
     umm ParameterOffsets[OFFBEAT_ParameterCount];
 #ifdef OFFBEAT_DEBUG
     u32 CurrentParticleSystem;
@@ -56,7 +48,19 @@ struct ob_global_data
 #endif
 };
 
-static ob_global_data OffbeatGlobalData;
+extern ob_global_data OffbeatGlobalData;
+
+#ifdef OFFBEAT_OPENGL
+#include "offbeat_opengl.h"
+#endif
+
+static ob_texture (*OffbeatGlobalRGBATextureID)(void*, u32, u32) = OffbeatRGBATextureID;
+
+void
+OffbeatSetTextureFunction(ob_texture (*TextureFunction)(void*, u32, u32))
+{
+    OffbeatGlobalRGBATextureID = TextureFunction;
+}
 
 // NOTE(rytis): Debug stuff.
 #ifdef OFFBEAT_DEBUG
@@ -84,10 +88,18 @@ OffbeatDebugSpawnPoint_(ov3 Point)
 
     u32 VertexIndex = DrawList->VertexCount;
     // NOTE(rytis): Updating draw list vertex array
-    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomLeft, BottomLeftUV, Color};
-    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomRight, BottomRightUV, Color};
-    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopRight, TopRightUV, Color};
-    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopLeft, TopLeftUV, Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomLeft,
+                                                                 OffbeatGlobalData.TextureCount + 1,
+                                                                 BottomLeftUV, Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomRight,
+                                                                 OffbeatGlobalData.TextureCount + 1,
+                                                                 BottomRightUV, Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopRight,
+                                                                 OffbeatGlobalData.TextureCount + 1,
+                                                                 TopRightUV, Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopLeft,
+                                                                 OffbeatGlobalData.TextureCount + 1,
+                                                                 TopLeftUV, Color};
 
     // NOTE(rytis): Updating draw list index array
     // NOTE(rytis): CCW bottom right triangle
@@ -155,10 +167,18 @@ OffbeatDebugMotionPrimitive_(ob_motion* Motion)
 
     u32 VertexIndex = DrawList->VertexCount;
     // NOTE(rytis): Updating draw list vertex array
-    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomLeft, BottomLeftUV, Color};
-    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomRight, BottomRightUV, Color};
-    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopRight, TopRightUV, Color};
-    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopLeft, TopLeftUV, Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomLeft,
+                                                                 OffbeatGlobalData.TextureCount + 1,
+                                                                 BottomLeftUV, Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomRight,
+                                                                 OffbeatGlobalData.TextureCount + 1,
+                                                                 BottomRightUV, Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopRight,
+                                                                 OffbeatGlobalData.TextureCount + 1,
+                                                                 TopRightUV, Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopLeft,
+                                                                 OffbeatGlobalData.TextureCount + 1,
+                                                                 TopLeftUV, Color};
 
     // NOTE(rytis): Updating draw list index array
     // NOTE(rytis): CCW bottom right triangle
@@ -233,63 +253,6 @@ OffbeatGenerateSquareRGBATexture(void* Memory, u64 MemorySize, u32 Width, u32 He
     }
 }
 
-void
-OffbeatGenerateCircleRGBATexture(void* Memory, u64 MemorySize, u32 Width, u32 Height)
-{
-    OffbeatAssert(MemorySize >= (Width * Height * sizeof(u32)));
-
-    s32 CenterHeight = Height / 2;
-    s32 CenterWidth = Width / 2;
-
-    u32* Pixel = (u32*)Memory;
-    for(s32 i = 0; i < Height; ++i)
-    {
-        for(s32 j = 0; j < Width; ++j)
-        {
-            // u8 Alpha = ObSin(i * PI / Height) * ObSin(j * PI / Width);
-            f32 LengthSq = ObSquare((float)(i - CenterHeight) / (float)CenterHeight) +
-                           ObSquare((float)(j - CenterWidth) / (float)CenterWidth);
-            f32 Scale = 1.0f - ObClamp(0.0f, ObSquareRoot(LengthSq), 1.0f);
-            u32 Alpha = TruncateF32ToU32(0xFF * Scale);
-            // NOTE(rytis): ABGR in registers, RGBA in memory.
-            *Pixel++ = 0x00FFFFFF | (Alpha << 24);
-        }
-    }
-}
-
-void
-OffbeatGenerateCrossRGBATexture(void* Memory, u64 MemorySize, u32 Width, u32 Height, u32 Thickness)
-{
-    OffbeatAssert(MemorySize >= (Width * Height * sizeof(u32)));
-    OffbeatAssert((Thickness <= Height) && (Thickness <= Width));
-
-    u32 CenterHeight = Height / 2;
-    u32 CenterWidth = Width / 2;
-    u32 HalfThickness = Thickness / 2;
-
-    u32 FillStartHeight = CenterHeight - HalfThickness;
-    u32 FillStartWidth = CenterWidth - HalfThickness;
-    u32 FillEndHeight = FillStartHeight + Thickness;
-    u32 FillEndWidth = FillStartWidth + Thickness;
-
-    u32* Pixel = (u32*)Memory;
-    for(s32 i = 0; i < Height; ++i)
-    {
-        for(s32 j = 0; j < Width; ++j)
-        {
-            if(((FillStartHeight <= i) && (i <= FillEndHeight)) ||
-               ((FillStartWidth <= j) && (j <= FillEndWidth)))
-            {
-                *Pixel++ = 0xFFFFFFFF;
-            }
-            else
-            {
-                *Pixel++ = 0;
-            }
-        }
-    }
-}
-
 static void
 OffbeatGenerateGridRGBATexture(void* Memory, u64 MemorySize, u32 Width, u32 Height, u32 SquareCount)
 {
@@ -320,31 +283,12 @@ OffbeatGenerateGridRGBATexture(void* Memory, u64 MemorySize, u32 Width, u32 Heig
     }
 }
 
-ob_texture_type
-OffbeatGetCurrentTextureType(ob_particle_system* ParticleSystem)
-{
-    ob_texture_type Result = (ob_texture_type)0;
-    for(u32 i = 0; i < OFFBEAT_TextureCount; ++i)
-    {
-        if(OffbeatGlobalData.TextureIDs[i] == ParticleSystem->Appearance.Texture)
-        {
-            Result = (ob_texture_type)i;
-            break;
-        }
-    }
-    return Result;
-}
-
-ob_texture
-OffbeatGetTextureID(ob_particle_system* ParticleSystem)
-{
-    return ParticleSystem->Appearance.Texture;
-}
-
 void
-OffbeatSetTextureID(ob_particle_system* ParticleSystem, ob_texture_type NewType)
+OffbeatAddTexture(u32 Texture)
 {
-    ParticleSystem->Appearance.Texture = OffbeatGlobalData.TextureIDs[NewType];
+    OffbeatAssert((OffbeatGlobalData.TextureCount + 1) < OFFBEAT_PARTICLE_SYSTEM_COUNT);
+    OffbeatAssert(!OffbeatGlobalData.TexturesLoaded);
+    OffbeatGlobalData.Textures[OffbeatGlobalData.TextureCount++] = Texture;
 }
 
 ob_file_data
@@ -549,7 +493,7 @@ OffbeatInit(void* Memory, u64 MemorySize)
         OffbeatAssert(OffbeatState->MemoryManager.CurrentMaxAddress <= ((u8*)Memory + MemorySize));
     }
 
-    // NOTE(rytis): Offbeat grid init.
+    // NOTE(rytis): Additional texture generation.
     {
         u32 Width = 1000;
         u32 Height = 1000;
@@ -558,8 +502,39 @@ OffbeatInit(void* Memory, u64 MemorySize)
 
         void* TextureMemory = OffbeatAllocateMemory(&OffbeatState->MemoryManager, Size);
         OffbeatGenerateGridRGBATexture(TextureMemory, Size, Width, Height, SquareCount);
-        OffbeatState->GridTextureID = OffbeatGlobalRGBATextureID(TextureMemory, Width, Height);
+        OffbeatGlobalData.Textures[OffbeatGlobalData.TextureCount] = OffbeatGlobalRGBATextureID(TextureMemory, Width, Height);
 
+        TextureMemory = OffbeatAllocateMemory(&OffbeatState->MemoryManager, Size);
+        OffbeatGenerateSquareRGBATexture(TextureMemory, Size, Width, Height);
+        OffbeatGlobalData.Textures[OffbeatGlobalData.TextureCount + 1] = OffbeatGlobalRGBATextureID(TextureMemory, Width, Height);
+
+        OffbeatGlobalData.AdditionalTextureCount = 2;
+    }
+
+    // NOTE(rytis): Offbeat bindless texture init.
+    {
+        OffbeatAssert(glGetTextureHandleARB != 0);
+        u64 TextureHandle;
+        for(u32 i = 0; i < OffbeatGlobalData.TextureCount; ++i)
+        {
+            TextureHandle = glGetTextureHandleARB(OffbeatGlobalData.Textures[i]);
+            glMakeTextureHandleResidentARB(TextureHandle);
+            OffbeatGlobalData.TextureHandles[i] = TextureHandle;
+        }
+
+        TextureHandle = glGetTextureHandleARB(OffbeatGlobalData.Textures[OffbeatGlobalData.TextureCount]);
+        glMakeTextureHandleResidentARB(TextureHandle);
+        OffbeatGlobalData.TextureHandles[OffbeatGlobalData.TextureCount] = TextureHandle;
+
+        TextureHandle = glGetTextureHandleARB(OffbeatGlobalData.Textures[OffbeatGlobalData.TextureCount + 1]);
+        glMakeTextureHandleResidentARB(TextureHandle);
+        OffbeatGlobalData.TextureHandles[OffbeatGlobalData.TextureCount + 1] = TextureHandle;
+
+        OffbeatGlobalData.TexturesLoaded = true;
+    }
+
+    // NOTE(rytis): Offbeat grid init.
+    {
         ov3 Z = ov3{0.0f, 0.0f, 1.0f};
         om3 Rotation = ObRotationAlign(Z, ov3{0.0f, 1.0f, 0.0f});
 
@@ -593,34 +568,14 @@ OffbeatInit(void* Memory, u64 MemorySize)
         OffbeatState->GridIndices[10] = 3;
         OffbeatState->GridIndices[11] = 2;
 
-
-        OffbeatState->GridVertices[0] = ob_draw_vertex{BottomLeft, BottomLeftUV, Color};
-        OffbeatState->GridVertices[1] = ob_draw_vertex{BottomRight, BottomRightUV, Color};
-        OffbeatState->GridVertices[2] = ob_draw_vertex{TopRight, TopRightUV, Color};
-        OffbeatState->GridVertices[3] = ob_draw_vertex{TopLeft, TopLeftUV, Color};
-    }
-
-    // NOTE(rytis): Offbeat texture init.
-    {
-        u32 Width = 500;
-        u32 Height = 500;
-        u64 Size = Width * Height * sizeof(u32);
-
-        void* TextureMemory = OffbeatAllocateMemory(&OffbeatState->MemoryManager, Size);
-        OffbeatGenerateSquareRGBATexture(TextureMemory, Size, Width, Height);
-        OffbeatGlobalData.TextureIDs[OFFBEAT_TextureSquare] = OffbeatGlobalRGBATextureID(TextureMemory, Width, Height);
-
-        TextureMemory = OffbeatAllocateMemory(&OffbeatState->MemoryManager, Size);
-        OffbeatGenerateCircleRGBATexture(TextureMemory, Size, Width, Height);
-        OffbeatGlobalData.TextureIDs[OFFBEAT_TextureCircle] = OffbeatGlobalRGBATextureID(TextureMemory, Width, Height);
-
-        TextureMemory = OffbeatAllocateMemory(&OffbeatState->MemoryManager, Size);
-        OffbeatGenerateCrossRGBATexture(TextureMemory, Size, Width, Height, Height / 2);
-        OffbeatGlobalData.TextureIDs[OFFBEAT_TextureFatCross] = OffbeatGlobalRGBATextureID(TextureMemory, Width, Height);
-
-        TextureMemory = OffbeatAllocateMemory(&OffbeatState->MemoryManager, Size);
-        OffbeatGenerateCrossRGBATexture(TextureMemory, Size, Width, Height, Height / 25);
-        OffbeatGlobalData.TextureIDs[OFFBEAT_TextureSlimCross] = OffbeatGlobalRGBATextureID(TextureMemory, Width, Height);
+        OffbeatState->GridVertices[0] = ob_draw_vertex{BottomLeft, OffbeatGlobalData.TextureCount,
+                                                       BottomLeftUV, Color};
+        OffbeatState->GridVertices[1] = ob_draw_vertex{BottomRight, OffbeatGlobalData.TextureCount,
+                                                       BottomRightUV, Color};
+        OffbeatState->GridVertices[2] = ob_draw_vertex{TopRight, OffbeatGlobalData.TextureCount,
+                                                       TopRightUV, Color};
+        OffbeatState->GridVertices[3] = ob_draw_vertex{TopLeft, OffbeatGlobalData.TextureCount,
+                                                       TopLeftUV, Color};
     }
 
     // NOTE(rytis): Offbeat parameter offset init.
@@ -639,10 +594,20 @@ OffbeatInit(void* Memory, u64 MemorySize)
         OffbeatState->RenderProgramID = OffbeatCreateRenderProgram();
         OffbeatState->EffectsEntropy = ObRandomSeed(1234);
     }
+
 #ifdef OFFBEAT_OPENGL_COMPUTE
     OffbeatCreateComputePrograms(&OffbeatState->SpawnProgramID, &OffbeatState->UpdateProgramID,
                                  &OffbeatState->StatelessEvaluationProgramID);
     OffbeatComputeInit();
+#else
+    GLuint GlobalTextureBlock;
+    glGenBuffers(1, &GlobalTextureBlock);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, GlobalTextureBlock);
+    glBufferData(GL_SHADER_STORAGE_BUFFER,
+                 (OffbeatGlobalData.TextureCount + OffbeatGlobalData.AdditionalTextureCount) *
+                 sizeof(u64), OffbeatGlobalData.TextureHandles, GL_STATIC_DRAW);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, GlobalTextureBlock);
 #endif
     return OffbeatState;
 }
@@ -698,10 +663,13 @@ OffbeatInitDrawList(ob_draw_list* DrawList)
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex_aligned), (GLvoid*)(OffbeatOffsetOf(ob_draw_vertex_aligned, Position)));
 
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex_aligned), (GLvoid*)(OffbeatOffsetOf(ob_draw_vertex_aligned, UV)));
+    glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex_aligned), (GLvoid*)(OffbeatOffsetOf(ob_draw_vertex_aligned, TextureIndex)));
 
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex_aligned), (GLvoid*)(OffbeatOffsetOf(ob_draw_vertex_aligned, Color)));
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex_aligned), (GLvoid*)(OffbeatOffsetOf(ob_draw_vertex_aligned, UV)));
+
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex_aligned), (GLvoid*)(OffbeatOffsetOf(ob_draw_vertex_aligned, Color)));
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -1081,10 +1049,18 @@ OffbeatConstructQuad(ob_draw_list* DrawList, ob_quad_data* QuadData, ob_particle
     u32 VertexIndex2 = DrawList->VertexCount + 2;
     u32 VertexIndex3 = DrawList->VertexCount + 3;
     // NOTE(rytis): Updating draw list vertex array
-    DrawList->Vertices[VertexIndex0] = ob_draw_vertex{BottomLeft, BottomLeftUV, Color};
-    DrawList->Vertices[VertexIndex1] = ob_draw_vertex{BottomRight, BottomRightUV, Color};
-    DrawList->Vertices[VertexIndex2] = ob_draw_vertex{TopRight, TopRightUV, Color};
-    DrawList->Vertices[VertexIndex3] = ob_draw_vertex{TopLeft, TopLeftUV, Color};
+    DrawList->Vertices[VertexIndex0] = ob_draw_vertex{BottomLeft, BottomLeftUV,
+                                                      ParticleSystem->Appearance.TextureIndex,
+                                                      Color};
+    DrawList->Vertices[VertexIndex1] = ob_draw_vertex{BottomRight, BottomRightUV,
+                                                      ParticleSystem->Appearance.TextureIndex,
+                                                      Color};
+    DrawList->Vertices[VertexIndex2] = ob_draw_vertex{TopRight, TopRightUV,
+                                                      ParticleSystem->Appearance.TextureIndex,
+                                                      Color};
+    DrawList->Vertices[VertexIndex3] = ob_draw_vertex{TopLeft, TopLeftUV,
+                                                      ParticleSystem->Appearance.TextureIndex,
+                                                      Color};
     DrawList->VertexCount += 4;
 
     // NOTE(rytis): Updating draw list index array
@@ -1115,7 +1091,6 @@ OffbeatRenderParticleSystem(ob_draw_list* DrawList, u32* IndexMemory, ob_draw_ve
     *DrawList = {};
     DrawList->Indices = IndexMemory;
     DrawList->Vertices = VertexMemory;
-    DrawList->TextureID = OffbeatGlobalData.TextureIDs[Appearance->Texture];
 
     for(u32 ParticleIndex = 0; ParticleIndex < ParticleSystem->ParticleCount; ++ParticleIndex)
     {
@@ -1175,7 +1150,6 @@ OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt)
 #ifdef OFFBEAT_DEBUG
         OffbeatGlobalData.CurrentParticleSystem = i;
         OffbeatGlobalData.DebugDrawData.DrawLists[i] = {};
-        OffbeatGlobalData.DebugDrawData.DrawLists[i].TextureID = OffbeatGlobalData.TextureIDs[OFFBEAT_TextureSquare];
         OffbeatGlobalData.DebugDrawData.DrawLists[i].Indices =
             (u32*)OffbeatAllocateMemory(&OffbeatState->MemoryManager,
                                         (ParticleSystem->ParticleSpawnCount + 1) *

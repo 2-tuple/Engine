@@ -1,5 +1,7 @@
 #pragma once
 
+ob_global_data OffbeatGlobalData;
+
 #ifdef OFFBEAT_OPENGL_COMPUTE
 static GLuint GlobalRandomTable;
 static GLuint GlobalEmissionBlock;
@@ -8,6 +10,7 @@ static GLuint GlobalAppearanceBlock;
 static GLuint GlobalUpdatedParticleCount;
 static GLuint GlobalOldParticleBinding;
 static GLuint GlobalUpdatedParticleBinding;
+static GLuint GlobalTextureBlock;
 
 static GLuint
 OffbeatCompileAndLinkComputeProgram(char* HeaderCode, char* ComputeCode)
@@ -44,7 +47,6 @@ OffbeatCompileAndLinkComputeProgram(char* HeaderCode, char* ComputeCode)
 static void
 OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint* StatelessEvaluationProgram)
 {
-    // TODO(rytis): IMPORTANT: Seems, like using work groups is a MAJOR performance boost. DO IT!!!
     char* HeaderCode = R"SHADER(
     #version 430 core
 
@@ -147,6 +149,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
     {
         ob_expr Color;
         ob_expr Size;
+        uint TextureIndex;
     } Appearance;
 
     struct ob_globals
@@ -597,6 +600,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
     struct ob_draw_vertex
     {
         vec3 Position;
+        float TextureIndex;
         vec2 UV;
         vec4 Color;
     };
@@ -640,10 +644,18 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
             uint VertexIndex2 = 4 * Index + 2;
             uint VertexIndex3 = 4 * Index + 3;
             // NOTE(rytis): Updating draw list vertex array
-            Vertices[VertexIndex0] = ob_draw_vertex(BottomLeft, BottomLeftUV, Globals.AppearanceColor);
-            Vertices[VertexIndex1] = ob_draw_vertex(BottomRight, BottomRightUV, Globals.AppearanceColor);
-            Vertices[VertexIndex2] = ob_draw_vertex(TopRight, TopRightUV, Globals.AppearanceColor);
-            Vertices[VertexIndex3] = ob_draw_vertex(TopLeft, TopLeftUV, Globals.AppearanceColor);
+            Vertices[VertexIndex0] = ob_draw_vertex(BottomLeft, Appearance.TextureIndex,
+                                                    BottomLeftUV,
+                                                    Globals.AppearanceColor);
+            Vertices[VertexIndex1] = ob_draw_vertex(BottomRight, Appearance.TextureIndex,
+                                                    BottomRightUV,
+                                                    Globals.AppearanceColor);
+            Vertices[VertexIndex2] = ob_draw_vertex(TopRight, Appearance.TextureIndex,
+                                                    TopRightUV,
+                                                    Globals.AppearanceColor);
+            Vertices[VertexIndex3] = ob_draw_vertex(TopLeft, Appearance.TextureIndex,
+                                                    TopLeftUV,
+                                                    Globals.AppearanceColor);
 
             // NOTE(rytis): Updating draw list index array
             uint Index0 = 6 * Index;
@@ -674,37 +686,45 @@ OffbeatComputeInit()
 {
     glGenBuffers(1, &GlobalUpdatedParticleCount);
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, GlobalUpdatedParticleCount);
-    glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(u32), 0, GL_STREAM_DRAW);
+    glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(u32), 0, GL_DYNAMIC_DRAW);
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
     glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, GlobalUpdatedParticleCount);
 
     glGenBuffers(1, &GlobalEmissionBlock);
     glBindBuffer(GL_UNIFORM_BUFFER, GlobalEmissionBlock);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(ob_emission_uniform_aligned), 0, GL_STREAM_DRAW);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(ob_emission_uniform_aligned), 0, GL_DYNAMIC_DRAW);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, GlobalEmissionBlock);
 
     glGenBuffers(1, &GlobalMotionBlock);
     glBindBuffer(GL_UNIFORM_BUFFER, GlobalMotionBlock);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(ob_motion_uniform_aligned), 0, GL_STREAM_DRAW);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(ob_motion_uniform_aligned), 0, GL_DYNAMIC_DRAW);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
     glBindBufferBase(GL_UNIFORM_BUFFER, 1, GlobalMotionBlock);
 
     glGenBuffers(1, &GlobalAppearanceBlock);
     glBindBuffer(GL_UNIFORM_BUFFER, GlobalAppearanceBlock);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(ob_appearance_uniform_aligned), 0, GL_STREAM_DRAW);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(ob_appearance_uniform_aligned), 0, GL_DYNAMIC_DRAW);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
     glBindBufferBase(GL_UNIFORM_BUFFER, 2, GlobalAppearanceBlock);
 
     glGenBuffers(1, &GlobalRandomTable);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, GlobalRandomTable);
     glBufferData(GL_SHADER_STORAGE_BUFFER, 4096 * sizeof(u32), ObGetRandomNumberTable(),
-                 GL_STREAM_DRAW);
+                 GL_STATIC_DRAW);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, GlobalRandomTable);
 
     GlobalUpdatedParticleBinding = 1;
     GlobalOldParticleBinding = 2;
+
+    glGenBuffers(1, &GlobalTextureBlock);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, GlobalTextureBlock);
+    glBufferData(GL_SHADER_STORAGE_BUFFER,
+                 (OffbeatGlobalData.TextureCount + OffbeatGlobalData.AdditionalTextureCount) *
+                 sizeof(u64), OffbeatGlobalData.TextureHandles, GL_STATIC_DRAW);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, GlobalTextureBlock);
 }
 
 static ob_emission_uniform_aligned
@@ -774,6 +794,7 @@ OffbeatTranslateAppearance(ob_appearance* Appearance)
 
     Result.Color = Appearance->Color;
     Result.Size = Appearance->Size;
+    Result.TextureIndex = Appearance->TextureIndex;
 
     return Result;
 }
@@ -794,7 +815,7 @@ OffbeatComputeSwapBuffers(ob_particle_system* ParticleSystem)
     {
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, ParticleSystem->ParticleSSBO);
         glBufferData(GL_SHADER_STORAGE_BUFFER, ParticleSystem->ParticleCount * sizeof(ob_particle),
-                     0, GL_STREAM_DRAW);
+                     0, GL_DYNAMIC_COPY);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     }
 
@@ -893,19 +914,18 @@ OffbeatComputeStatelessEvaluation(ob_draw_list* DrawList, ob_particle_system* Pa
 
     // NOTE(rytis): Draw list stuff.
     DrawList->IndexCount = 6 * ParticleSystem->ParticleCount;
-    DrawList->TextureID = OffbeatGetTextureID(ParticleSystem);
 
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, DrawList->EBO);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, DrawList->EBO);
     glBufferData(GL_SHADER_STORAGE_BUFFER, 6 * ParticleSystem->ParticleCount * sizeof(u32),
-                 0, GL_STREAM_DRAW);
+                 0, GL_STATIC_COPY);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, DrawList->VBO);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, DrawList->VBO);
     glBufferData(GL_SHADER_STORAGE_BUFFER,
                  4 * ParticleSystem->ParticleCount * sizeof(ob_draw_vertex_aligned),
-                 0, GL_STREAM_DRAW);
+                 0, GL_STATIC_COPY);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     glDispatchCompute(ParticleSystem->ParticleCount / OFFBEAT_WORKGROUP_SIZE + 1, 1, 1);
@@ -982,13 +1002,15 @@ OffbeatCreateRenderProgram()
 {
     // NOTE(rytis): Version number can be replaced with a macro.
     char* HeaderCode = R"SHADER(
-    #version 330 core
+    #version 430 core
+    #extension GL_ARB_bindless_texture : require
     )SHADER";
 
     char* VertexCode = R"SHADER(
     layout(location = 0) in vec3 Position;
-    layout(location = 1) in vec2 UV;
-    layout(location = 2) in vec4 Color;
+    layout(location = 1) in float TextureIndex;
+    layout(location = 2) in vec2 UV;
+    layout(location = 3) in vec4 Color;
 
     uniform mat4 Projection;
     uniform mat4 View;
@@ -996,6 +1018,7 @@ OffbeatCreateRenderProgram()
     out vertex_output
     {
         vec2 UV;
+        flat uint TextureIndex;
         vec4 Color;
     } VertexOutput;
 
@@ -1003,6 +1026,7 @@ OffbeatCreateRenderProgram()
     main()
     {
         VertexOutput.UV = UV;
+        VertexOutput.TextureIndex = floatBitsToUint(TextureIndex);
         VertexOutput.Color = Color;
         gl_Position = Projection * View * vec4(Position, 1.0f);
     }
@@ -1012,16 +1036,20 @@ OffbeatCreateRenderProgram()
     in vertex_output
     {
         vec2 UV;
+        flat uint TextureIndex;
         vec4 Color;
     } VertexOutput;
 
-    uniform sampler2D Texture;
+    layout(std430, binding = 5) readonly buffer samplers
+    {
+        sampler2D Textures[];
+    };
 
     out vec4 FinalColor;
 
     void main()
     {
-        vec4 TextureColor = texture(Texture, VertexOutput.UV);
+        vec4 TextureColor = texture(Textures[VertexOutput.TextureIndex], VertexOutput.UV);
         FinalColor = TextureColor * VertexOutput.Color;
     }
     )SHADER";
@@ -1058,23 +1086,25 @@ OffbeatRenderParticles(ob_state* OffbeatState, float* ViewMatrix, float* Project
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex), (GLvoid*)(OffbeatOffsetOf(ob_draw_vertex, Position)));
 
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex), (GLvoid*)(OffbeatOffsetOf(ob_draw_vertex, UV)));
+    glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex), (GLvoid*)(OffbeatOffsetOf(ob_draw_vertex, TextureIndex)));
 
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex), (GLvoid*)(OffbeatOffsetOf(ob_draw_vertex, Color)));
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex), (GLvoid*)(OffbeatOffsetOf(ob_draw_vertex, UV)));
+
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(ob_draw_vertex), (GLvoid*)(OffbeatOffsetOf(ob_draw_vertex, Color)));
 
     // NOTE(rytis): Draw square grid.
     {
-        glBindTexture(GL_TEXTURE_2D, OffbeatState->GridTextureID);
         glBufferData(GL_ARRAY_BUFFER,
                      OffbeatArrayCount(OffbeatState->GridVertices) * sizeof(ob_draw_vertex),
                      OffbeatState->GridVertices,
-                     GL_STREAM_DRAW);
+                     GL_STATIC_DRAW);
 
         glBufferData(GL_ELEMENT_ARRAY_BUFFER,
                      OffbeatArrayCount(OffbeatState->GridIndices) * sizeof(uint32_t),
                      OffbeatState->GridIndices,
-                     GL_STREAM_DRAW);
+                     GL_STATIC_DRAW);
 
         glDrawElements(GL_TRIANGLES, OffbeatArrayCount(OffbeatState->GridIndices), GL_UNSIGNED_INT, 0);
     }
@@ -1084,16 +1114,15 @@ OffbeatRenderParticles(ob_state* OffbeatState, float* ViewMatrix, float* Project
     ob_draw_data_debug* DebugDrawData = OffbeatGetDebugDrawData();
     for(int i = 0; i < DebugDrawData->DrawListCount; ++i)
     {
-        glBindTexture(GL_TEXTURE_2D, DebugDrawData->DrawLists[i].TextureID);
         glBufferData(GL_ARRAY_BUFFER,
                      DebugDrawData->DrawLists[i].VertexCount * sizeof(ob_draw_vertex),
                      DebugDrawData->DrawLists[i].Vertices,
-                     GL_STREAM_DRAW);
+                     GL_STATIC_DRAW);
 
         glBufferData(GL_ELEMENT_ARRAY_BUFFER,
                      DebugDrawData->DrawLists[i].IndexCount * sizeof(uint32_t),
                      DebugDrawData->DrawLists[i].Indices,
-                     GL_STREAM_DRAW);
+                     GL_STATIC_DRAW);
 
         glDrawElements(GL_TRIANGLES, DebugDrawData->DrawLists[i].IndexCount, GL_UNSIGNED_INT, 0);
     }
@@ -1107,7 +1136,6 @@ OffbeatRenderParticles(ob_state* OffbeatState, float* ViewMatrix, float* Project
     for(int i = 0; i < DrawData->DrawListCount; ++i)
     {
         glBindVertexArray(DrawData->DrawLists[i].VAO);
-        glBindTexture(GL_TEXTURE_2D, DrawData->DrawLists[i].TextureID);
         glBindBuffer(GL_ARRAY_BUFFER, DrawData->DrawLists[i].VBO);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, DrawData->DrawLists[i].EBO);
 
@@ -1120,16 +1148,15 @@ OffbeatRenderParticles(ob_state* OffbeatState, float* ViewMatrix, float* Project
     DrawData = &OffbeatState->DrawData;
     for(int i = 0; i < DrawData->DrawListCount; ++i)
     {
-        glBindTexture(GL_TEXTURE_2D, DrawData->DrawLists[i].TextureID);
         glBufferData(GL_ARRAY_BUFFER,
                      DrawData->DrawLists[i].VertexCount * sizeof(ob_draw_vertex),
                      DrawData->DrawLists[i].Vertices,
-                     GL_STREAM_DRAW);
+                     GL_STATIC_DRAW);
 
         glBufferData(GL_ELEMENT_ARRAY_BUFFER,
                      DrawData->DrawLists[i].IndexCount * sizeof(uint32_t),
                      DrawData->DrawLists[i].Indices,
-                     GL_STREAM_DRAW);
+                     GL_STATIC_DRAW);
 
         glDrawElements(GL_TRIANGLES, DrawData->DrawLists[i].IndexCount, GL_UNSIGNED_INT, 0);
     }

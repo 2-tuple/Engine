@@ -47,9 +47,12 @@ typedef uintptr_t umm;
  * Add option to enable / disable GPU dispatch for selected particle system in runtime.
  */
 
-//#define OffbeatAssert(Expression) if(!(Expression)) {*(int *)0 = 0;}
+#if 1
+#define OffbeatAssert(Expression) if(!(Expression)) {*(int *)0 = 0;}
+#else
 #include <assert.h>
 #define OffbeatAssert(Expression) assert(Expression)
+#endif
 
 #define OffbeatKibibytes(Value) (1024LL * (Value))
 #define OffbeatMibibytes(Value) (1024LL * OffbeatKibibytes(Value))
@@ -204,7 +207,7 @@ struct ob_appearance
     ob_expr Color;
     ob_expr Size;
     // ov3 Scale;
-    ob_texture Texture;
+    u32 TextureIndex;
 };
 
 struct ob_history_entry
@@ -266,12 +269,13 @@ struct ob_appearance_uniform_aligned
     ob_expr Color;
     ob_expr Size;
     // ov3 Scale;
+    u32 TextureIndex;
 };
 
 struct ob_draw_vertex_aligned
 {
-    ov3 Position; f32 P0;
-    ov2 UV; ov2 P1;
+    ov3 Position; u32 TextureIndex;
+    ov2 UV; ov2 P0;
     ov4 Color;
 };
 // NOTE(rytis): Aligned ^^^
@@ -291,7 +295,7 @@ struct ob_quad_data
 
 struct ob_draw_vertex
 {
-    ov3 Position;
+    ov3 Position; u32 TextureIndex;
     ov2 UV;
     ov4 Color;
 };
@@ -299,7 +303,6 @@ struct ob_draw_vertex
 #ifdef OFFBEAT_OPENGL_COMPUTE
 struct ob_draw_list
 {
-    ob_texture TextureID;
     GLuint VAO;
     GLuint VBO;
     GLuint EBO;
@@ -314,7 +317,6 @@ struct ob_draw_data
 #else
 struct ob_draw_list
 {
-    ob_texture TextureID;
     u32 ElementCount;
 
     u32 IndexCount;
@@ -415,6 +417,8 @@ OFFBEAT_API void OffbeatRemoveCurrentParticleSystem(ob_state* OffbeatState);
 OFFBEAT_API ob_particle_system* OffbeatGetCurrentParticleSystem(ob_state* OffbeatState);
 OFFBEAT_API ob_particle_system* OffbeatPreviousParticleSystem(ob_state* OffbeatState);
 OFFBEAT_API ob_particle_system* OffbeatNextParticleSystem(ob_state* OffbeatState);
+OFFBEAT_API void OffbeatAddTexture(u32 Texture);
+OFFBEAT_API void OffbeatGenerateTextureArray();
 OFFBEAT_API ob_texture_type OffbeatGetCurrentTextureType(ob_particle_system* ParticleSystem);
 OFFBEAT_API ob_texture OffbeatGetTextureID(ob_particle_system* ParticleSystem);
 OFFBEAT_API void OffbeatSetTextureID(ob_particle_system* ParticleSystem, ob_texture_type NewType);
