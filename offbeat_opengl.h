@@ -644,17 +644,14 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
             uint VertexIndex2 = 4 * Index + 2;
             uint VertexIndex3 = 4 * Index + 3;
             // NOTE(rytis): Updating draw list vertex array
-            Vertices[VertexIndex0] = ob_draw_vertex(BottomLeft, Appearance.TextureIndex,
-                                                    BottomLeftUV,
+            float TextureIndex = uintBitsToFloat(Appearance.TextureIndex);
+            Vertices[VertexIndex0] = ob_draw_vertex(BottomLeft, TextureIndex, BottomLeftUV,
                                                     Globals.AppearanceColor);
-            Vertices[VertexIndex1] = ob_draw_vertex(BottomRight, Appearance.TextureIndex,
-                                                    BottomRightUV,
+            Vertices[VertexIndex1] = ob_draw_vertex(BottomRight, TextureIndex, BottomRightUV,
                                                     Globals.AppearanceColor);
-            Vertices[VertexIndex2] = ob_draw_vertex(TopRight, Appearance.TextureIndex,
-                                                    TopRightUV,
+            Vertices[VertexIndex2] = ob_draw_vertex(TopRight, TextureIndex, TopRightUV,
                                                     Globals.AppearanceColor);
-            Vertices[VertexIndex3] = ob_draw_vertex(TopLeft, Appearance.TextureIndex,
-                                                    TopLeftUV,
+            Vertices[VertexIndex3] = ob_draw_vertex(TopLeft, TextureIndex, TopLeftUV,
                                                     Globals.AppearanceColor);
 
             // NOTE(rytis): Updating draw list index array

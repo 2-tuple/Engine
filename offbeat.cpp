@@ -1049,18 +1049,18 @@ OffbeatConstructQuad(ob_draw_list* DrawList, ob_quad_data* QuadData, ob_particle
     u32 VertexIndex2 = DrawList->VertexCount + 2;
     u32 VertexIndex3 = DrawList->VertexCount + 3;
     // NOTE(rytis): Updating draw list vertex array
-    DrawList->Vertices[VertexIndex0] = ob_draw_vertex{BottomLeft, BottomLeftUV,
+    DrawList->Vertices[VertexIndex0] = ob_draw_vertex{BottomLeft,
                                                       ParticleSystem->Appearance.TextureIndex,
-                                                      Color};
-    DrawList->Vertices[VertexIndex1] = ob_draw_vertex{BottomRight, BottomRightUV,
+                                                      BottomLeftUV, Color};
+    DrawList->Vertices[VertexIndex1] = ob_draw_vertex{BottomRight,
                                                       ParticleSystem->Appearance.TextureIndex,
-                                                      Color};
-    DrawList->Vertices[VertexIndex2] = ob_draw_vertex{TopRight, TopRightUV,
+                                                      BottomRightUV, Color};
+    DrawList->Vertices[VertexIndex2] = ob_draw_vertex{TopRight,
                                                       ParticleSystem->Appearance.TextureIndex,
-                                                      Color};
-    DrawList->Vertices[VertexIndex3] = ob_draw_vertex{TopLeft, TopLeftUV,
+                                                      TopRightUV, Color};
+    DrawList->Vertices[VertexIndex3] = ob_draw_vertex{TopLeft,
                                                       ParticleSystem->Appearance.TextureIndex,
-                                                      Color};
+                                                      TopLeftUV, Color};
     DrawList->VertexCount += 4;
 
     // NOTE(rytis): Updating draw list index array
