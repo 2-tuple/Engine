@@ -62,148 +62,6 @@ OffbeatSetTextureFunction(ob_texture (*TextureFunction)(void*, u32, u32))
     OffbeatGlobalRGBATextureID = TextureFunction;
 }
 
-// NOTE(rytis): Debug stuff.
-#ifdef OFFBEAT_DEBUG
-#define OffbeatDebugSpawnPoint(Point) OffbeatDebugSpawnPoint_(Point)
-#define OffbeatDebugMotionPrimitive(Motion) OffbeatDebugMotionPrimitive_(Motion)
-
-static void
-OffbeatDebugSpawnPoint_(ov3 Point)
-{
-    ob_draw_list_debug* DrawList = &OffbeatGlobalData.DebugDrawData.DrawLists[OffbeatGlobalData.CurrentParticleSystem];
-    ob_quad_data* QuadData = &OffbeatGlobalData.DebugQuadData;
-    f32 Size = 0.05f;
-    ov4 Color = ov4{1.0f, 0.0f, 0.0f, 1.0f};
-
-    ov3 BottomLeft = Point + 0.5f * Size * (-QuadData->Horizontal - QuadData->Vertical);
-    ov3 BottomRight = Point + 0.5f * Size * (QuadData->Horizontal - QuadData->Vertical);
-    ov3 TopRight = Point + 0.5f * Size * (QuadData->Horizontal + QuadData->Vertical);
-    ov3 TopLeft = Point + 0.5f * Size * (-QuadData->Horizontal + QuadData->Vertical);
-
-    // NOTE(rytis): UVs
-    ov2 BottomLeftUV = ov2{0.0f, 0.0f};
-    ov2 BottomRightUV = ov2{1.0f, 0.0f};
-    ov2 TopRightUV = ov2{1.0f, 1.0f};
-    ov2 TopLeftUV = ov2{0.0f, 1.0f};
-
-    u32 VertexIndex = DrawList->VertexCount;
-    // NOTE(rytis): Updating draw list vertex array
-    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomLeft,
-                                                                 OffbeatGlobalData.TextureCount + 1,
-                                                                 BottomLeftUV, Color};
-    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomRight,
-                                                                 OffbeatGlobalData.TextureCount + 1,
-                                                                 BottomRightUV, Color};
-    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopRight,
-                                                                 OffbeatGlobalData.TextureCount + 1,
-                                                                 TopRightUV, Color};
-    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopLeft,
-                                                                 OffbeatGlobalData.TextureCount + 1,
-                                                                 TopLeftUV, Color};
-
-    // NOTE(rytis): Updating draw list index array
-    // NOTE(rytis): CCW bottom right triangle
-    DrawList->Indices[DrawList->IndexCount++] = VertexIndex;
-    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 1;
-    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 2;
-    // NOTE(rytis): CCW top left triangle
-    DrawList->Indices[DrawList->IndexCount++] = VertexIndex;
-    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 2;
-    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 3;
-
-    ++DrawList->ElementCount;
-}
-
-static void
-OffbeatDebugMotionPrimitive_(ob_motion* Motion)
-{
-    ob_draw_list_debug* DrawList = &OffbeatGlobalData.DebugDrawData.DrawLists[OffbeatGlobalData.CurrentParticleSystem];
-    ov3 Point;
-    ov3 Horizontal;
-    ov3 Vertical;
-    f32 Width;
-    f32 Height;
-    switch(Motion->Primitive)
-    {
-        case OFFBEAT_MotionPoint:
-        {
-            Point = Motion->Position;
-            Horizontal = OffbeatGlobalData.DebugQuadData.Horizontal;
-            Vertical = OffbeatGlobalData.DebugQuadData.Vertical;
-            Width = 0.05f;
-            Height = 0.05f;
-        } break;
-
-        case OFFBEAT_MotionLine:
-        {
-            Point = Motion->Position;
-            ov3 Normal = ObNormalize(ObCross(OffbeatGlobalData.DebugQuadData.Horizontal, OffbeatGlobalData.DebugQuadData.Vertical));
-            Vertical = ObNormalize(Motion->LineDirection);
-            Horizontal = ObNormalize(ObCross(Vertical, Normal));
-            Width = 0.03f;
-            Height = 100.0f;
-        } break;
-
-        default:
-        {
-            Horizontal = ov3{};
-            Vertical = ov3{};
-            Width = 0.0f;
-            Height = 0.0f;
-        } break;
-    }
-    ov4 Color = ov4{1.0f, 1.0f, 0.0f, 1.0f};
-
-    ov3 BottomLeft = Point + 0.5f * (-(Width * Horizontal) - (Height * Vertical));
-    ov3 BottomRight = Point + 0.5f * ((Width * Horizontal) - (Height * Vertical));
-    ov3 TopRight = Point + 0.5f * ((Width * Horizontal) + (Height * Vertical));
-    ov3 TopLeft = Point + 0.5f * (-(Width * Horizontal) + (Height * Vertical));
-
-    // NOTE(rytis): UVs
-    ov2 BottomLeftUV = ov2{0.0f, 0.0f};
-    ov2 BottomRightUV = ov2{1.0f, 0.0f};
-    ov2 TopRightUV = ov2{1.0f, 1.0f};
-    ov2 TopLeftUV = ov2{0.0f, 1.0f};
-
-    u32 VertexIndex = DrawList->VertexCount;
-    // NOTE(rytis): Updating draw list vertex array
-    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomLeft,
-                                                                 OffbeatGlobalData.TextureCount + 1,
-                                                                 BottomLeftUV, Color};
-    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomRight,
-                                                                 OffbeatGlobalData.TextureCount + 1,
-                                                                 BottomRightUV, Color};
-    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopRight,
-                                                                 OffbeatGlobalData.TextureCount + 1,
-                                                                 TopRightUV, Color};
-    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopLeft,
-                                                                 OffbeatGlobalData.TextureCount + 1,
-                                                                 TopLeftUV, Color};
-
-    // NOTE(rytis): Updating draw list index array
-    // NOTE(rytis): CCW bottom right triangle
-    DrawList->Indices[DrawList->IndexCount++] = VertexIndex;
-    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 1;
-    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 2;
-    // NOTE(rytis): CCW top left triangle
-    DrawList->Indices[DrawList->IndexCount++] = VertexIndex;
-    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 2;
-    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 3;
-
-    ++DrawList->ElementCount;
-}
-
-ob_draw_data_debug*
-OffbeatGetDebugDrawData()
-{
-    return &OffbeatGlobalData.DebugDrawData;
-}
-
-#else
-#define OffbeatDebugSpawnPoint(Point)
-#define OffbeatDebugMotionPrimitive(Motion)
-#endif
-
 static void
 OffbeatUpdateMemoryManager(ob_memory_manager* MemoryManager)
 {
@@ -358,7 +216,7 @@ OffbeatUnpackParticleSystem(ob_particle_system* Result, void* PackedMemory)
 static f32 EvaluateParameter(ob_parameter Parameter, ob_particle_system* ParticleSystem, ob_particle* Particle);
 
 static ov4
-OffbeatEvaluateExpression(ob_expr* Expr, ob_particle_system* ParticleSystem, ob_particle* Particle = 0)
+OffbeatEvaluateExpression(ob_expr* Expr, ob_particle_system* ParticleSystem = 0, ob_particle* Particle = 0)
 {
     if(Expr->Function == OFFBEAT_FunctionPeriodic)
     {
@@ -440,6 +298,11 @@ EvaluateParameter(ob_parameter Parameter, ob_particle_system* ParticleSystem, ob
     {
         case OFFBEAT_ParameterAge:
         {
+            if(!ParticleSystem)
+            {
+                return Result;
+            }
+
             Result = *(f32*)((u8*)Particle + OffbeatGlobalData.ParameterOffsets[Parameter]);
             // TODO(rytis): Handle the case of ParameterAge as a parameter for ParticleLifetime.
             Result /= OffbeatEvaluateExpression(&ParticleSystem->Emission.ParticleLifetime, ParticleSystem).x;
@@ -459,6 +322,148 @@ EvaluateParameter(ob_parameter Parameter, ob_particle_system* ParticleSystem, ob
 
     return Result;
 }
+
+// NOTE(rytis): Debug stuff.
+#ifdef OFFBEAT_DEBUG
+#define OffbeatDebugSpawnPoint(Point) OffbeatDebugSpawnPoint_(Point)
+#define OffbeatDebugMotionPrimitive(Motion) OffbeatDebugMotionPrimitive_(Motion)
+
+static void
+OffbeatDebugSpawnPoint_(ov3 Point)
+{
+    ob_draw_list_debug* DrawList = &OffbeatGlobalData.DebugDrawData.DrawLists[OffbeatGlobalData.CurrentParticleSystem];
+    ob_quad_data* QuadData = &OffbeatGlobalData.DebugQuadData;
+    f32 Size = 0.05f;
+    ov4 Color = ov4{1.0f, 0.0f, 0.0f, 1.0f};
+
+    ov3 BottomLeft = Point + 0.5f * Size * (-QuadData->Horizontal - QuadData->Vertical);
+    ov3 BottomRight = Point + 0.5f * Size * (QuadData->Horizontal - QuadData->Vertical);
+    ov3 TopRight = Point + 0.5f * Size * (QuadData->Horizontal + QuadData->Vertical);
+    ov3 TopLeft = Point + 0.5f * Size * (-QuadData->Horizontal + QuadData->Vertical);
+
+    // NOTE(rytis): UVs
+    ov2 BottomLeftUV = ov2{0.0f, 0.0f};
+    ov2 BottomRightUV = ov2{1.0f, 0.0f};
+    ov2 TopRightUV = ov2{1.0f, 1.0f};
+    ov2 TopLeftUV = ov2{0.0f, 1.0f};
+
+    u32 VertexIndex = DrawList->VertexCount;
+    // NOTE(rytis): Updating draw list vertex array
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomLeft,
+                                                                 OffbeatGlobalData.TextureCount + 1,
+                                                                 BottomLeftUV, Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomRight,
+                                                                 OffbeatGlobalData.TextureCount + 1,
+                                                                 BottomRightUV, Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopRight,
+                                                                 OffbeatGlobalData.TextureCount + 1,
+                                                                 TopRightUV, Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopLeft,
+                                                                 OffbeatGlobalData.TextureCount + 1,
+                                                                 TopLeftUV, Color};
+
+    // NOTE(rytis): Updating draw list index array
+    // NOTE(rytis): CCW bottom right triangle
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex;
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 1;
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 2;
+    // NOTE(rytis): CCW top left triangle
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex;
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 2;
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 3;
+
+    ++DrawList->ElementCount;
+}
+
+static void
+OffbeatDebugMotionPrimitive_(ob_motion* Motion)
+{
+    ob_draw_list_debug* DrawList = &OffbeatGlobalData.DebugDrawData.DrawLists[OffbeatGlobalData.CurrentParticleSystem];
+    ov3 Point;
+    ov3 Horizontal;
+    ov3 Vertical;
+    f32 Width;
+    f32 Height;
+    switch(Motion->Primitive)
+    {
+        case OFFBEAT_MotionPoint:
+        {
+            Point = OffbeatEvaluateExpression(&Motion->Position).xyz;
+            Horizontal = OffbeatGlobalData.DebugQuadData.Horizontal;
+            Vertical = OffbeatGlobalData.DebugQuadData.Vertical;
+            Width = 0.05f;
+            Height = 0.05f;
+        } break;
+
+        case OFFBEAT_MotionLine:
+        {
+            Point = OffbeatEvaluateExpression(&Motion->Position).xyz;
+            ov3 Normal = ObNormalize(ObCross(OffbeatGlobalData.DebugQuadData.Horizontal, OffbeatGlobalData.DebugQuadData.Vertical));
+            Vertical = ObNormalize(OffbeatEvaluateExpression(&Motion->LineDirection).xyz);
+            Horizontal = ObNormalize(ObCross(Vertical, Normal));
+            Width = 0.03f;
+            Height = 100.0f;
+        } break;
+
+        default:
+        {
+            Horizontal = ov3{};
+            Vertical = ov3{};
+            Width = 0.0f;
+            Height = 0.0f;
+        } break;
+    }
+    ov4 Color = ov4{1.0f, 1.0f, 0.0f, 1.0f};
+
+    ov3 BottomLeft = Point + 0.5f * (-(Width * Horizontal) - (Height * Vertical));
+    ov3 BottomRight = Point + 0.5f * ((Width * Horizontal) - (Height * Vertical));
+    ov3 TopRight = Point + 0.5f * ((Width * Horizontal) + (Height * Vertical));
+    ov3 TopLeft = Point + 0.5f * (-(Width * Horizontal) + (Height * Vertical));
+
+    // NOTE(rytis): UVs
+    ov2 BottomLeftUV = ov2{0.0f, 0.0f};
+    ov2 BottomRightUV = ov2{1.0f, 0.0f};
+    ov2 TopRightUV = ov2{1.0f, 1.0f};
+    ov2 TopLeftUV = ov2{0.0f, 1.0f};
+
+    u32 VertexIndex = DrawList->VertexCount;
+    // NOTE(rytis): Updating draw list vertex array
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomLeft,
+                                                                 OffbeatGlobalData.TextureCount + 1,
+                                                                 BottomLeftUV, Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{BottomRight,
+                                                                 OffbeatGlobalData.TextureCount + 1,
+                                                                 BottomRightUV, Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopRight,
+                                                                 OffbeatGlobalData.TextureCount + 1,
+                                                                 TopRightUV, Color};
+    DrawList->Vertices[DrawList->VertexCount++] = ob_draw_vertex{TopLeft,
+                                                                 OffbeatGlobalData.TextureCount + 1,
+                                                                 TopLeftUV, Color};
+
+    // NOTE(rytis): Updating draw list index array
+    // NOTE(rytis): CCW bottom right triangle
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex;
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 1;
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 2;
+    // NOTE(rytis): CCW top left triangle
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex;
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 2;
+    DrawList->Indices[DrawList->IndexCount++] = VertexIndex + 3;
+
+    ++DrawList->ElementCount;
+}
+
+ob_draw_data_debug*
+OffbeatGetDebugDrawData()
+{
+    return &OffbeatGlobalData.DebugDrawData;
+}
+
+#else
+#define OffbeatDebugSpawnPoint(Point)
+#define OffbeatDebugMotionPrimitive(Motion)
+#endif
 
 ob_state*
 OffbeatInit(void* Memory, u64 MemorySize)
@@ -630,13 +635,13 @@ static void
 OffbeatInitParticleSystem(ob_particle_system* ParticleSystem)
 {
     *ParticleSystem = {};
-    ParticleSystem->Emission.EmissionRate = 60.0f;
-    ParticleSystem->Emission.InitialVelocityScale = 1.0f;
+    ParticleSystem->Emission.EmissionRate.High.x = 60.0f;
+    ParticleSystem->Emission.InitialVelocityScale.High.x = 1.0f;
     ParticleSystem->Emission.ParticleLifetime.High.x = 1.0f;
     ParticleSystem->Emission.VelocityType = OFFBEAT_VelocityCone;
-    ParticleSystem->Emission.ConeHeight = 20.0f;
-    ParticleSystem->Emission.ConeRadius = 10.0f;
-    ParticleSystem->Emission.ConeDirection = ov3{0.0f, 1.0f, 0.0f};
+    ParticleSystem->Emission.ConeHeight.High.x = 20.0f;
+    ParticleSystem->Emission.ConeRadius.High.x = 10.0f;
+    ParticleSystem->Emission.ConeDirection.High.xyz = ov3{0.0f, 1.0f, 0.0f};
     ParticleSystem->Appearance.Color.High = ov4{1.0f, 1.0f, 1.0f, 1.0f};
     ParticleSystem->Appearance.Size.High.x = 0.05f;
 #ifdef OFFBEAT_OPENGL_COMPUTE
@@ -796,8 +801,10 @@ OffbeatUpdateSystemRotationsAndNormalize(ob_particle_system* ParticleSystem)
     {
         case OFFBEAT_EmissionRing:
         {
-            Emission->RingNormal = ObNOZ(Emission->RingNormal);
-            Emission->RingRotation = ObRotationAlign(Z, Emission->RingNormal);
+            Emission->RingNormal.Low.xyz = ObNOZ(Emission->RingNormal.Low.xyz);
+            Emission->RingNormal.High.xyz = ObNOZ(Emission->RingNormal.High.xyz);
+            ov3 RingNormal = OffbeatEvaluateExpression(&Emission->RingNormal).xyz;
+            Emission->RingRotation = ObRotationAlign(Z, RingNormal);
         } break;
     }
 
@@ -805,8 +812,10 @@ OffbeatUpdateSystemRotationsAndNormalize(ob_particle_system* ParticleSystem)
     {
         case OFFBEAT_VelocityCone:
         {
-            Emission->ConeDirection = ObNOZ(Emission->ConeDirection);
-            Emission->ConeRotation = ObRotationAlign(Z, Emission->ConeDirection);
+            Emission->ConeDirection.Low.xyz = ObNOZ(Emission->ConeDirection.Low.xyz);
+            Emission->ConeDirection.High.xyz = ObNOZ(Emission->ConeDirection.High.xyz);
+            ov3 ConeDirection = OffbeatEvaluateExpression(&Emission->ConeDirection).xyz;
+            Emission->ConeRotation = ObRotationAlign(Z, ConeDirection);
         } break;
     }
 
@@ -814,7 +823,8 @@ OffbeatUpdateSystemRotationsAndNormalize(ob_particle_system* ParticleSystem)
     {
         case OFFBEAT_MotionLine:
         {
-            Motion->LineDirection = ObNOZ(Motion->LineDirection);
+            Motion->LineDirection.Low.xyz = ObNOZ(Motion->LineDirection.Low.xyz);
+            Motion->LineDirection.High.xyz = ObNOZ(Motion->LineDirection.High.xyz);
         } break;
     }
 }
@@ -827,8 +837,9 @@ OffbeatUpdateParticleCount(ob_history_entry* History, ob_particle_system* Partic
     ParticleSystem->t += dt;
     ParticleSystem->tSpawn += dt;
 
-    f32 TimePerParticle = Emission->EmissionRate > 0.0f ? 1.0f / Emission->EmissionRate : 0.0f;
-    f32 RealParticleSpawn =  ParticleSystem->tSpawn * Emission->EmissionRate;
+    f32 EmissionRate = OffbeatEvaluateExpression(&Emission->EmissionRate).x;
+    f32 TimePerParticle = EmissionRate > 0.0f ? 1.0f / EmissionRate : 0.0f;
+    f32 RealParticleSpawn =  ParticleSystem->tSpawn * EmissionRate;
     OffbeatAssert(RealParticleSpawn >= 0.0f);
 
     u32 ParticleSpawnCount = TruncateF32ToU32(RealParticleSpawn);
@@ -870,19 +881,20 @@ OffbeatParticleInitialPosition(ob_random_series* Entropy, ob_emission* Emission)
     {
         case OFFBEAT_EmissionPoint:
         {
-            Result = Emission->Location;
+            Result = OffbeatEvaluateExpression(&Emission->Location).xyz;
         } break;
 
         case OFFBEAT_EmissionRing:
         {
+            f32 RingRadius = OffbeatEvaluateExpression(&Emission->RingRadius).x;
             f32 RandomValue = 2.0f * PI * ObRandomUnilateral(Entropy);
 
-            Result.x = Emission->RingRadius * ObSin(RandomValue);
-            Result.y = Emission->RingRadius * ObCos(RandomValue);
+            Result.x = RingRadius * ObSin(RandomValue);
+            Result.y = RingRadius * ObCos(RandomValue);
 
             Result = Emission->RingRotation * Result;
 
-            Result += Emission->Location;
+            Result += OffbeatEvaluateExpression(&Emission->Location).xyz;
         } break;
 
         default:
@@ -913,8 +925,10 @@ OffbeatParticleInitialVelocity(ob_random_series* Entropy, ob_emission* Emission)
 
         case OFFBEAT_VelocityCone:
         {
-            f32 Denom = ObSquareRoot(ObSquare(Emission->ConeHeight) + ObSquare(Emission->ConeRadius));
-            f32 CosTheta = Denom > 0.0f ? Emission->ConeHeight / Denom : 0.0f;
+            f32 ConeHeight = OffbeatEvaluateExpression(&Emission->ConeHeight).x;
+            f32 ConeRadius = OffbeatEvaluateExpression(&Emission->ConeRadius).x;
+            f32 Denom = ObSquareRoot(ObSquare(ConeHeight) + ObSquare(ConeRadius));
+            f32 CosTheta = Denom > 0.0f ? ConeHeight / Denom : 0.0f;
 
             f32 Phi = ObRandomBetween(Entropy, 0.0f, 2.0f * PI);
             f32 Z = ObRandomBetween(Entropy, CosTheta, 1.0f);
@@ -932,7 +946,7 @@ OffbeatParticleInitialVelocity(ob_random_series* Entropy, ob_emission* Emission)
         {
         } break;
     }
-    Result *= Emission->InitialVelocityScale;
+    Result *= OffbeatEvaluateExpression(&Emission->InitialVelocityScale).x;
 
     return Result;
 }
@@ -961,22 +975,25 @@ OffbeatUpdateParticleddP(ob_particle_system* ParticleSystem, ob_particle* Partic
 {
     ob_motion* Motion = &ParticleSystem->Motion;
     f32 LengthSq = ObLengthSq(Particle->dP);
-    ov3 Drag = Motion->Drag * LengthSq * ObNormalize(-Particle->dP);
-    ov3 Result = Motion->Gravity + Drag;
+    ov3 Drag = OffbeatEvaluateExpression(&Motion->Drag, ParticleSystem, Particle).x *
+               LengthSq * ObNormalize(-Particle->dP);
+    ov3 Result = OffbeatEvaluateExpression(&Motion->Gravity, ParticleSystem, Particle).xyz + Drag;
     f32 Strength = OffbeatEvaluateExpression(&Motion->Strength, ParticleSystem, Particle).x;
     ov3 Direction;
     switch(Motion->Primitive)
     {
         case OFFBEAT_MotionPoint:
         {
-            Direction = Motion->Position - Particle->P;
+            Direction = OffbeatEvaluateExpression(&Motion->Position).xyz - Particle->P;
         } break;
 
         case OFFBEAT_MotionLine:
         {
-            f32 t = ObInner(Particle->P - Motion->Position, Motion->LineDirection) /
-                    ObLengthSq(Motion->LineDirection);
-            Direction = (Motion->Position + t * Motion->LineDirection) - Particle->P;
+            ov3 Position = OffbeatEvaluateExpression(&Motion->Position).xyz;
+            ov3 LineDirection = OffbeatEvaluateExpression(&Motion->LineDirection).xyz;
+            f32 t = ObInner(Particle->P - Position, LineDirection) /
+                    ObLengthSq(LineDirection);
+            Direction = (Position + t * LineDirection) - Particle->P;
         } break;
 
         case OFFBEAT_MotionNone:

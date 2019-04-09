@@ -113,7 +113,7 @@ OffbeatDragOV4(const char* Label, ov4* Value, float MinValue, float MaxValue, fl
     UI::DragFloat4(Label, Value->E, MinValue, MaxValue, ScreenDelta);
 }
 
-#define OffbeatGUIExpression(type) void OffbeatGUIExpression##type(const char* Name, ob_expr* Expression, bool* Header, bool MinZero)\
+#define OffbeatGUIExpression(type) void OffbeatGUIExpression##type(const char* Name, ob_expr* Expression, bool* Header, bool MinZero, float ScreenDelta = 5.0f)\
 {\
     char FunctionName[50];\
     char ParameterName[50];\
@@ -140,11 +140,11 @@ OffbeatDragOV4(const char* Label, ov4* Value, float MinValue, float MaxValue, fl
         {\
             if(MinZero)\
             {\
-                OffbeatDrag##type(HighName, &Expression->High, 0.0f, INFINITY, 5.0f);\
+                OffbeatDrag##type(HighName, &Expression->High, 0.0f, INFINITY, ScreenDelta);\
             }\
             else\
             {\
-                OffbeatDrag##type(HighName, &Expression->High, -INFINITY, INFINITY, 5.0f);\
+                OffbeatDrag##type(HighName, &Expression->High, -INFINITY, INFINITY, ScreenDelta);\
             }\
         }\
         else\
@@ -160,13 +160,13 @@ OffbeatDragOV4(const char* Label, ov4* Value, float MinValue, float MaxValue, fl
 \
             if(MinZero)\
             {\
-                OffbeatDrag##type(LowName, &Expression->Low, 0.0f, INFINITY, 5.0f);\
-                OffbeatDrag##type(HighName, &Expression->High, 0.0f, INFINITY, 5.0f);\
+                OffbeatDrag##type(LowName, &Expression->Low, 0.0f, INFINITY, ScreenDelta);\
+                OffbeatDrag##type(HighName, &Expression->High, 0.0f, INFINITY, ScreenDelta);\
             }\
             else\
             {\
-                OffbeatDrag##type(LowName, &Expression->Low, -INFINITY, INFINITY, 5.0f);\
-                OffbeatDrag##type(HighName, &Expression->High, -INFINITY, INFINITY, 5.0f);\
+                OffbeatDrag##type(LowName, &Expression->Low, -INFINITY, INFINITY, ScreenDelta);\
+                OffbeatDrag##type(HighName, &Expression->High, -INFINITY, INFINITY, ScreenDelta);\
             }\
         }\
     }\
@@ -190,8 +190,20 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
         static bool s_OffbeatShowEmission = false;
         static bool s_OffbeatShowMotion = false;
         static bool s_OffbeatShowAppearance = false;
+        static bool s_OffbeatEmissionLocation = false;
+        static bool s_OffbeatEmissionRate = false;
         static bool s_OffbeatEmissionLifetime = false;
+        static bool s_OffbeatEmissionRingRadius = false;
+        static bool s_OffbeatEmissionRingNormal = false;
+        static bool s_OffbeatEmissionInitialVelocityScale = false;
+        static bool s_OffbeatEmissionConeDirection = false;
+        static bool s_OffbeatEmissionConeHeight = false;
+        static bool s_OffbeatEmissionConeRadius = false;
         static bool s_OffbeatMotionStrength = false;
+        static bool s_OffbeatMotionGravity = false;
+        static bool s_OffbeatMotionDrag = false;
+        static bool s_OffbeatMotionPosition = false;
+        static bool s_OffbeatMotionLineDirection = false;
         static bool s_OffbeatAppearanceColor = false;
         static bool s_OffbeatAppearanceSize = false;
 
@@ -242,8 +254,20 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
             s_OffbeatShowEmission = false;
             s_OffbeatShowMotion = false;
             s_OffbeatShowAppearance = false;
+            s_OffbeatEmissionLocation = false;
+            s_OffbeatEmissionRate = false;
             s_OffbeatEmissionLifetime = false;
+            s_OffbeatEmissionRingRadius = false;
+            s_OffbeatEmissionRingNormal = false;
+            s_OffbeatEmissionInitialVelocityScale = false;
+            s_OffbeatEmissionConeDirection = false;
+            s_OffbeatEmissionConeHeight = false;
+            s_OffbeatEmissionConeRadius = false;
             s_OffbeatMotionStrength = false;
+            s_OffbeatMotionGravity = false;
+            s_OffbeatMotionDrag = false;
+            s_OffbeatMotionPosition = false;
+            s_OffbeatMotionLineDirection = false;
             s_OffbeatAppearanceColor = false;
             s_OffbeatAppearanceSize = false;
             goto end_window;
@@ -276,8 +300,10 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
 
         if(UI::CollapsingHeader("Emission", &s_OffbeatShowEmission))
         {
-            UI::DragFloat3("Location", ParticleSystem->Emission.Location.E, -INFINITY, INFINITY, 10.0f);
-            UI::DragFloat("Emission Rate", &ParticleSystem->Emission.EmissionRate, 0.0f, INFINITY, 500.0f);
+            OffbeatGUIExpressionOV3("Location", &ParticleSystem->Emission.Location,
+                                    &s_OffbeatEmissionLocation, false, 10.0f);
+            OffbeatGUIExpressionF32("Emission Rate", &ParticleSystem->Emission.EmissionRate,
+                                    &s_OffbeatEmissionRate, true, 500.0f);
             OffbeatGUIExpressionF32("Particle Lifetime", &ParticleSystem->Emission.ParticleLifetime,
                                     &s_OffbeatEmissionLifetime, true);
 
@@ -292,12 +318,16 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
 
                 case OFFBEAT_EmissionRing:
                 {
-                    UI::DragFloat("Ring Radius", &ParticleSystem->Emission.RingRadius, 0.0f, INFINITY, 10.0f);
-                    UI::DragFloat3("Ring Normal", ParticleSystem->Emission.RingNormal.E, -INFINITY, INFINITY, 10.0f);
+                    OffbeatGUIExpressionF32("Ring Radius", &ParticleSystem->Emission.RingRadius,
+                                            &s_OffbeatEmissionRingRadius, true, 10.0f);
+                    OffbeatGUIExpressionOV3("Ring Normal", &ParticleSystem->Emission.RingNormal,
+                                            &s_OffbeatEmissionRingNormal, false, 10.0f);
                 } break;
             }
 
-            UI::DragFloat("Initial Velocity Scale", &ParticleSystem->Emission.InitialVelocityScale, -INFINITY, INFINITY, 5.0f);
+            OffbeatGUIExpressionF32("Initial Velocity Scale",
+                                    &ParticleSystem->Emission.InitialVelocityScale,
+                                    &s_OffbeatEmissionInitialVelocityScale, false);
 
             ob_emission_velocity* CurrentVelocityType = &ParticleSystem->Emission.VelocityType;
             UI::Combo("Velocity Type", (int*)CurrentVelocityType, g_EmissionVelocityStrings, OFFBEAT_VelocityCount, UI::StringArrayToString);
@@ -310,17 +340,22 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
 
                 case OFFBEAT_VelocityCone:
                 {
-                    UI::DragFloat3("Cone Direction", ParticleSystem->Emission.ConeDirection.E, -INFINITY, INFINITY, 10.0f);
-                    UI::DragFloat("Cone Height", &ParticleSystem->Emission.ConeHeight, 0.0f, INFINITY, 10.0f);
-                    UI::DragFloat("Cone Radius", &ParticleSystem->Emission.ConeRadius, 0.0f, INFINITY, 10.0f);
+                    OffbeatGUIExpressionOV3("Cone Direction", &ParticleSystem->Emission.ConeDirection,
+                                            &s_OffbeatEmissionConeDirection, false, 10.0f);
+                    OffbeatGUIExpressionF32("Cone Height", &ParticleSystem->Emission.ConeHeight,
+                                            &s_OffbeatEmissionConeHeight, true, 10.0f);
+                    OffbeatGUIExpressionF32("Cone Radius", &ParticleSystem->Emission.ConeRadius,
+                                            &s_OffbeatEmissionConeRadius, true, 10.0f);
                 } break;
             }
         }
 
         if(UI::CollapsingHeader("Motion", &s_OffbeatShowMotion))
         {
-            UI::DragFloat3("Gravity", ParticleSystem->Motion.Gravity.E, -INFINITY, INFINITY, 10.0f);
-            UI::DragFloat("Drag Strength", &ParticleSystem->Motion.Drag, -INFINITY, INFINITY, 10.0f);
+            OffbeatGUIExpressionOV3("Gravity", &ParticleSystem->Motion.Gravity,
+                                    &s_OffbeatMotionGravity, false, 10.0f);
+            OffbeatGUIExpressionF32("Drag Strength", &ParticleSystem->Motion.Drag,
+                                    &s_OffbeatMotionDrag, false, 1.0f);
 
             ob_motion_primitive* CurrentPrimitive = &ParticleSystem->Motion.Primitive;
             UI::Combo("Motion Primitive", (int*)CurrentPrimitive, g_MotionPrimitiveStrings, OFFBEAT_MotionCount, UI::StringArrayToString);
@@ -331,15 +366,18 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
                 {
                     OffbeatGUIExpressionF32("Strength", &ParticleSystem->Motion.Strength,
                                             &s_OffbeatMotionStrength, false);
-                    UI::DragFloat3("Position", ParticleSystem->Motion.Position.E, -INFINITY, INFINITY, 10.0f);
+                    OffbeatGUIExpressionOV3("Position", &ParticleSystem->Motion.Position,
+                                            &s_OffbeatMotionPosition, false, 10.0f);
                 } break;
 
                 case OFFBEAT_MotionLine:
                 {
                     OffbeatGUIExpressionF32("Strength", &ParticleSystem->Motion.Strength,
                                             &s_OffbeatMotionStrength, false);
-                    UI::DragFloat3("Position", ParticleSystem->Motion.Position.E, -INFINITY, INFINITY, 10.0f);
-                    UI::DragFloat3("Direction", ParticleSystem->Motion.LineDirection.E, -INFINITY, INFINITY, 10.0f);
+                    OffbeatGUIExpressionOV3("Position", &ParticleSystem->Motion.Position,
+                                            &s_OffbeatMotionPosition, false, 10.0f);
+                    OffbeatGUIExpressionOV3("Direction", &ParticleSystem->Motion.LineDirection,
+                                            &s_OffbeatMotionLineDirection, false, 10.0f);
                 } break;
             }
         }

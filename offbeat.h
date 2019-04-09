@@ -164,21 +164,21 @@ enum ob_emission_velocity
 
 struct ob_emission
 {
-    ov3 Location;
-    f32 EmissionRate;
+    ob_expr Location;
+    ob_expr EmissionRate;
     ob_expr ParticleLifetime;
 
     ob_emission_shape Shape;
-    f32 RingRadius;
-    ov3 RingNormal;
+    ob_expr RingRadius;
+    ob_expr RingNormal;
     om3 RingRotation;
 
-    f32 InitialVelocityScale;
+    ob_expr InitialVelocityScale;
 
     ob_emission_velocity VelocityType;
-    ov3 ConeDirection;
-    f32 ConeHeight;
-    f32 ConeRadius;
+    ob_expr ConeDirection;
+    ob_expr ConeHeight;
+    ob_expr ConeRadius;
     om3 ConeRotation;
 };
 
@@ -193,13 +193,13 @@ enum ob_motion_primitive
 
 struct ob_motion
 {
-    ov3 Gravity;
-    f32 Drag;
+    ob_expr Gravity;
+    ob_expr Drag;
     ob_expr Strength;
 
     ob_motion_primitive Primitive;
-    ov3 Position;
-    ov3 LineDirection;
+    ob_expr Position;
+    ob_expr LineDirection;
 };
 
 struct ob_appearance
@@ -242,26 +242,32 @@ struct ob_particle_system
 // NOTE(rytis): Aligned vvv
 struct ob_emission_uniform_aligned
 {
-    ov3 Location; f32 EmissionRate;
+    ob_expr Location;
+    ob_expr EmissionRate;
     ob_expr ParticleLifetime;
 
-    ob_emission_shape Shape; f32 RingRadius; ov2 P0;
-    ov3 RingNormal; f32 P1;
+    ob_emission_shape Shape;
+    ob_expr RingRadius;
+    ob_expr RingNormal;
     om3x4 RingRotation;
 
-    f32 InitialVelocityScale; ob_emission_velocity VelocityType; f32 ConeHeight; f32 ConeRadius;
-    ov3 ConeDirection; f32 P2;
+    ob_expr InitialVelocityScale;
+    ob_emission_velocity VelocityType;
+    ob_expr ConeHeight;
+    ob_expr ConeRadius;
+    ob_expr ConeDirection;
     om3x4 ConeRotation;
 };
 
 struct ob_motion_uniform_aligned
 {
-    ov3 Gravity; f32 Drag;
+    ob_expr Gravity;
+    ob_expr Drag;
     ob_expr Strength;
 
     ob_motion_primitive Primitive; ov3 P0;
-    ov3 Position; f32 P1;
-    ov3 LineDirection; f32 P2;
+    ob_expr Position;
+    ob_expr LineDirection;
 };
 
 struct ob_appearance_uniform_aligned

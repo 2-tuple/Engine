@@ -1,5 +1,6 @@
 #pragma once
 
+// TODO(rytis): IMPORTANT: Update shaders to evaluate expressions!!!
 ob_global_data OffbeatGlobalData;
 
 #ifdef OFFBEAT_OPENGL_COMPUTE
