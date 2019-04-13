@@ -299,6 +299,13 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
             OffbeatExportCurrentParticleSystem(OffbeatState, Path);
         }
 
+        bool UseGPU = ParticleSystem->UseGPU;
+        UI::Checkbox("Use GPU", &UseGPU);
+        if(UseGPU != (bool)ParticleSystem->UseGPU)
+        {
+            OffbeatToggleGPU(ParticleSystem);
+        }
+
         if(UI::CollapsingHeader("Emission", &s_OffbeatShowEmission))
         {
             OffbeatGUIExpressionOV3("Location", &ParticleSystem->Emission.Location,

@@ -582,6 +582,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
     }
     )SHADER";
 
+    // TODO(rytis): Figure out why does stateless evaluation take so much time.
     char* StatelessEvaluationCode = R"SHADER(
     uniform vec3 Horizontal;
     uniform vec3 Vertical;
@@ -637,27 +638,35 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
             vec2 TopLeftUV = vec2(0.0f, 1.0f);
 
             uint VertexIndex0 = 4 * Index;
+            uint VertexIndex1 = 4 * Index + 1;
+            uint VertexIndex2 = 4 * Index + 2;
+            uint VertexIndex3 = 4 * Index + 3;
             // NOTE(rytis): Updating draw list vertex array
             float TextureIndex = uintBitsToFloat(Appearance.TextureIndex);
-            Vertices[VertexIndex0    ] = ob_draw_vertex(BottomLeft, TextureIndex, BottomLeftUV,
-                                                        Globals.AppearanceColor);
-            Vertices[VertexIndex0 + 1] = ob_draw_vertex(BottomRight, TextureIndex, BottomRightUV,
-                                                        Globals.AppearanceColor);
-            Vertices[VertexIndex0 + 2] = ob_draw_vertex(TopRight, TextureIndex, TopRightUV,
-                                                        Globals.AppearanceColor);
-            Vertices[VertexIndex0 + 3] = ob_draw_vertex(TopLeft, TextureIndex, TopLeftUV,
-                                                        Globals.AppearanceColor);
+            Vertices[VertexIndex0] = ob_draw_vertex(BottomLeft, TextureIndex, BottomLeftUV,
+                                                    Globals.AppearanceColor);
+            Vertices[VertexIndex1] = ob_draw_vertex(BottomRight, TextureIndex, BottomRightUV,
+                                                    Globals.AppearanceColor);
+            Vertices[VertexIndex2] = ob_draw_vertex(TopRight, TextureIndex, TopRightUV,
+                                                    Globals.AppearanceColor);
+            Vertices[VertexIndex3] = ob_draw_vertex(TopLeft, TextureIndex, TopLeftUV,
+                                                    Globals.AppearanceColor);
 
             // NOTE(rytis): Updating draw list index array
             uint Index0 = 6 * Index;
+            uint Index1 = 6 * Index + 1;
+            uint Index2 = 6 * Index + 2;
+            uint Index3 = 6 * Index + 3;
+            uint Index4 = 6 * Index + 4;
+            uint Index5 = 6 * Index + 5;
             // NOTE(rytis): CCW bottom right triangle
-            Indices[Index0    ] = VertexIndex0;
-            Indices[Index0 + 1] = VertexIndex0 + 1;
-            Indices[Index0 + 2] = VertexIndex0 + 2;
+            Indices[Index0] = VertexIndex0;
+            Indices[Index1] = VertexIndex1;
+            Indices[Index2] = VertexIndex2;
             // NOTE(rytis): CCW top left triangle
-            Indices[Index0 + 3] = VertexIndex0;
-            Indices[Index0 + 4] = VertexIndex0 + 2;
-            Indices[Index0 + 5] = VertexIndex0 + 3;
+            Indices[Index3] = VertexIndex0;
+            Indices[Index4] = VertexIndex2;
+            Indices[Index5] = VertexIndex3;
         }
     }
     )SHADER";
@@ -1114,39 +1123,44 @@ OffbeatRenderParticles(ob_state* OffbeatState, float* ViewMatrix, float* Project
     }
 #endif
 
-    ob_draw_data* DrawData;
     // NOTE(rytis): Draw particles.
     glDepthMask(GL_FALSE);
+    ob_draw_data* DrawData = &OffbeatState->DrawData;
+    for(int i = 0; i < DrawData->DrawListCount; ++i)
+    {
+        ob_draw_list* DrawList = DrawData->DrawLists + i;
+
 #ifdef OFFBEAT_OPENGL_COMPUTE
-    DrawData = &OffbeatState->DrawData;
-    for(int i = 0; i < DrawData->DrawListCount; ++i)
-    {
-        glBindVertexArray(DrawData->DrawLists[i].VAO);
-        glBindBuffer(GL_ARRAY_BUFFER, DrawData->DrawLists[i].VBO);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, DrawData->DrawLists[i].EBO);
+        if(DrawList->UseGPU)
+        {
+            glBindVertexArray(DrawList->VAO);
+            glBindBuffer(GL_ARRAY_BUFFER, DrawList->VBO);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, DrawList->EBO);
 
-        glDrawElements(GL_TRIANGLES, DrawData->DrawLists[i].IndexCount, GL_UNSIGNED_INT, 0);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-    }
-    glBindVertexArray(0);
-#else
-    DrawData = &OffbeatState->DrawData;
-    for(int i = 0; i < DrawData->DrawListCount; ++i)
-    {
-        glBufferData(GL_ARRAY_BUFFER,
-                     DrawData->DrawLists[i].VertexCount * sizeof(ob_draw_vertex),
-                     DrawData->DrawLists[i].Vertices,
-                     GL_STATIC_DRAW);
-
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                     DrawData->DrawLists[i].IndexCount * sizeof(uint32_t),
-                     DrawData->DrawLists[i].Indices,
-                     GL_STATIC_DRAW);
-
-        glDrawElements(GL_TRIANGLES, DrawData->DrawLists[i].IndexCount, GL_UNSIGNED_INT, 0);
-    }
+            glDrawElements(GL_TRIANGLES, DrawList->IndexCount, GL_UNSIGNED_INT, 0);
+            // glBindBuffer(GL_ARRAY_BUFFER, 0);
+            // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        }
+        else
 #endif
+        {
+            glBindVertexArray(VAO);
+            glBindBuffer(GL_ARRAY_BUFFER, VBO);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+
+            glBufferData(GL_ARRAY_BUFFER,
+                         DrawList->VertexCount * sizeof(ob_draw_vertex),
+                         DrawList->Vertices,
+                         GL_STATIC_DRAW);
+
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                         DrawList->IndexCount * sizeof(uint32_t),
+                         DrawList->Indices,
+                         GL_STATIC_DRAW);
+
+            glDrawElements(GL_TRIANGLES, DrawList->IndexCount, GL_UNSIGNED_INT, 0);
+        }
+    }
 
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);

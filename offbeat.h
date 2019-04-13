@@ -212,6 +212,8 @@ struct ob_particle_system
     f32 t;
     f32 tSpawn;
 
+    b32 UseGPU;
+
     ob_emission Emission;
     ob_motion Motion;
     ob_appearance Appearance;
@@ -297,23 +299,9 @@ struct ob_draw_vertex
     ov4 Color;
 };
 
-#ifdef OFFBEAT_OPENGL_COMPUTE
 struct ob_draw_list
 {
-    GLuint VAO;
-    GLuint VBO;
-    GLuint EBO;
-    u32 IndexCount;
-};
-
-struct ob_draw_data
-{
-    u32 DrawListCount;
-    ob_draw_list DrawLists[OFFBEAT_DRAW_LIST_COUNT];
-};
-#else
-struct ob_draw_list
-{
+    b32 UseGPU;
     u32 ElementCount;
 
     u32 IndexCount;
@@ -321,6 +309,12 @@ struct ob_draw_list
 
     u32 VertexCount;
     ob_draw_vertex* Vertices;
+
+#ifdef OFFBEAT_OPENGL_COMPUTE
+    GLuint VAO;
+    GLuint VBO;
+    GLuint EBO;
+#endif
 };
 
 struct ob_draw_data
@@ -328,7 +322,6 @@ struct ob_draw_data
     u32 DrawListCount;
     ob_draw_list DrawLists[OFFBEAT_DRAW_LIST_COUNT];
 };
-#endif
 
 struct ob_draw_list_debug
 {
@@ -414,6 +407,7 @@ OFFBEAT_API void OffbeatRemoveCurrentParticleSystem(ob_state* OffbeatState);
 OFFBEAT_API ob_particle_system* OffbeatGetCurrentParticleSystem(ob_state* OffbeatState);
 OFFBEAT_API ob_particle_system* OffbeatPreviousParticleSystem(ob_state* OffbeatState);
 OFFBEAT_API ob_particle_system* OffbeatNextParticleSystem(ob_state* OffbeatState);
+OFFBEAT_API void OffbeatToggleGPU(ob_particle_system* ParticleSystem);
 OFFBEAT_API void OffbeatAddTexture(u32 Texture);
 OFFBEAT_API void OffbeatGenerateTextureArray();
 
