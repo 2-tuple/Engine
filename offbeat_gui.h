@@ -35,9 +35,10 @@ static char* g_FunctionStrings[OFFBEAT_FunctionCount] = {
 
 static char* g_ParameterStrings[OFFBEAT_ParameterCount] = {
     "Age",
+    "Velocity",
+    "ID",
     "Random",
     "CameraDistance",
-    "ID",
 };
 
 static u32 g_TextureCount;

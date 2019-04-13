@@ -88,26 +88,16 @@ struct ob_file_data
     u64 Size;
 };
 
-enum ob_texture_type
-{
-    OFFBEAT_TextureSquare,
-    OFFBEAT_TextureCircle,
-    OFFBEAT_TextureFatCross,
-    OFFBEAT_TextureSlimCross,
-    // OFFBEAT_TextureRing,
-
-    OFFBEAT_TextureCount,
-};
-
 struct ob_particle
 {
     ov3 P;
     f32 Age;
     ov3 dP;
+    f32 dAge;
     f32 ID;
     f32 Random;
     f32 CameraDistance;
-    f32 Padding[2];
+    f32 Padding[1];
 };
 
 enum ob_function
@@ -129,9 +119,10 @@ enum ob_function
 enum ob_parameter
 {
     OFFBEAT_ParameterAge = 0,
-    OFFBEAT_ParameterRandom = 1,
-    OFFBEAT_ParameterCameraDistance = 2,
-    OFFBEAT_ParameterID = 3,
+    OFFBEAT_ParameterVelocity = 1,
+    OFFBEAT_ParameterID = 2,
+    OFFBEAT_ParameterRandom = 3,
+    OFFBEAT_ParameterCameraDistance = 4,
 
     OFFBEAT_ParameterCount,
 };
@@ -212,7 +203,7 @@ struct ob_appearance
 
 struct ob_history_entry
 {
-    f32 TimeElapsed;
+    f32 MaxLifetime;
     u32 ParticlesEmitted;
 };
 
@@ -246,13 +237,13 @@ struct ob_emission_uniform_aligned
     ob_expr EmissionRate;
     ob_expr ParticleLifetime;
 
-    ob_emission_shape Shape;
+    ob_emission_shape Shape; ov3 P0;
     ob_expr RingRadius;
     ob_expr RingNormal;
     om3x4 RingRotation;
 
     ob_expr InitialVelocityScale;
-    ob_emission_velocity VelocityType;
+    ob_emission_velocity VelocityType; ov3 P1;
     ob_expr ConeHeight;
     ob_expr ConeRadius;
     ob_expr ConeDirection;
@@ -425,9 +416,6 @@ OFFBEAT_API ob_particle_system* OffbeatPreviousParticleSystem(ob_state* OffbeatS
 OFFBEAT_API ob_particle_system* OffbeatNextParticleSystem(ob_state* OffbeatState);
 OFFBEAT_API void OffbeatAddTexture(u32 Texture);
 OFFBEAT_API void OffbeatGenerateTextureArray();
-OFFBEAT_API ob_texture_type OffbeatGetCurrentTextureType(ob_particle_system* ParticleSystem);
-OFFBEAT_API ob_texture OffbeatGetTextureID(ob_particle_system* ParticleSystem);
-OFFBEAT_API void OffbeatSetTextureID(ob_particle_system* ParticleSystem, ob_texture_type NewType);
 
 // NOTE(rytis): Calculation.
 OFFBEAT_API void OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt);
