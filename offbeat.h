@@ -112,6 +112,7 @@ enum ob_function
     OFFBEAT_FunctionTwoTriangles = 7,
     OFFBEAT_FunctionFourTriangles = 8,
     OFFBEAT_FunctionPeriodic = 9,
+    OFFBEAT_FunctionPeriodicSquare = 10,
 
     OFFBEAT_FunctionCount,
 };
@@ -131,16 +132,21 @@ struct ob_expr
 {
     ob_function Function;
     ob_parameter Parameter;
-    f32 Frequency;
-    f32 Padding;
+    f32 Float;
+    u32 Uint;
     ov4 Low;
     ov4 High;
 };
 
+// TODO(rytis): Add circle, square, maybe a triangle and a tetrahedron or a pyramid??? Fix the cube.
 enum ob_emission_shape
 {
     OFFBEAT_EmissionPoint = 0,
     OFFBEAT_EmissionRing = 1,
+    OFFBEAT_EmissionSphere = 2,
+    OFFBEAT_EmissionSphereVolume = 3,
+    OFFBEAT_EmissionCube = 4,
+    OFFBEAT_EmissionCubeVolume = 5,
 
     OFFBEAT_EmissionCount,
 };
@@ -160,9 +166,9 @@ struct ob_emission
     ob_expr ParticleLifetime;
 
     ob_emission_shape Shape;
-    ob_expr RingRadius;
-    ob_expr RingNormal;
-    om3 RingRotation;
+    ob_expr EmissionRadius;
+    ob_expr EmissionNormal;
+    om3 EmissionRotation;
 
     ob_expr InitialVelocityScale;
 
@@ -178,6 +184,7 @@ enum ob_motion_primitive
     OFFBEAT_MotionNone = 0,
     OFFBEAT_MotionPoint = 1,
     OFFBEAT_MotionLine = 2,
+    OFFBEAT_MotionSphere = 3,
 
     OFFBEAT_MotionCount,
 };
@@ -191,6 +198,7 @@ struct ob_motion
     ob_motion_primitive Primitive;
     ob_expr Position;
     ob_expr LineDirection;
+    ob_expr SphereRadius;
 };
 
 struct ob_appearance
@@ -240,9 +248,9 @@ struct ob_emission_uniform_aligned
     ob_expr ParticleLifetime;
 
     ob_emission_shape Shape; ov3 P0;
-    ob_expr RingRadius;
-    ob_expr RingNormal;
-    om3x4 RingRotation;
+    ob_expr EmissionRadius;
+    ob_expr EmissionNormal;
+    om3x4 EmissionRotation;
 
     ob_expr InitialVelocityScale;
     ob_emission_velocity VelocityType; ov3 P1;
@@ -261,6 +269,7 @@ struct ob_motion_uniform_aligned
     ob_motion_primitive Primitive; ov3 P0;
     ob_expr Position;
     ob_expr LineDirection;
+    ob_expr SphereRadius;
 };
 
 struct ob_appearance_uniform_aligned

@@ -62,6 +62,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
     #define OFFBEAT_FunctionTwoTriangles 7
     #define OFFBEAT_FunctionFourTriangles 8
     #define OFFBEAT_FunctionPeriodic 9
+    #define OFFBEAT_FunctionPeriodicSquare 10
 
     #define OFFBEAT_ParameterAge 0
     #define OFFBEAT_ParameterVelocity 1
@@ -71,6 +72,10 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
 
     #define OFFBEAT_EmissionPoint 0
     #define OFFBEAT_EmissionRing 1
+    #define OFFBEAT_EmissionSphere 2
+    #define OFFBEAT_EmissionSphereVolume 3
+    #define OFFBEAT_EmissionCube 4
+    #define OFFBEAT_EmissionCubeVolume 5
 
     #define OFFBEAT_VelocityRandom 0
     #define OFFBEAT_VelocityCone 1
@@ -78,6 +83,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
     #define OFFBEAT_MotionNone 0
     #define OFFBEAT_MotionPoint 1
     #define OFFBEAT_MotionLine 2
+    #define OFFBEAT_MotionSphere 3
 
     #define OFFBEAT_MIN_RANDOM_NUMBER 0x0000cc93
     #define OFFBEAT_MAX_RANDOM_NUMBER 0x3b8a2a26
@@ -110,7 +116,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
 
     struct ob_expr
     {
-        vec4 FuncParamFreq;
+        vec4 FuncParamFloatUint;
         vec4 Low;
         vec4 High;
     };
@@ -122,9 +128,9 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
         ob_expr ParticleLifetime;
 
         uint Shape;
-        ob_expr RingRadius;
-        ob_expr RingNormal;
-        mat3 RingRotation;
+        ob_expr EmissionRadius;
+        ob_expr EmissionNormal;
+        mat3 EmissionRotation;
 
         ob_expr InitialVelocityScale;
 
@@ -144,6 +150,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
         uint Primitive;
         ob_expr Position;
         ob_expr LineDirection;
+        ob_expr SphereRadius;
     } Motion;
 
     layout(std140, binding = 2) uniform ob_appearance
@@ -158,9 +165,9 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
         vec3 EmissionLocation;
         float EmissionParticleLifetime;
         uint EmissionShape;
-        float EmissionRingRadius;
-        vec3 EmissionRingNormal;
-        mat3 EmissionRingRotation;
+        float EmissionRadius;
+        vec3 EmissionNormal;
+        mat3 EmissionRotation;
         float EmissionInitialVelocity;
         uint EmissionVelocityType;
         float EmissionConeHeight;
@@ -174,6 +181,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
         uint MotionPrimitive;
         vec3 MotionPosition;
         vec3 MotionLineDirection;
+        float MotionSphereRadius;
 
         vec4 AppearanceColor;
         float AppearanceSize;
@@ -248,13 +256,17 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
     vec4
     OffbeatEvaluateExpression(ob_expr Expr, ob_particle Particle)
     {
-        uint Function = floatBitsToUint(Expr.FuncParamFreq.x);
-        uint Parameter = floatBitsToUint(Expr.FuncParamFreq.y);
-        float Frequency = Expr.FuncParamFreq.z;
+        uint Function = floatBitsToUint(Expr.FuncParamFloatUint.x);
+        uint Parameter = floatBitsToUint(Expr.FuncParamFloatUint.y);
+        float Float = Expr.FuncParamFloatUint.z;
+        uint Uint = floatBitsToUint(Expr.FuncParamFloatUint.w);
 
         if(Function == OFFBEAT_FunctionPeriodic)
         {
-            return mix(Expr.Low, Expr.High, 0.5f * (sin(2.0f * PI * Frequency * u_t) + 1.0f));
+            return mix(Expr.Low, Expr.High, 0.5f * (sin(2.0f * PI * Float * u_t) + 1.0f));
+        }
+        else if(Function == OFFBEAT_FunctionPeriodicSquare)
+        {
         }
 
         float Param = clamp(OffbeatEvaluateParameter(Parameter, Particle), 0.0f, 1.0f);
@@ -368,9 +380,11 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
         switch(Globals.EmissionShape)
         {
             case OFFBEAT_EmissionRing:
+            case OFFBEAT_EmissionCube:
+            case OFFBEAT_EmissionCubeVolume:
             {
-                // Globals.EmissionRingNormal = ObNOZ(Globals.EmissionRingNormal);
-                Globals.EmissionRingRotation = ObRotationAlign(Z, Globals.EmissionRingNormal);
+                // Globals.EmissionNormal = ObNOZ(Globals.EmissionNormal);
+                Globals.EmissionRotation = ObRotationAlign(Z, Globals.EmissionNormal);
             } break;
         }
 
@@ -416,11 +430,45 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
             case OFFBEAT_EmissionRing:
             {
                 float RandomValue = 2.0f * PI * ObRandom();
-                Result.x = Globals.EmissionRingRadius * sin(RandomValue);
-                Result.y = Globals.EmissionRingRadius * cos(RandomValue);
+                Result.x = Globals.EmissionRadius * sin(RandomValue);
+                Result.y = Globals.EmissionRadius * cos(RandomValue);
+                Result = Globals.EmissionRotation * Result;
+                Result += Globals.EmissionLocation;
+            } break;
 
-                Result = Globals.EmissionRingRotation * Result;
+            case OFFBEAT_EmissionSphere:
+            {
+                float Theta = 2.0f * PI * ObRandom();
+                float Z = 2.0f * ObRandom() - 1.0f;
 
+                Result.x = sqrt(1.0f - (Z * Z)) * cos(Theta);
+                Result.y = sqrt(1.0f - (Z * Z)) * sin(Theta);
+                Result.z = Z;
+                Result *= Globals.EmissionRadius;
+                Result += Globals.EmissionLocation;
+            } break;
+
+            case OFFBEAT_EmissionSphereVolume:
+            {
+                float Theta = 2.0f * PI * ObRandom();
+                float Z = 2.0f * ObRandom() - 1.0f;
+                float Length = ObRandom();
+
+                Result.x = sqrt(1.0f - (Z * Z)) * cos(Theta);
+                Result.y = sqrt(1.0f - (Z * Z)) * sin(Theta);
+                Result.z = Z;
+                Result *= Globals.EmissionRadius * Length;
+                Result += Globals.EmissionLocation;
+            } break;
+
+            case OFFBEAT_EmissionCube:
+            case OFFBEAT_EmissionCubeVolume:
+            {
+                Result.x = 2.0f * ObRandom() - 1.0f;
+                Result.y = 2.0f * ObRandom() - 1.0f;
+                Result.z = 2.0f * ObRandom() - 1.0f;
+                Result *= Globals.EmissionRadius;
+                Result = Globals.EmissionRotation * Result;
                 Result += Globals.EmissionLocation;
             } break;
         }
@@ -485,8 +533,8 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
             Globals.EmissionLocation = OffbeatEvaluateExpression(Emission.Location, ZeroP).xyz;
             Globals.EmissionParticleLifetime = OffbeatEvaluateExpression(Emission.ParticleLifetime, ZeroP).x;
             Globals.EmissionShape = Emission.Shape;
-            Globals.EmissionRingRadius = OffbeatEvaluateExpression(Emission.RingRadius, ZeroP).x;
-            Globals.EmissionRingNormal = OffbeatEvaluateExpression(Emission.RingNormal, ZeroP).xyz;
+            Globals.EmissionRadius = OffbeatEvaluateExpression(Emission.EmissionRadius, ZeroP).x;
+            Globals.EmissionNormal = OffbeatEvaluateExpression(Emission.EmissionNormal, ZeroP).xyz;
             Globals.EmissionInitialVelocity = OffbeatEvaluateExpression(Emission.InitialVelocityScale, ZeroP).x;
             Globals.EmissionVelocityType = Emission.VelocityType;
             Globals.EmissionConeHeight = OffbeatEvaluateExpression(Emission.ConeHeight, ZeroP).x;
@@ -542,6 +590,13 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
                           ObLengthSq(Globals.MotionLineDirection);
                 Direction = (Globals.MotionPosition + t * Globals.MotionLineDirection) - Position;
             } break;
+
+            case OFFBEAT_MotionSphere:
+            {
+                Direction = Globals.MotionPosition +
+                            ObNOZ(Position - Globals.MotionPosition) * Globals.MotionSphereRadius -
+                            Position;
+            } break;
         }
         Result += Globals.MotionStrength * ObNOZ(Direction);
 
@@ -566,6 +621,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
                 Globals.MotionPrimitive = Motion.Primitive;
                 Globals.MotionPosition = OffbeatEvaluateExpression(Motion.Position, Particle).xyz;
                 Globals.MotionLineDirection = OffbeatEvaluateExpression(Motion.LineDirection, Particle).xyz;
+                Globals.MotionSphereRadius = OffbeatEvaluateExpression(Motion.SphereRadius, Particle).x;
 
                 vec3 Acceleration = OffbeatUpdateParticleAcceleration(Particle);
                 vec3 Position = Particle.PositionAge.xyz + 0.5f * dt * dt * Acceleration +
@@ -731,18 +787,18 @@ OffbeatTranslateEmission(ob_emission* Emission)
     Result.ParticleLifetime = Emission->ParticleLifetime;
 
     Result.Shape = Emission->Shape;
-    Result.RingRadius = Emission->RingRadius;
-    Result.RingNormal = Emission->RingNormal;
+    Result.EmissionRadius = Emission->EmissionRadius;
+    Result.EmissionNormal = Emission->EmissionNormal;
     {
-        Result.RingRotation._11 = Emission->RingRotation._11;
-        Result.RingRotation._12 = Emission->RingRotation._12;
-        Result.RingRotation._13 = Emission->RingRotation._13;
-        Result.RingRotation._21 = Emission->RingRotation._21;
-        Result.RingRotation._22 = Emission->RingRotation._22;
-        Result.RingRotation._23 = Emission->RingRotation._23;
-        Result.RingRotation._31 = Emission->RingRotation._31;
-        Result.RingRotation._32 = Emission->RingRotation._32;
-        Result.RingRotation._33 = Emission->RingRotation._33;
+        Result.EmissionRotation._11 = Emission->EmissionRotation._11;
+        Result.EmissionRotation._12 = Emission->EmissionRotation._12;
+        Result.EmissionRotation._13 = Emission->EmissionRotation._13;
+        Result.EmissionRotation._21 = Emission->EmissionRotation._21;
+        Result.EmissionRotation._22 = Emission->EmissionRotation._22;
+        Result.EmissionRotation._23 = Emission->EmissionRotation._23;
+        Result.EmissionRotation._31 = Emission->EmissionRotation._31;
+        Result.EmissionRotation._32 = Emission->EmissionRotation._32;
+        Result.EmissionRotation._33 = Emission->EmissionRotation._33;
     }
 
     Result.InitialVelocityScale = Emission->InitialVelocityScale;
@@ -778,6 +834,7 @@ OffbeatTranslateMotion(ob_motion* Motion)
     Result.Primitive = Motion->Primitive;
     Result.Position = Motion->Position;
     Result.LineDirection = Motion->LineDirection;
+    Result.SphereRadius = Motion->SphereRadius;
 
     return Result;
 }

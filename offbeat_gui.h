@@ -7,6 +7,10 @@
 static char* g_EmissionShapeStrings[OFFBEAT_EmissionCount] = {
     "Point",
     "Ring",
+    "Sphere",
+    "Sphere Volume",
+    "Cube",
+    "Cube Volume",
 };
 
 static char* g_EmissionVelocityStrings[OFFBEAT_VelocityCount] = {
@@ -18,6 +22,7 @@ static char* g_MotionPrimitiveStrings[OFFBEAT_MotionCount] = {
     "None",
     "Point",
     "Line",
+    "Sphere",
 };
 
 static char* g_FunctionStrings[OFFBEAT_FunctionCount] = {
@@ -31,6 +36,7 @@ static char* g_FunctionStrings[OFFBEAT_FunctionCount] = {
     "Two Triangles",
     "Four Triangles",
     "Periodic",
+    "Periodic Square",
 };
 
 static char* g_ParameterStrings[OFFBEAT_ParameterCount] = {
@@ -150,9 +156,10 @@ OffbeatDragOV4(const char* Label, ov4* Value, float MinValue, float MaxValue, fl
         }\
         else\
         {\
-            if(Expression->Function == OFFBEAT_FunctionPeriodic)\
+            if(Expression->Function == OFFBEAT_FunctionPeriodic ||\
+               Expression->Function == OFFBEAT_FunctionPeriodicSquare)\
             {\
-                UI::DragFloat(FreqName, &Expression->Frequency, -INFINITY, INFINITY, 5.0f);\
+                UI::DragFloat(FreqName, &Expression->Float, -INFINITY, INFINITY, 5.0f);\
             }\
             else\
             {\
@@ -194,8 +201,8 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
         static bool s_OffbeatEmissionLocation = false;
         static bool s_OffbeatEmissionRate = false;
         static bool s_OffbeatEmissionLifetime = false;
-        static bool s_OffbeatEmissionRingRadius = false;
-        static bool s_OffbeatEmissionRingNormal = false;
+        static bool s_OffbeatEmissionRadius = false;
+        static bool s_OffbeatEmissionNormal = false;
         static bool s_OffbeatEmissionInitialVelocityScale = false;
         static bool s_OffbeatEmissionConeDirection = false;
         static bool s_OffbeatEmissionConeHeight = false;
@@ -205,6 +212,7 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
         static bool s_OffbeatMotionDrag = false;
         static bool s_OffbeatMotionPosition = false;
         static bool s_OffbeatMotionLineDirection = false;
+        static bool s_OffbeatMotionSphereRadius = false;
         static bool s_OffbeatAppearanceColor = false;
         static bool s_OffbeatAppearanceSize = false;
 
@@ -258,8 +266,8 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
             s_OffbeatEmissionLocation = false;
             s_OffbeatEmissionRate = false;
             s_OffbeatEmissionLifetime = false;
-            s_OffbeatEmissionRingRadius = false;
-            s_OffbeatEmissionRingNormal = false;
+            s_OffbeatEmissionRadius = false;
+            s_OffbeatEmissionNormal = false;
             s_OffbeatEmissionInitialVelocityScale = false;
             s_OffbeatEmissionConeDirection = false;
             s_OffbeatEmissionConeHeight = false;
@@ -269,6 +277,7 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
             s_OffbeatMotionDrag = false;
             s_OffbeatMotionPosition = false;
             s_OffbeatMotionLineDirection = false;
+            s_OffbeatMotionSphereRadius = false;
             s_OffbeatAppearanceColor = false;
             s_OffbeatAppearanceSize = false;
             goto end_window;
@@ -326,10 +335,26 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
 
                 case OFFBEAT_EmissionRing:
                 {
-                    OffbeatGUIExpressionF32("Ring Radius", &ParticleSystem->Emission.RingRadius,
-                                            &s_OffbeatEmissionRingRadius, true, 10.0f);
-                    OffbeatGUIExpressionOV3("Ring Normal", &ParticleSystem->Emission.RingNormal,
-                                            &s_OffbeatEmissionRingNormal, false, 10.0f);
+                    OffbeatGUIExpressionF32("Ring Radius", &ParticleSystem->Emission.EmissionRadius,
+                                            &s_OffbeatEmissionRadius, true, 10.0f);
+                    OffbeatGUIExpressionOV3("Ring Normal", &ParticleSystem->Emission.EmissionNormal,
+                                            &s_OffbeatEmissionNormal, false, 10.0f);
+                } break;
+
+                case OFFBEAT_EmissionSphere:
+                case OFFBEAT_EmissionSphereVolume:
+                {
+                    OffbeatGUIExpressionF32("Sphere Radius", &ParticleSystem->Emission.EmissionRadius,
+                                            &s_OffbeatEmissionRadius, true, 10.0f);
+                } break;
+
+                case OFFBEAT_EmissionCube:
+                case OFFBEAT_EmissionCubeVolume:
+                {
+                    OffbeatGUIExpressionF32("Cube Radius", &ParticleSystem->Emission.EmissionRadius,
+                                            &s_OffbeatEmissionRadius, true, 10.0f);
+                    OffbeatGUIExpressionOV3("Cube Normal", &ParticleSystem->Emission.EmissionNormal,
+                                            &s_OffbeatEmissionNormal, false, 10.0f);
                 } break;
             }
 
@@ -386,6 +411,16 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
                                             &s_OffbeatMotionPosition, false, 10.0f);
                     OffbeatGUIExpressionOV3("Direction", &ParticleSystem->Motion.LineDirection,
                                             &s_OffbeatMotionLineDirection, false, 10.0f);
+                } break;
+
+                case OFFBEAT_MotionSphere:
+                {
+                    OffbeatGUIExpressionF32("Strength", &ParticleSystem->Motion.Strength,
+                                            &s_OffbeatMotionStrength, false);
+                    OffbeatGUIExpressionOV3("Position", &ParticleSystem->Motion.Position,
+                                            &s_OffbeatMotionPosition, false, 10.0f);
+                    OffbeatGUIExpressionF32("Radius", &ParticleSystem->Motion.SphereRadius,
+                                            &s_OffbeatMotionSphereRadius, false, 10.0f);
                 } break;
             }
         }
