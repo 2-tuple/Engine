@@ -23,28 +23,10 @@ typedef uintptr_t umm;
 
 /* TODO(rytis):
  *
- * Change rotation calculations so that rotation matrix would be calculated either every frame
- * or on every direction vector change.
- * UPDATE: For now we do it every frame before any other calculations for the particle system.
- * Maybe could thing of something better?
- *
- * Finalize texture list. Provide means to add custom textures. If I want to do that, though,
- * a global texture ID table might not be the proper solution.
- *
- * IN PROGRESS: Expand the GUI to allow customization of particle emission, motion or appearance.
- *
- * Figure out a way to properly implement expressions, including the ability to use some
- * per-particle values (age, distance to camera, etc.). Add distance to camera.
- * UPDATE: For now, expression evaluation seems to be decent enough, although it's not very flexible.
- *
  * Add memory alignment (16 byte, preferably changeable with macro or function parameter)
  * in OffbeatInit and memory manager.
  *
- * Add more emission, initial velocity and motion primitive shapes.
- *
  * Add selectors (plane, sphere, cube ???). Allow testing selectors against a ray.
- *
- * Add option to enable / disable GPU dispatch for selected particle system in runtime.
  */
 
 #if 1
@@ -104,15 +86,14 @@ enum ob_function
 {
     OFFBEAT_FunctionConst = 0,
     OFFBEAT_FunctionLerp = 1,
-    OFFBEAT_FunctionSmoothstep = 2,
-    OFFBEAT_FunctionSquared = 3,
-    OFFBEAT_FunctionCubed = 4,
-    OFFBEAT_FunctionFourth = 5,
-    OFFBEAT_FunctionTriangle = 6,
-    OFFBEAT_FunctionTwoTriangles = 7,
-    OFFBEAT_FunctionFourTriangles = 8,
-    OFFBEAT_FunctionPeriodic = 9,
-    OFFBEAT_FunctionPeriodicSquare = 10,
+    OFFBEAT_FunctionTriangle = 2,
+    OFFBEAT_FunctionTwoTriangles = 3,
+    OFFBEAT_FunctionFourTriangles = 4,
+    OFFBEAT_FunctionStep = 5,
+    OFFBEAT_FunctionPeriodic = 6,
+    OFFBEAT_FunctionPeriodicTime = 7,
+    OFFBEAT_FunctionPeriodicSquare = 8,
+    OFFBEAT_FunctionPeriodicSquareTime = 9,
 
     OFFBEAT_FunctionCount,
 };
@@ -138,15 +119,15 @@ struct ob_expr
     ov4 High;
 };
 
-// TODO(rytis): Add circle, square, maybe a triangle and a tetrahedron or a pyramid??? Fix the cube.
 enum ob_emission_shape
 {
     OFFBEAT_EmissionPoint = 0,
     OFFBEAT_EmissionRing = 1,
-    OFFBEAT_EmissionSphere = 2,
-    OFFBEAT_EmissionSphereVolume = 3,
-    OFFBEAT_EmissionCube = 4,
-    OFFBEAT_EmissionCubeVolume = 5,
+    OFFBEAT_EmissionDisk = 2,
+    OFFBEAT_EmissionSquare = 3,
+    OFFBEAT_EmissionSphere = 4,
+    OFFBEAT_EmissionSphereVolume = 5,
+    OFFBEAT_EmissionCubeVolume = 6,
 
     OFFBEAT_EmissionCount,
 };

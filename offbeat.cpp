@@ -261,14 +261,25 @@ EvaluateParameter(ob_parameter Parameter, ob_particle* Particle)
 static ov4
 OffbeatEvaluateExpression(ob_expr* Expr, ob_particle* Particle = 0)
 {
-    if(Expr->Function == OFFBEAT_FunctionPeriodic)
+    if(Expr->Function == OFFBEAT_FunctionPeriodicTime)
     {
         return ObLerp(Expr->Low,
                       0.5f * (ObSin(2.0f * PI * Expr->Float * (*OffbeatGlobalData.t)) + 1.0f),
                       Expr->High);
     }
+    else if(Expr->Function == OFFBEAT_FunctionPeriodicSquareTime)
+    {
+        if(((s32)(Expr->Float * (*OffbeatGlobalData.t))) % 2)
+        {
+            return Expr->High;
+        }
+        else
+        {
+            return Expr->Low;
+        }
+    }
 
-    f32 Param = ObClamp01(EvaluateParameter(Expr->Parameter, Particle));
+    f32 Param = EvaluateParameter(Expr->Parameter, Particle);
     switch(Expr->Function)
     {
         case OFFBEAT_FunctionConst:
@@ -280,43 +291,52 @@ OffbeatEvaluateExpression(ob_expr* Expr, ob_particle* Particle = 0)
         {
         } break;
 
-        case OFFBEAT_FunctionSmoothstep:
-        {
-            Param = Param * Param * (3.0f - 2.0f * Param);
-        } break;
-
-        case OFFBEAT_FunctionSquared:
-        {
-            Param *= Param;
-        } break;
-
-        case OFFBEAT_FunctionCubed:
-        {
-            Param = Param * Param * Param;
-        } break;
-
-        case OFFBEAT_FunctionFourth:
-        {
-            Param *= Param;
-            Param *= Param;
-        } break;
-
         case OFFBEAT_FunctionTriangle:
         {
+            Param = ObClamp01(Param);
             Param = 1.0f - ObAbsoluteValue(2.0f * Param - 1.0f);
         } break;
 
         case OFFBEAT_FunctionTwoTriangles:
         {
+            Param = ObClamp01(Param);
             Param = 1.0f - ObAbsoluteValue(2.0f * Param - 1.0f);
             Param = 1.0f - ObAbsoluteValue(2.0f * Param - 1.0f);
         } break;
 
         case OFFBEAT_FunctionFourTriangles:
         {
+            Param = ObClamp01(Param);
             Param = 1.0f - ObAbsoluteValue(2.0f * Param - 1.0f);
             Param = 1.0f - ObAbsoluteValue(2.0f * Param - 1.0f);
             Param = 1.0f - ObAbsoluteValue(2.0f * Param - 1.0f);
+        } break;
+
+        case OFFBEAT_FunctionStep:
+        {
+            f32 MaxValue = Expr->Float;
+            u32 StepCount = Expr->Uint ? Expr->Uint : 1;
+            f32 StepValue = (f32)StepCount / MaxValue;
+            Param = ObClamp01(((f32)((u32)(Param * StepValue)) / StepValue) / MaxValue);
+        } break;
+
+        case OFFBEAT_FunctionPeriodic:
+        {
+            return ObLerp(Expr->Low,
+                          0.5f * (ObSin(2.0f * PI * Expr->Float * Param) + 1.0f),
+                          Expr->High);
+        } break;
+
+        case OFFBEAT_FunctionPeriodicSquare:
+        {
+            if(((s32)(Expr->Float * Param)) % 2)
+            {
+                return Expr->High;
+            }
+            else
+            {
+                return Expr->Low;
+            }
         } break;
 
         default:
@@ -790,7 +810,8 @@ OffbeatUpdateSystemRotationsAndNormalize(ob_particle_system* ParticleSystem)
     switch(Emission->Shape)
     {
         case OFFBEAT_EmissionRing:
-        case OFFBEAT_EmissionCube:
+        case OFFBEAT_EmissionDisk:
+        case OFFBEAT_EmissionSquare:
         case OFFBEAT_EmissionCubeVolume:
         {
             Emission->EmissionNormal.Low.xyz = ObNOZ(Emission->EmissionNormal.Low.xyz);
@@ -887,6 +908,28 @@ OffbeatParticleInitialPosition(ob_random_series* Entropy, ob_emission* Emission,
             Result += OffbeatEvaluateExpression(&Emission->Location, Particle).xyz;
         } break;
 
+        case OFFBEAT_EmissionDisk:
+        {
+            f32 Radius = OffbeatEvaluateExpression(&Emission->EmissionRadius, Particle).x;
+            f32 RandomValue = 2.0f * PI * ObRandomUnilateral(Entropy);
+            f32 Length = ObRandomUnilateral(Entropy);
+
+            Result.x = Radius * Length * ObSin(RandomValue);
+            Result.y = Radius * Length * ObCos(RandomValue);
+            Result = Emission->EmissionRotation * Result;
+            Result += OffbeatEvaluateExpression(&Emission->Location, Particle).xyz;
+        } break;
+
+        case OFFBEAT_EmissionSquare:
+        {
+            f32 Radius = OffbeatEvaluateExpression(&Emission->EmissionRadius, Particle).x;
+
+            Result.x = Radius * ObRandomBilateral(Entropy);
+            Result.y = Radius * ObRandomBilateral(Entropy);
+            Result = Emission->EmissionRotation * Result;
+            Result += OffbeatEvaluateExpression(&Emission->Location, Particle).xyz;
+        } break;
+
         case OFFBEAT_EmissionSphere:
         {
             f32 Radius = OffbeatEvaluateExpression(&Emission->EmissionRadius, Particle).x;
@@ -911,18 +954,6 @@ OffbeatParticleInitialPosition(ob_random_series* Entropy, ob_emission* Emission,
             Result.y = ObSquareRoot(1.0f - ObSquare(Z)) * ObSin(Theta);
             Result.z = Z;
             Result *= Radius * Length;
-            Result += OffbeatEvaluateExpression(&Emission->Location, Particle).xyz;
-        } break;
-
-        // TODO(rytis): Fix this (now works the same way volume version does.
-        case OFFBEAT_EmissionCube:
-        {
-            f32 Radius = OffbeatEvaluateExpression(&Emission->EmissionRadius, Particle).x;
-            Result.x = ObRandomBilateral(Entropy);
-            Result.y = ObRandomBilateral(Entropy);
-            Result.z = ObRandomBilateral(Entropy);
-            Result *= Radius;
-            Result = Emission->EmissionRotation * Result;
             Result += OffbeatEvaluateExpression(&Emission->Location, Particle).xyz;
         } break;
 

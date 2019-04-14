@@ -54,15 +54,14 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
 
     #define OFFBEAT_FunctionConst 0
     #define OFFBEAT_FunctionLerp 1
-    #define OFFBEAT_FunctionSmoothstep 2
-    #define OFFBEAT_FunctionSquared 3
-    #define OFFBEAT_FunctionCubed 4
-    #define OFFBEAT_FunctionFourth 5
-    #define OFFBEAT_FunctionTriangle 6
-    #define OFFBEAT_FunctionTwoTriangles 7
-    #define OFFBEAT_FunctionFourTriangles 8
-    #define OFFBEAT_FunctionPeriodic 9
-    #define OFFBEAT_FunctionPeriodicSquare 10
+    #define OFFBEAT_FunctionTriangle 2
+    #define OFFBEAT_FunctionTwoTriangles 3
+    #define OFFBEAT_FunctionFourTriangles 4
+    #define OFFBEAT_FunctionStep 5
+    #define OFFBEAT_FunctionPeriodic 6
+    #define OFFBEAT_FunctionPeriodicTime 7
+    #define OFFBEAT_FunctionPeriodicSquare 8
+    #define OFFBEAT_FunctionPeriodicSquareTime 9
 
     #define OFFBEAT_ParameterAge 0
     #define OFFBEAT_ParameterVelocity 1
@@ -72,10 +71,11 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
 
     #define OFFBEAT_EmissionPoint 0
     #define OFFBEAT_EmissionRing 1
-    #define OFFBEAT_EmissionSphere 2
-    #define OFFBEAT_EmissionSphereVolume 3
-    #define OFFBEAT_EmissionCube 4
-    #define OFFBEAT_EmissionCubeVolume 5
+    #define OFFBEAT_EmissionDisk 2
+    #define OFFBEAT_EmissionSquare 3
+    #define OFFBEAT_EmissionSphere 4
+    #define OFFBEAT_EmissionSphereVolume 5
+    #define OFFBEAT_EmissionCubeVolume 6
 
     #define OFFBEAT_VelocityRandom 0
     #define OFFBEAT_VelocityCone 1
@@ -246,7 +246,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
 
             case OFFBEAT_ParameterCameraDistance:
             {
-                Result = Particle.IDRandomCamera.z;
+                Result = length(Particle.PositionAge.xyz - CameraPosition);
             } break;
         }
 
@@ -261,15 +261,16 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
         float Float = Expr.FuncParamFloatUint.z;
         uint Uint = floatBitsToUint(Expr.FuncParamFloatUint.w);
 
-        if(Function == OFFBEAT_FunctionPeriodic)
+        if(Function == OFFBEAT_FunctionPeriodicTime)
         {
             return mix(Expr.Low, Expr.High, 0.5f * (sin(2.0f * PI * Float * u_t) + 1.0f));
         }
-        else if(Function == OFFBEAT_FunctionPeriodicSquare)
+        else if(Function == OFFBEAT_FunctionPeriodicSquareTime)
         {
+            return mix(Expr.Low, Expr.High, step(1.0f, mod(Float * u_t, 2.0f)));
         }
 
-        float Param = clamp(OffbeatEvaluateParameter(Parameter, Particle), 0.0f, 1.0f);
+        float Param = OffbeatEvaluateParameter(Parameter, Particle);
         switch(Function)
         {
             case OFFBEAT_FunctionConst:
@@ -281,43 +282,42 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
             {
             } break;
 
-            case OFFBEAT_FunctionSmoothstep:
-            {
-                Param = Param * Param * (3.0f - 2.0f * Param);
-            } break;
-
-            case OFFBEAT_FunctionSquared:
-            {
-                Param *= Param;
-            } break;
-
-            case OFFBEAT_FunctionCubed:
-            {
-                Param = Param * Param * Param;
-            } break;
-
-            case OFFBEAT_FunctionFourth:
-            {
-                Param *= Param;
-                Param *= Param;
-            } break;
-
             case OFFBEAT_FunctionTriangle:
             {
+                Param = clamp(Param, 0.0f, 1.0f);
                 Param = 1.0f - abs(2.0f * Param - 1.0f);
             } break;
 
             case OFFBEAT_FunctionTwoTriangles:
             {
+                Param = clamp(Param, 0.0f, 1.0f);
                 Param = 1.0f - abs(2.0f * Param - 1.0f);
                 Param = 1.0f - abs(2.0f * Param - 1.0f);
             } break;
 
             case OFFBEAT_FunctionFourTriangles:
             {
+                Param = clamp(Param, 0.0f, 1.0f);
                 Param = 1.0f - abs(2.0f * Param - 1.0f);
                 Param = 1.0f - abs(2.0f * Param - 1.0f);
                 Param = 1.0f - abs(2.0f * Param - 1.0f);
+            } break;
+
+            case OFFBEAT_FunctionStep:
+            {
+                uint StepCount = (Uint != 0) ? Uint : 1;
+                float StepValue = float(StepCount) / Float;
+                Param = clamp((floor(Param * StepValue) / StepValue) / Float, 0.0f, 1.0f);
+            } break;
+
+            case OFFBEAT_FunctionPeriodic:
+            {
+                return mix(Expr.Low, Expr.High, 0.5f * (sin(2.0f * PI * Float * Param) + 1.0f));
+            } break;
+
+            case OFFBEAT_FunctionPeriodicSquare:
+            {
+                return mix(Expr.Low, Expr.High, step(1.0f, mod(Float * Param, 2.0f)));
             } break;
 
             default:
@@ -380,7 +380,8 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
         switch(Globals.EmissionShape)
         {
             case OFFBEAT_EmissionRing:
-            case OFFBEAT_EmissionCube:
+            case OFFBEAT_EmissionDisk:
+            case OFFBEAT_EmissionSquare:
             case OFFBEAT_EmissionCubeVolume:
             {
                 // Globals.EmissionNormal = ObNOZ(Globals.EmissionNormal);
@@ -436,6 +437,25 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
                 Result += Globals.EmissionLocation;
             } break;
 
+            case OFFBEAT_EmissionDisk:
+            {
+                float RandomValue = 2.0f * PI * ObRandom();
+                float Length = ObRandom();
+                Result.x = Globals.EmissionRadius * Length * sin(RandomValue);
+                Result.y = Globals.EmissionRadius * Length * cos(RandomValue);
+                Result = Globals.EmissionRotation * Result;
+                Result += Globals.EmissionLocation;
+            } break;
+
+            case OFFBEAT_EmissionSquare:
+            {
+                float RandomValue = 2.0f * PI * ObRandom();
+                Result.x = Globals.EmissionRadius * (2.0f * ObRandom() - 1.0f);
+                Result.y = Globals.EmissionRadius * (2.0f * ObRandom() - 1.0f);
+                Result = Globals.EmissionRotation * Result;
+                Result += Globals.EmissionLocation;
+            } break;
+
             case OFFBEAT_EmissionSphere:
             {
                 float Theta = 2.0f * PI * ObRandom();
@@ -461,7 +481,6 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
                 Result += Globals.EmissionLocation;
             } break;
 
-            case OFFBEAT_EmissionCube:
             case OFFBEAT_EmissionCubeVolume:
             {
                 Result.x = 2.0f * ObRandom() - 1.0f;

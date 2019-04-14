@@ -7,9 +7,10 @@
 static char* g_EmissionShapeStrings[OFFBEAT_EmissionCount] = {
     "Point",
     "Ring",
+    "Disk",
+    "Square",
     "Sphere",
     "Sphere Volume",
-    "Cube",
     "Cube Volume",
 };
 
@@ -28,15 +29,14 @@ static char* g_MotionPrimitiveStrings[OFFBEAT_MotionCount] = {
 static char* g_FunctionStrings[OFFBEAT_FunctionCount] = {
     "Const",
     "Lerp",
-    "Smoothstep",
-    "Squared",
-    "Cubed",
-    "Fourth",
     "Triangle",
     "Two Triangles",
     "Four Triangles",
+    "Step",
     "Periodic",
+    "Periodic Time",
     "Periodic Square",
+    "Periodic Square Time",
 };
 
 static char* g_ParameterStrings[OFFBEAT_ParameterCount] = {
@@ -125,6 +125,8 @@ OffbeatDragOV4(const char* Label, ov4* Value, float MinValue, float MaxValue, fl
     char FunctionName[50];\
     char ParameterName[50];\
     char FreqName[50];\
+    char MaxValName[50];\
+    char StepName[50];\
     char LowName[50];\
     char HighName[50];\
 \
@@ -134,6 +136,10 @@ OffbeatDragOV4(const char* Label, ov4* Value, float MinValue, float MaxValue, fl
     strcat(ParameterName, " Parameter");\
     strcpy(FreqName, Name);\
     strcat(FreqName, " Frequency");\
+    strcpy(MaxValName, Name);\
+    strcat(MaxValName, " Max Value");\
+    strcpy(StepName, Name);\
+    strcat(StepName, " Step Count");\
     strcpy(LowName, Name);\
     strcat(LowName, " Low");\
     strcpy(HighName, Name);\
@@ -156,13 +162,23 @@ OffbeatDragOV4(const char* Label, ov4* Value, float MinValue, float MaxValue, fl
         }\
         else\
         {\
-            if(Expression->Function == OFFBEAT_FunctionPeriodic ||\
-               Expression->Function == OFFBEAT_FunctionPeriodicSquare)\
+            if(Expression->Function == OFFBEAT_FunctionPeriodicTime ||\
+               Expression->Function == OFFBEAT_FunctionPeriodicSquareTime)\
             {\
                 UI::DragFloat(FreqName, &Expression->Float, -INFINITY, INFINITY, 5.0f);\
             }\
             else\
             {\
+                if(Expression->Function == OFFBEAT_FunctionPeriodic ||\
+                   Expression->Function == OFFBEAT_FunctionPeriodicSquare)\
+                {\
+                    UI::DragFloat(FreqName, &Expression->Float, -INFINITY, INFINITY, 5.0f);\
+                }\
+                else if(Expression->Function == OFFBEAT_FunctionStep)\
+                {\
+                    UI::DragFloat(MaxValName, &Expression->Float, 0.0f, INFINITY, 10.0f);\
+                    UI::SliderInt(StepName, (int32_t*)&Expression->Uint, 1, 30);\
+                }\
                 UI::Combo(ParameterName, (int*)&Expression->Parameter, g_ParameterStrings, OFFBEAT_ParameterCount, UI::StringArrayToString);\
             }\
 \
@@ -334,27 +350,21 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
                 } break;
 
                 case OFFBEAT_EmissionRing:
+                case OFFBEAT_EmissionDisk:
+                case OFFBEAT_EmissionSquare:
+                case OFFBEAT_EmissionCubeVolume:
                 {
-                    OffbeatGUIExpressionF32("Ring Radius", &ParticleSystem->Emission.EmissionRadius,
+                    OffbeatGUIExpressionF32("Radius", &ParticleSystem->Emission.EmissionRadius,
                                             &s_OffbeatEmissionRadius, true, 10.0f);
-                    OffbeatGUIExpressionOV3("Ring Normal", &ParticleSystem->Emission.EmissionNormal,
+                    OffbeatGUIExpressionOV3("Normal", &ParticleSystem->Emission.EmissionNormal,
                                             &s_OffbeatEmissionNormal, false, 10.0f);
                 } break;
 
                 case OFFBEAT_EmissionSphere:
                 case OFFBEAT_EmissionSphereVolume:
                 {
-                    OffbeatGUIExpressionF32("Sphere Radius", &ParticleSystem->Emission.EmissionRadius,
+                    OffbeatGUIExpressionF32("Radius", &ParticleSystem->Emission.EmissionRadius,
                                             &s_OffbeatEmissionRadius, true, 10.0f);
-                } break;
-
-                case OFFBEAT_EmissionCube:
-                case OFFBEAT_EmissionCubeVolume:
-                {
-                    OffbeatGUIExpressionF32("Cube Radius", &ParticleSystem->Emission.EmissionRadius,
-                                            &s_OffbeatEmissionRadius, true, 10.0f);
-                    OffbeatGUIExpressionOV3("Cube Normal", &ParticleSystem->Emission.EmissionNormal,
-                                            &s_OffbeatEmissionNormal, false, 10.0f);
                 } break;
             }
 
@@ -434,7 +444,7 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
 
             if(GameState->Resources.TexturePathCount > 0)
             {
-                static s32 CurrentTextureIndex = ParticleSystem->Appearance.TextureIndex;
+                s32 CurrentTextureIndex = ParticleSystem->Appearance.TextureIndex;
                 s32 NewTextureIndex = CurrentTextureIndex;
                 UI::Combo("Texture", &NewTextureIndex, g_TextureStrings, g_TextureCount, OffbeatGUITextureString);
                 if(NewTextureIndex != CurrentTextureIndex)
