@@ -367,9 +367,17 @@ struct ob_state
     u32 GridIndices[12];
     ob_draw_vertex GridVertices[4];
 
+    b32 TexturesLoaded;
+    u32 AdditionalTextureCount; // NOTE(rytis): 2 additional slots for grid and debug textures.
+    u32 TextureCount;
+    ob_texture Textures[OFFBEAT_PARTICLE_SYSTEM_COUNT + 2];
+    u64 TextureHandles[OFFBEAT_PARTICLE_SYSTEM_COUNT + 2];
+#ifdef OFFBEAT_DEBUG
+    ob_draw_data_debug DebugDrawData;
+#endif
+
     ob_random_series EffectsEntropy;
 
-    // TODO(rytis): Not sure if CurrentParticleSystem is even needed. For now, it seems to be ok?
     u32 CurrentParticleSystem;
     u32 ParticleSystemCount;
     ob_particle_system ParticleSystems[OFFBEAT_PARTICLE_SYSTEM_COUNT];
@@ -384,33 +392,33 @@ OFFBEAT_API void OffbeatSetAllocatorFunctions(void* (*Malloc)(u64), void (*Free)
 OFFBEAT_API void OffbeatSetTextureFunction(ob_texture (*TextureFunction)(void*, u32, u32));
 
 // NOTE(rytis): Init.
-OFFBEAT_API ob_state* OffbeatInit(void* Memory, u64 MemorySize);
-OFFBEAT_API ob_state* OffbeatInit(void* (*Malloc)(u64));
-OFFBEAT_API ob_state* OffbeatInit();
+OFFBEAT_API ob_state* OffbeatAllocate(void* Memory, u64 MemorySize);
+OFFBEAT_API void OffbeatInit();
 
 // NOTE(rytis): Particle system manipulation.
-OFFBEAT_API ob_particle_system* OffbeatNewParticleSystem(ob_state* OffbeatState);
-OFFBEAT_API u32 OffbeatNewParticleSystem(ob_state* OffbeatState, ob_particle_system** NewParticleSystem);
-OFFBEAT_API void OffbeatRemoveParticleSystem(ob_state* OffbeatState, u32 Index);
-OFFBEAT_API void OffbeatAddParticleSystem(ob_state* OffbeatState, ob_particle_system* NewParticleSystem);
-OFFBEAT_API void OffbeatRemoveCurrentParticleSystem(ob_state* OffbeatState);
-OFFBEAT_API ob_particle_system* OffbeatGetCurrentParticleSystem(ob_state* OffbeatState);
-OFFBEAT_API ob_particle_system* OffbeatPreviousParticleSystem(ob_state* OffbeatState);
-OFFBEAT_API ob_particle_system* OffbeatNextParticleSystem(ob_state* OffbeatState);
+OFFBEAT_API ob_particle_system* OffbeatNewParticleSystem();
+OFFBEAT_API u32 OffbeatNewParticleSystem(ob_particle_system** NewParticleSystem);
+OFFBEAT_API void OffbeatRemoveParticleSystem(u32 Index);
+OFFBEAT_API void OffbeatAddParticleSystem(ob_particle_system* NewParticleSystem);
+OFFBEAT_API void OffbeatRemoveCurrentParticleSystem();
+OFFBEAT_API ob_particle_system* OffbeatGetCurrentParticleSystem();
+OFFBEAT_API ob_particle_system* OffbeatPreviousParticleSystem();
+OFFBEAT_API ob_particle_system* OffbeatNextParticleSystem();
 OFFBEAT_API void OffbeatToggleGPU(ob_particle_system* ParticleSystem);
 OFFBEAT_API void OffbeatAddTexture(u32 Texture);
 OFFBEAT_API void OffbeatGenerateTextureArray();
 
 // NOTE(rytis): Calculation.
-OFFBEAT_API void OffbeatUpdate(ob_state* OffbeatState, ob_camera Camera, f32 dt);
+OFFBEAT_API void OffbeatUpdate(ob_camera Camera, f32 dt);
 
 // NOTE(rytis): Render data.
 #ifndef OFFBEAT_OPENGL_COMPUTE
-OFFBEAT_API ob_draw_data* OffbeatGetDrawData(ob_state* OffbeatState);
+OFFBEAT_API ob_draw_data* OffbeatGetDrawData();
 #endif
 OFFBEAT_API ob_draw_data_debug* OffbeatGetDebugDrawData();
-OFFBEAT_API void OffbeatRenderParticles(ob_state* OffbeatState, float* ViewMatrix, float* ProjectionMatrix);
+OFFBEAT_API void OffbeatRenderParticles(float* ViewMatrix, float* ProjectionMatrix);
 
 // NOTE(rytis): Particle system pack/unpack.
-OFFBEAT_API ob_file_data OffbeatPackParticleSystem(ob_state* OffbeatState, u32 ParticleSystemIndex);
+OFFBEAT_API ob_file_data OffbeatPackParticleSystem(u32 ParticleSystemIndex);
+OFFBEAT_API ob_file_data OffbeatPackCurrentParticleSystem();
 OFFBEAT_API b32 OffbeatUnpackParticleSystem(ob_particle_system* Result, void* PackedMemory);

@@ -1,6 +1,9 @@
 #pragma once
 
-ob_global_data OffbeatGlobalData;
+#define OFFBEAT_WORKGROUP_SIZE 64
+
+ob_state* OffbeatState;
+static GLuint GlobalTextureBlock;
 
 #ifdef OFFBEAT_OPENGL_COMPUTE
 static GLuint GlobalRandomTable;
@@ -10,7 +13,6 @@ static GLuint GlobalAppearanceBlock;
 static GLuint GlobalUpdatedParticleCount;
 static GLuint GlobalOldParticleBinding;
 static GLuint GlobalUpdatedParticleBinding;
-static GLuint GlobalTextureBlock;
 
 static GLuint
 OffbeatCompileAndLinkComputeProgram(char* HeaderCode, char* ComputeCode)
@@ -788,13 +790,7 @@ OffbeatComputeInit()
     GlobalUpdatedParticleBinding = 1;
     GlobalOldParticleBinding = 2;
 
-    glGenBuffers(1, &GlobalTextureBlock);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, GlobalTextureBlock);
-    glBufferData(GL_SHADER_STORAGE_BUFFER,
-                 (OffbeatGlobalData.TextureCount + OffbeatGlobalData.AdditionalTextureCount) *
-                 sizeof(u64), OffbeatGlobalData.TextureHandles, GL_STATIC_DRAW);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, GlobalTextureBlock);
+    // NOTE(rytis): Texture buffer is bound in OffbeatInitBindlessTextures() function.
 }
 
 static ob_emission_uniform_aligned
@@ -913,7 +909,7 @@ OffbeatComputeSwapBuffers(ob_particle_system* ParticleSystem)
 }
 
 static void
-OffbeatComputeSpawnParticles(ob_particle_system* ParticleSystem, ob_state* OffbeatState)
+OffbeatComputeSpawnParticles(ob_particle_system* ParticleSystem)
 {
     u32 Zero = 0;
 
@@ -933,7 +929,7 @@ OffbeatComputeSpawnParticles(ob_particle_system* ParticleSystem, ob_state* Offbe
 }
 
 static void
-OffbeatComputeUpdateParticles(ob_particle_system* ParticleSystem, ob_state* OffbeatState)
+OffbeatComputeUpdateParticles(ob_particle_system* ParticleSystem)
 {
     u32 Zero = 0;
     u32 OldParticleCount = ParticleSystem->ParticleCount - ParticleSystem->ParticleSpawnCount;
@@ -967,7 +963,7 @@ OffbeatComputeUpdateParticles(ob_particle_system* ParticleSystem, ob_state* Offb
 }
 
 static void
-OffbeatComputeStatelessEvaluation(ob_draw_list* DrawList, ob_particle_system* ParticleSystem, ob_state* OffbeatState)
+OffbeatComputeStatelessEvaluation(ob_draw_list* DrawList, ob_particle_system* ParticleSystem)
 {
     GLenum ErrorCode = glGetError();
     ob_program StatelessEvaluationProgramID = OffbeatState->StatelessEvaluationProgramID;
@@ -1021,6 +1017,37 @@ OffbeatRGBATextureID(void* TextureData, u32 Width, u32 Height)
 
     glBindTexture(GL_TEXTURE_2D, LastBoundTexture);
     return TextureID;
+}
+
+static void
+OffbeatInitBindlessTextures()
+{
+    OffbeatAssert(glGetTextureHandleARB != 0);
+    u64 TextureHandle;
+    for(u32 i = 0; i < OffbeatState->TextureCount; ++i)
+    {
+        TextureHandle = glGetTextureHandleARB(OffbeatState->Textures[i]);
+        glMakeTextureHandleResidentARB(TextureHandle);
+        OffbeatState->TextureHandles[i] = TextureHandle;
+    }
+
+    TextureHandle = glGetTextureHandleARB(OffbeatState->Textures[OffbeatState->TextureCount]);
+    glMakeTextureHandleResidentARB(TextureHandle);
+    OffbeatState->TextureHandles[OffbeatState->TextureCount] = TextureHandle;
+
+    TextureHandle = glGetTextureHandleARB(OffbeatState->Textures[OffbeatState->TextureCount + 1]);
+    glMakeTextureHandleResidentARB(TextureHandle);
+    OffbeatState->TextureHandles[OffbeatState->TextureCount + 1] = TextureHandle;
+
+    OffbeatState->TexturesLoaded = true;
+
+    glGenBuffers(1, &GlobalTextureBlock);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, GlobalTextureBlock);
+    glBufferData(GL_SHADER_STORAGE_BUFFER,
+                 (OffbeatState->TextureCount + OffbeatState->AdditionalTextureCount) *
+                 sizeof(u64), OffbeatState->TextureHandles, GL_STATIC_DRAW);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, GlobalTextureBlock);
 }
 
 static GLuint
@@ -1129,7 +1156,7 @@ OffbeatCreateRenderProgram()
 }
 
 void
-OffbeatRenderParticles(ob_state* OffbeatState, float* ViewMatrix, float* ProjectionMatrix)
+OffbeatRenderParticles(float* ViewMatrix, float* ProjectionMatrix)
 {
     glEnable(GL_BLEND);
 

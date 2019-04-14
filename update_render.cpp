@@ -236,7 +236,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     OffbeatCamera.Forward = OV3(GameState->Camera.Forward);
     OffbeatCamera.Right = OV3(GameState->Camera.Right);
 
-    OffbeatUpdate(GameState->OffbeatState, OffbeatCamera, dt);
+    OffbeatUpdate(OffbeatCamera, dt);
   }
   END_TIMED_BLOCK(Offbeat);
 

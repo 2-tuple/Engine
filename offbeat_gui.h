@@ -77,20 +77,14 @@ OffbeatGUIPathArrayToString(void* Data, int Index)
 }
 
 void
-OffbeatExportParticleSystem(ob_state* OffbeatState, u32 ParticleSystemIndex, char* Path)
+OffbeatExportCurrentParticleSystem(char* Path)
 {
-    ob_file_data FileData = OffbeatPackParticleSystem(OffbeatState, ParticleSystemIndex);
+    ob_file_data FileData = OffbeatPackCurrentParticleSystem();
     Platform::WriteEntireFile(Path, FileData.Size, FileData.Data);
 }
 
 void
-OffbeatExportCurrentParticleSystem(ob_state* OffbeatState, char* Path)
-{
-    OffbeatExportParticleSystem(OffbeatState, OffbeatState->CurrentParticleSystem, Path);
-}
-
-void
-OffbeatImportParticleSystem(game_state* GameState, ob_state* OffbeatState, char* Path)
+OffbeatImportParticleSystem(game_state* GameState, char* Path)
 {
     GameState->TemporaryMemStack->NullifyClear();
     debug_read_file_result ReadResult = Platform::ReadEntireFile(GameState->TemporaryMemStack, Path);
@@ -99,7 +93,7 @@ OffbeatImportParticleSystem(game_state* GameState, ob_state* OffbeatState, char*
     ob_particle_system NewParticleSystem = {};
     // TODO(rytis): Check if unpack succeeded.
     OffbeatUnpackParticleSystem(&NewParticleSystem, ReadResult.Contents);
-    OffbeatAddParticleSystem(OffbeatState, &NewParticleSystem);
+    OffbeatAddParticleSystem(&NewParticleSystem);
 }
 
 static void
@@ -238,26 +232,26 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
 
         if(UI::Button("<"))
         {
-            ParticleSystem = OffbeatPreviousParticleSystem(OffbeatState);
+            ParticleSystem = OffbeatPreviousParticleSystem();
         }
 
         UI::SameLine();
         if(UI::Button("Add Particle System"))
         {
-            ParticleSystem = OffbeatNewParticleSystem(OffbeatState);
+            ParticleSystem = OffbeatNewParticleSystem();
         }
 
         UI::SameLine();
         if(UI::Button(">"))
         {
-            ParticleSystem = OffbeatNextParticleSystem(OffbeatState);
+            ParticleSystem = OffbeatNextParticleSystem();
         }
 
         UI::NewLine();
         if(UI::Button("Remove Particle System"))
         {
-            OffbeatRemoveCurrentParticleSystem(OffbeatState);
-            ParticleSystem = OffbeatGetCurrentParticleSystem(OffbeatState);
+            OffbeatRemoveCurrentParticleSystem();
+            ParticleSystem = OffbeatGetCurrentParticleSystem();
         }
 
         UI::NewLine();
@@ -266,8 +260,8 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
             static s32 SelectedParticleSystemIndex = 0;
             if(UI::Button("Load"))
             {
-                OffbeatImportParticleSystem(GameState, OffbeatState, GameState->Resources.ParticleSystemPaths[SelectedParticleSystemIndex].Name);
-                ParticleSystem = OffbeatGetCurrentParticleSystem(OffbeatState);
+                OffbeatImportParticleSystem(GameState, GameState->Resources.ParticleSystemPaths[SelectedParticleSystemIndex].Name);
+                ParticleSystem = OffbeatGetCurrentParticleSystem();
             }
             UI::SameLine();
             UI::Combo("Load Path", &SelectedParticleSystemIndex, GameState->Resources.ParticleSystemPaths, GameState->Resources.ParticleSystemPathCount, OffbeatGUIPathArrayToString);
@@ -304,7 +298,7 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
             static s32 SelectedParticleSystemIndex = 0;
             if(UI::Button("Save"))
             {
-                OffbeatExportCurrentParticleSystem(OffbeatState, GameState->Resources.ParticleSystemPaths[SelectedParticleSystemIndex].Name);
+                OffbeatExportCurrentParticleSystem(GameState->Resources.ParticleSystemPaths[SelectedParticleSystemIndex].Name);
             }
             UI::SameLine();
             UI::Combo("Save Path", &SelectedParticleSystemIndex, GameState->Resources.ParticleSystemPaths, GameState->Resources.ParticleSystemPathCount, OffbeatGUIPathArrayToString);
@@ -321,7 +315,7 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
             TimeInfo = localtime(&CurrentTime);
             strftime(Path, sizeof(Path), "data/offbeat/%H_%M_%S.obp", TimeInfo);
 
-            OffbeatExportCurrentParticleSystem(OffbeatState, Path);
+            OffbeatExportCurrentParticleSystem(Path);
         }
 
         bool UseGPU = ParticleSystem->UseGPU;
