@@ -50,7 +50,6 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     TIMED_BLOCK(FirstInit);
     PartitionMemoryInitAllocators(&GameMemory, GameState);
     RegisterLoadInitialResources(GameState);
-    SetGameStatePODFields(GameState);
 
 #if !ASSET_HOT_RELOADING
     {
@@ -60,6 +59,8 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
       GameState->Resources.ReloadModified();
     }
 #endif
+
+    SetGameStatePODFields(GameState);
   }
 
   BEGIN_TIMED_BLOCK(Update)

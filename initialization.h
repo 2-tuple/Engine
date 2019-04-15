@@ -426,46 +426,45 @@ SetGameStatePODFields(game_state* GameState)
 
   // PARTICLE SYSTEM INITIALIZATION
   {
-      GameState->ParticleMode = true;
-      GameState->UpdateParticles = true;
+    GameState->ParticleMode = true;
+    GameState->UpdateParticles = true;
 
-      GameState->OffbeatMemorySize = Mibibytes(50);
-      GameState->OffbeatState =
-        OffbeatAllocate(GameState->PersistentMemStack->Alloc(GameState->OffbeatMemorySize),
-                        GameState->OffbeatMemorySize);
+    GameState->OffbeatMemorySize = Mibibytes(50);
+    GameState->OffbeatState =
+      OffbeatAllocate(GameState->PersistentMemStack->Alloc(GameState->OffbeatMemorySize),
+                      GameState->OffbeatMemorySize);
 
-      OffbeatGUIAddTexture(&GameState->Resources,
-                           "DiskA",         "./data/textures/particle_alpha_disk.png");
-      OffbeatGUIAddTexture(&GameState->Resources,
-                           "LandA",         "./data/textures/particle_alpha_land.png");
-      OffbeatGUIAddTexture(&GameState->Resources,
-                           "RingA",         "./data/textures/particle_alpha_ring.png");
-      OffbeatGUIAddTexture(&GameState->Resources,
-                           "SquareA",       "./data/textures/particle_alpha_square.png");
-      OffbeatGUIAddTexture(&GameState->Resources,
-                           "Disk",          "./data/textures/particle_disk.png");
-      OffbeatGUIAddTexture(&GameState->Resources,
-                           "Ring",          "./data/textures/particle_ring.png");
-      OffbeatGUIAddTexture(&GameState->Resources,
-                           "Square",        "./data/textures/particle_square.png");
-      OffbeatGUIAddTexture(&GameState->Resources,
-                           "KTU_Logo",      "./data/textures/particle_ktu_logo.png");
-      OffbeatInit();
+    char PathStart[] = "data/textures/particle_";
+    int PathStartLength = strlen(PathStart);
+    for(int i = 0; i < GameState->Resources.TexturePathCount; ++i)
+    {
+      char* CurrentPath = GameState->Resources.TexturePaths[i].Name;
+      if(strncmp(CurrentPath, PathStart, PathStartLength) == 0)
+      {
+        char* CurrentPathOffset = CurrentPath + PathStartLength;
+        char Name[50];
+        int NameLength = (int)(strrchr(CurrentPathOffset, '.') - CurrentPathOffset);
+        strncpy(Name, CurrentPathOffset, NameLength);
+        Name[NameLength] = 0;
+        OffbeatGUIAddTexture(&GameState->Resources, Name, CurrentPath);
+      }
+    }
+    OffbeatInit();
   }
 
   if(GameState->ParticleMode)
   {
-     GameState->LastCameraPosition = GameState->Camera.Position;
-     GameState->Camera.Position = vec3{ 0, 1, 7 };
-     GameState->LastDrawCubemap = GameState->DrawCubemap;
-     GameState->DrawCubemap = false;
-     GameState->R.CurrentClearColor = GameState->R.ParticleSystemClearColor;
+    GameState->LastCameraPosition = GameState->Camera.Position;
+    GameState->Camera.Position = vec3{ 0, 1, 7 };
+    GameState->LastDrawCubemap = GameState->DrawCubemap;
+    GameState->DrawCubemap = false;
+    GameState->R.CurrentClearColor = GameState->R.ParticleSystemClearColor;
   }
   else
   {
-     GameState->Camera.Position = GameState->LastCameraPosition;
-     GameState->DrawCubemap = GameState->LastDrawCubemap;
-     GameState->R.CurrentClearColor = GameState->R.DefaultClearColor;
+    GameState->Camera.Position = GameState->LastCameraPosition;
+    GameState->DrawCubemap = GameState->LastDrawCubemap;
+    GameState->R.CurrentClearColor = GameState->R.DefaultClearColor;
   }
 
   GameState->Physics.Params.Beta                       = (1.0f / (FRAME_TIME_MS / 1000.0f)) / 2.0f;

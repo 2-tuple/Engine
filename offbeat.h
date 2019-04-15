@@ -27,6 +27,9 @@ typedef uintptr_t umm;
  * in OffbeatInit and memory manager.
  *
  * Add selectors (plane, sphere, cube ???). Allow testing selectors against a ray.
+ *
+ * Should try to find the weird framerate bug. Calculation speed does not seem to be impacted
+ * but you can SEE the lower framerate.
  */
 
 #if 1
