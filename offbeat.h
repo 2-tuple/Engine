@@ -376,6 +376,7 @@ struct ob_state
     ob_texture Textures[OFFBEAT_PARTICLE_SYSTEM_COUNT + 2];
     u64 TextureHandles[OFFBEAT_PARTICLE_SYSTEM_COUNT + 2];
 #ifdef OFFBEAT_DEBUG
+    u32 DebugCurrentParticleSystem;
     ob_draw_data_debug DebugDrawData;
 #endif
 

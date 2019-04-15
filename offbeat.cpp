@@ -140,7 +140,7 @@ OffbeatPackParticleSystem(u32 ParticleSystemIndex)
     ob_file_data Result = {};
 
     ob_particle_system* ParticleSystem = &OffbeatState->ParticleSystems[ParticleSystemIndex];
-    Result.Size = sizeof(u32) * 4 + sizeof(ob_emission) + sizeof(ob_motion) + sizeof(ob_appearance);
+    Result.Size = sizeof(u32) * 5 + sizeof(ob_emission) + sizeof(ob_motion) + sizeof(ob_appearance);
     Result.Data = OffbeatAllocateMemory(&OffbeatState->MemoryManager, Result.Size);
 
     u32* U32Memory = (u32*)Result.Data;
@@ -148,6 +148,7 @@ OffbeatPackParticleSystem(u32 ParticleSystemIndex)
     *U32Memory++ = 0xFB;
     *U32Memory++ = 0xEA;
     *U32Memory++ = 0x70;
+    *U32Memory++ = (u32)ParticleSystem->UseGPU;
 
     ob_emission* EmissionMemory = (ob_emission*)U32Memory;
     *EmissionMemory++ = ParticleSystem->Emission;
@@ -180,7 +181,9 @@ OffbeatUnpackParticleSystem(ob_particle_system* Result, void* PackedMemory)
         return false;
     }
 
-    U32Memory += 4;
+    Result->UseGPU = (b32)U32Memory[4];
+
+    U32Memory += 5;
 
     ob_emission* EmissionMemory = (ob_emission*)U32Memory;
     Result->Emission = *EmissionMemory;
@@ -388,7 +391,7 @@ OffbeatAddDebugQuad(ob_draw_list_debug* DrawList, ov3 Point, ov3 Horizontal, ov3
 static void
 OffbeatDebugSpawnPoint_(ov3 Point)
 {
-    ob_draw_list_debug* DrawList = &OffbeatState->DebugDrawData.DrawLists[OffbeatState->CurrentParticleSystem];
+    ob_draw_list_debug* DrawList = &OffbeatState->DebugDrawData.DrawLists[OffbeatState->DebugCurrentParticleSystem];
     ob_quad_data* QuadData = &OffbeatState->QuadData;
     f32 Size = 0.05f;
     ov4 Color = ov4{1.0f, 0.0f, 0.0f, 1.0f};
@@ -398,7 +401,7 @@ OffbeatDebugSpawnPoint_(ov3 Point)
 static void
 OffbeatDebugMotionPrimitive_(ob_motion* Motion)
 {
-    ob_draw_list_debug* DrawList = &OffbeatState->DebugDrawData.DrawLists[OffbeatState->CurrentParticleSystem];
+    ob_draw_list_debug* DrawList = &OffbeatState->DebugDrawData.DrawLists[OffbeatState->DebugCurrentParticleSystem];
     ov3 Point;
     ov3 Horizontal;
     ov3 Vertical;
@@ -1179,6 +1182,7 @@ OffbeatUpdate(ob_camera Camera, f32 dt)
 #endif
     for(u32 i = 0; i < OffbeatState->ParticleSystemCount; ++i)
     {
+        OffbeatState->DebugCurrentParticleSystem = i;
         ob_particle_system* ParticleSystem = &OffbeatState->ParticleSystems[i];
         ob_draw_list* DrawList = &OffbeatState->DrawData.DrawLists[i];
         DrawList->UseGPU = ParticleSystem->UseGPU;
@@ -1208,9 +1212,6 @@ OffbeatUpdate(ob_camera Camera, f32 dt)
         if(ParticleSystem->UseGPU)
         {
             // TODO(rytis): Sorting is NECESSARY for GPU! Preferable for CPU, too.
-            // TODO(rytis): General stuff:
-            // * Different age calculation seems to be slower, so for now this version is fine.
-            // * Add more different expression functions (steps, etc.).
             OffbeatComputeSwapBuffers(ParticleSystem);
             OffbeatComputeSpawnParticles(ParticleSystem);
             OffbeatComputeUpdateParticles(ParticleSystem);
