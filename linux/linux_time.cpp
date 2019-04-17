@@ -1,3 +1,5 @@
+#include <assert.h>
+#include <stdint.h>
 #include <time.h>
 
 namespace Platform
@@ -12,7 +14,7 @@ namespace Platform
   {
     struct timespec CurrentTime;
     clock_gettime(CLOCK_MONOTONIC_RAW, &CurrentTime);
-    int64_t Result = CurrentTime.tv_sec * 1000000 + CurrentTime.tv_nsec * 0.001f;
+    int64_t Result = CurrentTime.tv_sec * 1000000 + (int64_t)(CurrentTime.tv_nsec * 0.001f);
     return Result;
   }
 

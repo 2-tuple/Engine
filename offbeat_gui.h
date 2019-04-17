@@ -491,11 +491,11 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
             static char CountBuffer[50];
             static char PerParticleBuffer[50];
 
-            sprintf(ParticleBuffer, "Particles: %llu", OffbeatState->TotalParticleCount);
+            sprintf(ParticleBuffer, "Particles: %llu", (unsigned long long)OffbeatState->TotalParticleCount);
             sprintf(TimeBuffer, "%.2f s", OffbeatState->t);
             sprintf(MSBuffer, "%.3f ms average", AvgMSCount);
             sprintf(ParticlesPerMSBuffer, "%u particles/ms", AvgParticlesPerMS);
-            sprintf(CountBuffer, "%llu cycle average", AvgCycleCount);
+            sprintf(CountBuffer, "%llu cycle average", (unsigned long long)AvgCycleCount);
             sprintf(PerParticleBuffer, "%.2f cycles/particle", AvgCyclesPerParticle);
 
             UI::Text(ParticleBuffer);

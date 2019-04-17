@@ -210,9 +210,9 @@ namespace UI
               {
                 char CountBuffer[40];
                 sprintf(CountBuffer, ": %llu",
-                        GLOBAL_TIMER_FRAME_SUMMARY_TABLE[s_CurrentModifiableFrameIndex]
-                                                        [s_BlockIndexForSummary]
-                                                          .CycleCount);
+                        (unsigned long long)GLOBAL_TIMER_FRAME_SUMMARY_TABLE[s_CurrentModifiableFrameIndex]
+                                                                            [s_BlockIndexForSummary]
+                                                                            .CycleCount);
                 UI::Text(CountBuffer);
               }
               UI::NewLine();
@@ -230,8 +230,8 @@ namespace UI
             {
               char CountBuffer[40];
               sprintf(CountBuffer, ": %llu",
-                      GLOBAL_TIMER_FRAME_SUMMARY_TABLE[s_CurrentModifiableFrameIndex][i]
-                        .CycleCount);
+                      (unsigned long long)GLOBAL_TIMER_FRAME_SUMMARY_TABLE[s_CurrentModifiableFrameIndex][i]
+                                          .CycleCount);
               UI::Text(CountBuffer);
             }
             UI::NewLine();

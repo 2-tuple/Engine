@@ -32,7 +32,7 @@ typedef uintptr_t umm;
  * but you can SEE the lower framerate.
  */
 
-#if 1
+#if defined(__WIN32__) || defined(_WIN32) || defined(__WIN64__) || defined(_WIN64) || defined(WIN32)
 #define OffbeatAssert(Expression) if(!(Expression)) {*(int *)0 = 0;}
 #else
 #include <assert.h>

@@ -47,7 +47,7 @@ union ov4
         struct
         {
             ov3 xyz;
-            f32 w;
+            // f32 w;
         };
     };
 
