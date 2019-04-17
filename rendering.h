@@ -460,5 +460,5 @@ RenderMaterialPreviewToTexture(game_state* GameState)
 void
 RenderParticleEffects(game_state* GameState)
 {
-    OffbeatRenderParticles(GameState->Camera.ViewMatrix.e, GameState->Camera.ProjectionMatrix.e);
+    OffbeatRenderParticles();
 }

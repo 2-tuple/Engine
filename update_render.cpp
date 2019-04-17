@@ -233,12 +233,12 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
       dt = Input->dt;
     }
 
-    ob_camera OffbeatCamera = {};
-    OffbeatCamera.Position = OV3(GameState->Camera.Position);
-    OffbeatCamera.Forward = OV3(GameState->Camera.Forward);
-    OffbeatCamera.Right = OV3(GameState->Camera.Right);
-
-    OffbeatUpdate(OffbeatCamera, dt);
+    OffbeatUpdateCamera(GameState->Camera.Position.e,
+                        GameState->Camera.Forward.e,
+                        GameState->Camera.Right.e);
+    OffbeatUpdateViewMatrix(GameState->Camera.ViewMatrix.e);
+    OffbeatUpdateProjectionMatrix(GameState->Camera.ProjectionMatrix.e);
+    OffbeatUpdate(dt);
   }
   int64_t EndSecondCount = Platform::GetCurrentCounter();
   END_TIMED_BLOCK(Offbeat);

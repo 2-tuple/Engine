@@ -361,6 +361,8 @@ struct ob_state
 
     ob_quad_data QuadData;
     ov3 CameraPosition;
+    om4 ViewMatrix;
+    om4 ProjectionMatrix;
 
     ob_texture GridTextureID;
     u32 GridIndices[12];
@@ -396,8 +398,7 @@ OFFBEAT_API ob_state* OffbeatAllocate(void* Memory, u64 MemorySize);
 OFFBEAT_API void OffbeatInit();
 
 // NOTE(rytis): Particle system manipulation.
-OFFBEAT_API ob_particle_system* OffbeatNewParticleSystem();
-OFFBEAT_API u32 OffbeatNewParticleSystem(ob_particle_system** NewParticleSystem);
+OFFBEAT_API ob_particle_system* OffbeatNewParticleSystem(u32* Index = 0);
 OFFBEAT_API void OffbeatRemoveParticleSystem(u32 Index);
 OFFBEAT_API void OffbeatAddParticleSystem(ob_particle_system* NewParticleSystem);
 OFFBEAT_API void OffbeatRemoveCurrentParticleSystem();
@@ -409,14 +410,17 @@ OFFBEAT_API void OffbeatAddTexture(u32 Texture);
 OFFBEAT_API void OffbeatGenerateTextureArray();
 
 // NOTE(rytis): Calculation.
-OFFBEAT_API void OffbeatUpdate(ob_camera Camera, f32 dt);
+OFFBEAT_API void OffbeatUpdateCamera(f32 Position[3], f32 Forward[3], f32 Right[3]);
+OFFBEAT_API void OffbeatUpdateViewMatrix(f32 RowMajorMatrix[16]);
+OFFBEAT_API void OffbeatUpdateProjectionMatrix(f32 RowMajorMatrix[16]);
+OFFBEAT_API void OffbeatUpdate(f32 dt);
 
 // NOTE(rytis): Render data.
 #ifndef OFFBEAT_OPENGL_COMPUTE
 OFFBEAT_API ob_draw_data* OffbeatGetDrawData();
 #endif
 OFFBEAT_API ob_draw_data_debug* OffbeatGetDebugDrawData();
-OFFBEAT_API void OffbeatRenderParticles(float* ViewMatrix, float* ProjectionMatrix);
+OFFBEAT_API void OffbeatRenderParticles();
 
 // NOTE(rytis): Particle system pack/unpack.
 OFFBEAT_API ob_file_data OffbeatPackParticleSystem(u32 ParticleSystemIndex);

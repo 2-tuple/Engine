@@ -1156,16 +1156,16 @@ OffbeatCreateRenderProgram()
 }
 
 void
-OffbeatRenderParticles(float* ViewMatrix, float* ProjectionMatrix)
+OffbeatRenderParticles()
 {
     glEnable(GL_BLEND);
 
     GLuint RenderProgramID = OffbeatState->RenderProgramID;
     glUseProgram(RenderProgramID);
     glUniformMatrix4fv(glGetUniformLocation(RenderProgramID, "Projection"), 1, GL_FALSE,
-                       ProjectionMatrix);
+                       (f32*)OffbeatState->ProjectionMatrix.E);
     glUniformMatrix4fv(glGetUniformLocation(RenderProgramID, "View"), 1, GL_FALSE,
-                       ViewMatrix);
+                       (f32*)OffbeatState->ViewMatrix.E);
 
     GLuint VAO = 0;
     GLuint VBO = 0;

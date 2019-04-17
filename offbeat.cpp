@@ -663,22 +663,14 @@ OffbeatCleanupDrawList(ob_draw_list* DrawList)
 #define OffbeatCleanupDrawList(DrawList)
 #endif
 
-u32
-OffbeatNewParticleSystem(ob_particle_system** NewParticleSystem)
-{
-    OffbeatAssert(OffbeatState->ParticleSystemCount + 1 <= OFFBEAT_PARTICLE_SYSTEM_COUNT);
-    u32 Result = OffbeatState->ParticleSystemCount;
-    *NewParticleSystem = &OffbeatState->ParticleSystems[OffbeatState->ParticleSystemCount++];
-    OffbeatInitParticleSystem(*NewParticleSystem);
-    ob_draw_list* NewDrawList = &OffbeatState->DrawData.DrawLists[OffbeatState->DrawData.DrawListCount++];
-    OffbeatInitDrawList(NewDrawList);
-    return Result;
-}
-
 ob_particle_system*
-OffbeatNewParticleSystem()
+OffbeatNewParticleSystem(u32* Index)
 {
     OffbeatAssert(OffbeatState->ParticleSystemCount + 1 <= OFFBEAT_PARTICLE_SYSTEM_COUNT);
+    if(Index)
+    {
+        *Index = OffbeatState->ParticleSystemCount;
+    }
     OffbeatState->CurrentParticleSystem = OffbeatState->ParticleSystemCount;
     ob_particle_system* Result = &OffbeatState->ParticleSystems[OffbeatState->ParticleSystemCount++];
     OffbeatInitParticleSystem(Result);
@@ -1150,21 +1142,75 @@ OffbeatRenderParticleSystem(ob_draw_list* DrawList, u32* IndexMemory, ob_draw_ve
 }
 
 void
-OffbeatUpdate(ob_camera Camera, f32 dt)
+OffbeatUpdateCamera(f32 Position[3], f32 Forward[3], f32 Right[3])
 {
+    ov3 P = ov3{Position[0], Position[1], Position[2]};
+    ov3 R = ov3{Right[0], Right[1], Right[2]};
+    ov3 F = ov3{Forward[0], Forward[1], Forward[2]};
+
+    ob_quad_data QuadData = {};
+    QuadData.Horizontal = ObNormalize(R);
+    QuadData.Vertical = ObNormalize(ObCross(QuadData.Horizontal, F));
+
+    OffbeatState->QuadData = QuadData;
+    OffbeatState->CameraPosition = P;
+}
+
+void
+OffbeatUpdateViewMatrix(f32 RowMajorMatrix[16])
+{
+    om4 Matrix = {};
+    Matrix.E[0][0] = RowMajorMatrix[0];
+    Matrix.E[0][1] = RowMajorMatrix[1];
+    Matrix.E[0][2] = RowMajorMatrix[2];
+    Matrix.E[0][3] = RowMajorMatrix[3];
+    Matrix.E[1][0] = RowMajorMatrix[4];
+    Matrix.E[1][1] = RowMajorMatrix[5];
+    Matrix.E[1][2] = RowMajorMatrix[6];
+    Matrix.E[1][3] = RowMajorMatrix[7];
+    Matrix.E[2][0] = RowMajorMatrix[8];
+    Matrix.E[2][1] = RowMajorMatrix[9];
+    Matrix.E[2][2] = RowMajorMatrix[10];
+    Matrix.E[2][3] = RowMajorMatrix[11];
+    Matrix.E[3][0] = RowMajorMatrix[12];
+    Matrix.E[3][1] = RowMajorMatrix[13];
+    Matrix.E[3][2] = RowMajorMatrix[14];
+    Matrix.E[3][3] = RowMajorMatrix[15];
+    OffbeatState->ViewMatrix = Matrix;
+}
+
+
+void
+OffbeatUpdateProjectionMatrix(f32 RowMajorMatrix[16])
+{
+    om4 Matrix = {};
+    Matrix.E[0][0] = RowMajorMatrix[0];
+    Matrix.E[0][1] = RowMajorMatrix[1];
+    Matrix.E[0][2] = RowMajorMatrix[2];
+    Matrix.E[0][3] = RowMajorMatrix[3];
+    Matrix.E[1][0] = RowMajorMatrix[4];
+    Matrix.E[1][1] = RowMajorMatrix[5];
+    Matrix.E[1][2] = RowMajorMatrix[6];
+    Matrix.E[1][3] = RowMajorMatrix[7];
+    Matrix.E[2][0] = RowMajorMatrix[8];
+    Matrix.E[2][1] = RowMajorMatrix[9];
+    Matrix.E[2][2] = RowMajorMatrix[10];
+    Matrix.E[2][3] = RowMajorMatrix[11];
+    Matrix.E[3][0] = RowMajorMatrix[12];
+    Matrix.E[3][1] = RowMajorMatrix[13];
+    Matrix.E[3][2] = RowMajorMatrix[14];
+    Matrix.E[3][3] = RowMajorMatrix[15];
+    OffbeatState->ProjectionMatrix = Matrix;
+}
+void
+OffbeatUpdate(f32 dt)
+{
+    OffbeatUpdateMemoryManager(&OffbeatState->MemoryManager);
+
+    OffbeatState->dt = dt;
+    OffbeatState->t += OffbeatState->dt;
+
     OffbeatState->TotalParticleCount = 0;
-    {
-        OffbeatState->dt = dt;
-        OffbeatState->t += OffbeatState->dt;
-
-        ob_quad_data QuadData = {};
-        QuadData.Horizontal = ObNormalize(Camera.Right);
-        QuadData.Vertical = ObNormalize(ObCross(QuadData.Horizontal, Camera.Forward));
-        OffbeatState->QuadData = QuadData;
-        OffbeatState->CameraPosition = Camera.Position;
-
-        OffbeatUpdateMemoryManager(&OffbeatState->MemoryManager);
-    }
 #ifdef OFFBEAT_DEBUG
     OffbeatState->DebugDrawData.DrawListCount = OffbeatState->ParticleSystemCount;
 #endif

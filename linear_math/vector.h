@@ -20,6 +20,7 @@ union vec3 {
   {
     float R, G, B;
   };
+  float e[3];
 };
 
 union vec4 {
