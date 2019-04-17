@@ -4,6 +4,8 @@
 #include "ui.h"
 #include "file_io.h"
 
+#define OFFBEAT_FRAME_COUNT 60
+
 static char* g_EmissionShapeStrings[OFFBEAT_EmissionCount] = {
     "Point",
     "Ring",
@@ -47,8 +49,26 @@ static char* g_ParameterStrings[OFFBEAT_ParameterCount] = {
     "CameraDistance",
 };
 
-static u32 g_TextureCount;
+static uint32_t g_TextureCount;
 static char g_TextureStrings[OFFBEAT_PARTICLE_SYSTEM_COUNT][50];
+
+static uint32_t g_CurrentFrame;
+static uint32_t g_TotalParticleCounts[OFFBEAT_FRAME_COUNT];
+static int64_t g_CycleCounts[OFFBEAT_FRAME_COUNT];
+static float g_MilisecondCounts[OFFBEAT_FRAME_COUNT];
+
+char*
+OffbeatGUITextureString(void* Data, int Index)
+{
+    return g_TextureStrings[Index];
+}
+
+char*
+OffbeatGUIPathArrayToString(void* Data, int Index)
+{
+    path* Paths = (path*)Data;
+    return Paths[Index].Name;
+}
 
 void
 OffbeatGUIAddTexture(Resource::resource_manager* Resources, char* Name, char* Path)
@@ -63,17 +83,13 @@ OffbeatGUIAddTexture(Resource::resource_manager* Resources, char* Name, char* Pa
     OffbeatAddTexture(Resources->GetTexture(TextureRID));
 }
 
-char*
-OffbeatGUITextureString(void* Data, int Index)
+void
+OffbeatGUIAddFrameInfo(uint32_t TotalParticleCount, int64_t CycleCount, float MilisecondCount)
 {
-    return g_TextureStrings[Index];
-}
-
-char*
-OffbeatGUIPathArrayToString(void* Data, int Index)
-{
-    path* Paths = (path*)Data;
-    return Paths[Index].Name;
+    g_TotalParticleCounts[g_CurrentFrame] = TotalParticleCount;
+    g_CycleCounts[g_CurrentFrame] = CycleCount;
+    g_MilisecondCounts[g_CurrentFrame] = MilisecondCount;
+    g_CurrentFrame = (g_CurrentFrame + 1) % OFFBEAT_FRAME_COUNT;
 }
 
 void
@@ -449,11 +465,22 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
             }
         }
         {
-            u64 FrameCount = OffbeatState->FrameCount ? OffbeatState->FrameCount : 1;
-            u64 AvgParticleCount = OffbeatState->ParticleSum / FrameCount;
-            u64 AvgCycleCount = OffbeatState->CycleSum / FrameCount;
+            uint32_t ParticleSum = 0;
+            int64_t CycleSum = 0;
+            float MilisecondSum = 0;
+
+            for(int i = 0; i < OFFBEAT_FRAME_COUNT; ++i)
+            {
+                ParticleSum += g_TotalParticleCounts[i];
+                CycleSum += g_CycleCounts[i];
+                MilisecondSum += g_MilisecondCounts[i];
+            }
+
+            u64 FrameCount = OFFBEAT_FRAME_COUNT;
+            u64 AvgParticleCount = ParticleSum / FrameCount;
+            u64 AvgCycleCount = CycleSum / FrameCount;
             f32 AvgCyclesPerParticle = AvgParticleCount ? ((f32)AvgCycleCount / (f32)AvgParticleCount) : 0.0f;
-            f32 AvgMSCount = OffbeatState->MSSum / (f32)FrameCount;
+            f32 AvgMSCount = MilisecondSum / (f32)FrameCount;
             u32 AvgParticlesPerMS = (u32)((f32)AvgParticleCount / AvgMSCount);
 
             static bool BufferInit = false;
@@ -466,14 +493,10 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
 
             sprintf(ParticleBuffer, "Particles: %llu", OffbeatState->TotalParticleCount);
             sprintf(TimeBuffer, "%.2f s", OffbeatState->t);
-            if(!(OffbeatState->FrameCount % 60) || !BufferInit)
-            {
-                BufferInit = true;
-                sprintf(MSBuffer, "%.3f ms average", AvgMSCount);
-                sprintf(ParticlesPerMSBuffer, "%u particles/ms", AvgParticlesPerMS);
-                sprintf(CountBuffer, "%llu cycle average", AvgCycleCount);
-                sprintf(PerParticleBuffer, "%.2f cycles/particle", AvgCyclesPerParticle);
-            }
+            sprintf(MSBuffer, "%.3f ms average", AvgMSCount);
+            sprintf(ParticlesPerMSBuffer, "%u particles/ms", AvgParticlesPerMS);
+            sprintf(CountBuffer, "%llu cycle average", AvgCycleCount);
+            sprintf(PerParticleBuffer, "%.2f cycles/particle", AvgCyclesPerParticle);
 
             UI::Text(ParticleBuffer);
             UI::Text(TimeBuffer);

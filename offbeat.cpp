@@ -1,5 +1,4 @@
 // TODO(rytis): Remove this.
-#include "common.h"
 #include "offbeat.h"
 
 // Windows perf counter header
@@ -1153,17 +1152,6 @@ OffbeatRenderParticleSystem(ob_draw_list* DrawList, u32* IndexMemory, ob_draw_ve
 void
 OffbeatUpdate(ob_camera Camera, f32 dt)
 {
-    u64 StartCycleCount = __rdtsc();
-    // TODO(rytis): Remove this.
-    int64_t StartSecondCount = Platform::GetCurrentCounter();
-    if(!(OffbeatState->FrameCount % 120))
-    {
-        OffbeatState->FrameCount = 0;
-        OffbeatState->CycleSum = 0;
-        OffbeatState->MSSum = 0.0f;
-        OffbeatState->ParticleSum = 0;
-    }
-
     OffbeatState->TotalParticleCount = 0;
     {
         OffbeatState->dt = dt;
@@ -1245,13 +1233,6 @@ OffbeatUpdate(ob_camera Camera, f32 dt)
         OffbeatDebugMotionPrimitive(&ParticleSystem->Motion);
         OffbeatState->TotalParticleCount += ParticleSystem->ParticleCount;
     }
-
-    OffbeatState->ParticleSum += OffbeatState->TotalParticleCount;
-    OffbeatState->CycleSum += __rdtsc() - StartCycleCount;
-    // TODO(rytis): Remove this.
-    int64_t EndSecondCount = Platform::GetCurrentCounter();
-    OffbeatState->MSSum += 1000.0f * Platform::GetTimeInSeconds(StartSecondCount, EndSecondCount);
-    ++OffbeatState->FrameCount;
 }
 
 ob_draw_data*

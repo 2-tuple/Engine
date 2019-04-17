@@ -199,6 +199,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
   //---------------------PARTICLES---------------------
   BEGIN_TIMED_BLOCK(Offbeat);
+  int64_t StartSecondCount = Platform::GetCurrentCounter();
   if(Input->p.EndedDown && Input->p.Changed)
   {
     GameState->ParticleMode = !GameState->ParticleMode;
@@ -239,7 +240,11 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     OffbeatUpdate(OffbeatCamera, dt);
   }
+  int64_t EndSecondCount = Platform::GetCurrentCounter();
   END_TIMED_BLOCK(Offbeat);
+  OffbeatGUIAddFrameInfo(GameState->OffbeatState->TotalParticleCount,
+                         GLOBAL_TIMER_FRAME_SUMMARY_TABLE[g_CurrentProfilerFrameIndex][TIMER_NAME_Offbeat].CycleCount,
+                         1000.0f * Platform::GetTimeInSeconds(StartSecondCount, EndSecondCount));
 
   //---------------------RENDERING----------------------------
   BEGIN_TIMED_BLOCK(Render);

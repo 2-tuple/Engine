@@ -358,10 +358,6 @@ struct ob_state
     ob_program RenderProgramID;
 
     u64 TotalParticleCount;
-    u64 FrameCount;
-    u64 CycleSum;
-    u64 ParticleSum;
-    f32 MSSum;
 
     ob_quad_data QuadData;
     ov3 CameraPosition;
