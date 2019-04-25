@@ -72,8 +72,9 @@ RegisterLoadInitialResources(game_state* GameState)
     GameState->R.PostNightVision = GameState->Resources.RegisterShader("shaders/post_night_vision");
     GameState->R.PostBlurH = GameState->Resources.RegisterShader("shaders/post_blur_horizontal");
     GameState->R.PostBlurV = GameState->Resources.RegisterShader("shaders/post_blur_vertical");
-    GameState->R.RenderDepthMap  = GameState->Resources.RegisterShader("shaders/render_depth_map");
-    GameState->R.RenderShadowMap = GameState->Resources.RegisterShader("shaders/render_shadow_map");
+    GameState->R.RenderDepthMap   = GameState->Resources.RegisterShader("shaders/render_depth_map");
+    GameState->R.RenderNormalMap  = GameState->Resources.RegisterShader("shaders/render_normal_map");
+    GameState->R.RenderShadowMap  = GameState->Resources.RegisterShader("shaders/render_shadow_map");
     GameState->R.PostDepthOfField = GameState->Resources.RegisterShader("shaders/depth_of_field");
     GameState->R.PostMotionBlur   = GameState->Resources.RegisterShader("shaders/motion_blur");
     GameState->R.PostEdgeOutline  = GameState->Resources.RegisterShader("shaders/edge_outline");
@@ -248,8 +249,6 @@ RegisterLoadInitialResources(game_state* GameState)
     // FRAMEBUFFER CREATION FOR DEPTH BUFFER RENDERING AND EDGE OUTLINE
     {
       GameState->R.DrawDepthBuffer = false;
-      GenerateFramebuffer(&GameState->R.DepthTextureFBO, &GameState->R.DepthTextureRBO,
-                          &GameState->R.DepthTexture, 2 * SCREEN_WIDTH, 2 * SCREEN_HEIGHT);
       GenerateFramebuffer(&GameState->R.EdgeOutlineFBO, &GameState->R.EdgeOutlineRBO,
                           &GameState->R.EdgeOutlineTexture);
     }

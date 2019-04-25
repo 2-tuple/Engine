@@ -1202,8 +1202,14 @@ OffbeatUpdateProjectionMatrix(f32 RowMajorMatrix[16])
     Matrix.E[3][3] = RowMajorMatrix[15];
     OffbeatState->ProjectionMatrix = Matrix;
 }
+
 void
-OffbeatUpdate(f32 dt)
+OffbeatUpdateGeometryTextures(ob_texture DepthMap, ob_texture NormalMap)
+{
+}
+
+void
+OffbeatUpdateParticles(f32 dt)
 {
     OffbeatUpdateMemoryManager(&OffbeatState->MemoryManager);
 

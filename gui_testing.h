@@ -1269,6 +1269,7 @@ MiscGUI(game_state* GameState, bool& s_ShowLightSettings, bool& s_ShowDisplaySet
     UI::Checkbox("NightVision", &NightVision);
     UI::Checkbox("EdgeOutline", &EdgeOutline);
     UI::Checkbox("DepthBuffer", &GameState->R.DrawDepthBuffer);
+    UI::Checkbox("NormalBuffer", &GameState->R.DrawNormalBuffer);
     UI::Checkbox("SSAO", &GameState->R.RenderSSAO);
     UI::Checkbox("SimpleFog", &SimpleFog);
     UI::Checkbox("VolumetricScattering", &GameState->R.RenderVolumetricScattering);

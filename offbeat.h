@@ -413,12 +413,11 @@ OFFBEAT_API void OffbeatGenerateTextureArray();
 OFFBEAT_API void OffbeatUpdateCamera(f32 Position[3], f32 Forward[3], f32 Right[3]);
 OFFBEAT_API void OffbeatUpdateViewMatrix(f32 RowMajorMatrix[16]);
 OFFBEAT_API void OffbeatUpdateProjectionMatrix(f32 RowMajorMatrix[16]);
-OFFBEAT_API void OffbeatUpdate(f32 dt);
+OFFBEAT_API void OffbeatUpdateGeometryTextures(ob_texture DepthMap, ob_texture NormalMap);
+OFFBEAT_API void OffbeatUpdateParticles(f32 dt);
 
 // NOTE(rytis): Render data.
-#ifndef OFFBEAT_OPENGL_COMPUTE
 OFFBEAT_API ob_draw_data* OffbeatGetDrawData();
-#endif
 OFFBEAT_API ob_draw_data_debug* OffbeatGetDebugDrawData();
 OFFBEAT_API void OffbeatRenderParticles();
 

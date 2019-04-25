@@ -197,6 +197,11 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
   END_TIMED_BLOCK(AnimationSystem);
   END_TIMED_BLOCK(Update);
 
+  //----------GEOMETRY PRE-PASS-----------
+  BEGIN_GPU_TIMED_BLOCK(GeomPrePass);
+  RenderGBufferDataToTextures(GameState);
+  END_GPU_TIMED_BLOCK(GeomPrePass);
+
   //---------------------PARTICLES---------------------
   BEGIN_TIMED_BLOCK(Offbeat);
   int64_t StartSecondCount = Platform::GetCurrentCounter();
@@ -238,7 +243,8 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                         GameState->Camera.Right.e);
     OffbeatUpdateViewMatrix(GameState->Camera.ViewMatrix.e);
     OffbeatUpdateProjectionMatrix(GameState->Camera.ProjectionMatrix.e);
-    OffbeatUpdate(dt);
+    OffbeatUpdateGeometryTextures(GameState->R.GBufferDepthTexID, GameState->R.GBufferNormalTexID);
+    OffbeatUpdateParticles(dt);
   }
   int64_t EndSecondCount = Platform::GetCurrentCounter();
   END_TIMED_BLOCK(Offbeat);
@@ -264,10 +270,6 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
       AddMeshInstance(&GameState->R, MeshInstance);
     }
   }
-
-  BEGIN_GPU_TIMED_BLOCK(GeomPrePass);
-  RenderGBufferDataToTextures(GameState);
-  END_GPU_TIMED_BLOCK(GeomPrePass);
 
   // Saving previous frame entity MVP matrix (USED ONLY FOR MOTION BLUR)
   {

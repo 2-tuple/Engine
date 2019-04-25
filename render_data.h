@@ -439,13 +439,12 @@ struct render_data
   float    SSAOSamplingRadius;
 
   rid RenderDepthMap;
+  rid RenderNormalMap;
   rid RenderShadowMap;
 
   // Screen space depth buffer
+  bool     DrawNormalBuffer;
   bool     DrawDepthBuffer;
-  uint32_t DepthTextureFBO;
-  uint32_t DepthTextureRBO;
-  uint32_t DepthTexture;
   uint32_t EdgeOutlineFBO;
   uint32_t EdgeOutlineRBO;
   uint32_t EdgeOutlineTexture;
