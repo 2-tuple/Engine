@@ -89,14 +89,15 @@ enum ob_function
 {
     OFFBEAT_FunctionConst = 0,
     OFFBEAT_FunctionLerp = 1,
-    OFFBEAT_FunctionTriangle = 2,
-    OFFBEAT_FunctionTwoTriangles = 3,
-    OFFBEAT_FunctionFourTriangles = 4,
-    OFFBEAT_FunctionStep = 5,
-    OFFBEAT_FunctionPeriodic = 6,
-    OFFBEAT_FunctionPeriodicTime = 7,
-    OFFBEAT_FunctionPeriodicSquare = 8,
-    OFFBEAT_FunctionPeriodicSquareTime = 9,
+    OFFBEAT_FunctionMaxLerp = 2,
+    OFFBEAT_FunctionTriangle = 3,
+    OFFBEAT_FunctionTwoTriangles = 4,
+    OFFBEAT_FunctionFourTriangles = 5,
+    OFFBEAT_FunctionStep = 6,
+    OFFBEAT_FunctionPeriodic = 7,
+    OFFBEAT_FunctionPeriodicTime = 8,
+    OFFBEAT_FunctionPeriodicSquare = 9,
+    OFFBEAT_FunctionPeriodicSquareTime = 10,
 
     OFFBEAT_FunctionCount,
 };
@@ -107,7 +108,8 @@ enum ob_parameter
     OFFBEAT_ParameterVelocity = 1,
     OFFBEAT_ParameterID = 2,
     OFFBEAT_ParameterRandom = 3,
-    OFFBEAT_ParameterCameraDistance = 4,
+    OFFBEAT_ParameterCollisionCount = 4,
+    OFFBEAT_ParameterCameraDistance = 5,
 
     OFFBEAT_ParameterCount,
 };
@@ -178,6 +180,7 @@ struct ob_motion
     ob_expr Gravity;
     ob_expr Drag;
     ob_expr Strength;
+    b32 Collision;
 
     ob_motion_primitive Primitive;
     ob_expr Position;
@@ -225,6 +228,18 @@ struct ob_particle_system
 };
 
 // NOTE(rytis): Aligned vvv
+struct ob_global_data_aligned
+{
+    f32 t; f32 dt; u32 RunningParticleID; u32 ParticleSpawnCount;
+    u32 OldParticleCount; u32 RandomTableIndex; ov2 P0;
+    ov3 Horizontal; f32 P1;
+    ov3 Vertical; f32 P2;
+    ov3 CameraPosition; f32 P3;
+    u64 DepthMap; u64 NormalMap;
+    om4 ViewMatrix;
+    om4 ProjectionMatrix;
+};
+
 struct ob_emission_uniform_aligned
 {
     ob_expr Location;
@@ -249,8 +264,9 @@ struct ob_motion_uniform_aligned
     ob_expr Gravity;
     ob_expr Drag;
     ob_expr Strength;
+    b32 Collision;
 
-    ob_motion_primitive Primitive; ov3 P0;
+    ob_motion_primitive Primitive; ov2 P0;
     ob_expr Position;
     ob_expr LineDirection;
     ob_expr SphereRadius;
@@ -363,6 +379,9 @@ struct ob_state
     ov3 CameraPosition;
     om4 ViewMatrix;
     om4 ProjectionMatrix;
+    u64 DepthMapHandle;
+    u64 NormalMapHandle;
+    b32 GeometryTexturesLoaded;
 
     ob_texture GridTextureID;
     u32 GridIndices[12];
@@ -395,6 +414,9 @@ OFFBEAT_API void OffbeatSetTextureFunction(ob_texture (*TextureFunction)(void*, 
 
 // NOTE(rytis): Init.
 OFFBEAT_API ob_state* OffbeatAllocate(void* Memory, u64 MemorySize);
+OFFBEAT_API void OffbeatInitGeometryTextures(ob_texture DepthMap, ob_texture NormalMap);
+OFFBEAT_API void OffbeatAddTexture(ob_texture Texture);
+OFFBEAT_API void OffbeatGenerateTextureArray();
 OFFBEAT_API void OffbeatInit();
 
 // NOTE(rytis): Particle system manipulation.
@@ -406,14 +428,11 @@ OFFBEAT_API ob_particle_system* OffbeatGetCurrentParticleSystem();
 OFFBEAT_API ob_particle_system* OffbeatPreviousParticleSystem();
 OFFBEAT_API ob_particle_system* OffbeatNextParticleSystem();
 OFFBEAT_API void OffbeatToggleGPU(ob_particle_system* ParticleSystem);
-OFFBEAT_API void OffbeatAddTexture(u32 Texture);
-OFFBEAT_API void OffbeatGenerateTextureArray();
 
 // NOTE(rytis): Calculation.
 OFFBEAT_API void OffbeatUpdateCamera(f32 Position[3], f32 Forward[3], f32 Right[3]);
 OFFBEAT_API void OffbeatUpdateViewMatrix(f32 RowMajorMatrix[16]);
 OFFBEAT_API void OffbeatUpdateProjectionMatrix(f32 RowMajorMatrix[16]);
-OFFBEAT_API void OffbeatUpdateGeometryTextures(ob_texture DepthMap, ob_texture NormalMap);
 OFFBEAT_API void OffbeatUpdateParticles(f32 dt);
 
 // NOTE(rytis): Render data.

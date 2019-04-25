@@ -243,7 +243,6 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                         GameState->Camera.Right.e);
     OffbeatUpdateViewMatrix(GameState->Camera.ViewMatrix.e);
     OffbeatUpdateProjectionMatrix(GameState->Camera.ProjectionMatrix.e);
-    OffbeatUpdateGeometryTextures(GameState->R.GBufferDepthTexID, GameState->R.GBufferNormalTexID);
     OffbeatUpdateParticles(dt);
   }
   int64_t EndSecondCount = Platform::GetCurrentCounter();

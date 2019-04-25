@@ -7,6 +7,7 @@ static GLuint GlobalTextureBlock;
 
 #ifdef OFFBEAT_OPENGL_COMPUTE
 static GLuint GlobalRandomTable;
+static GLuint GlobalDataBlock;
 static GLuint GlobalEmissionBlock;
 static GLuint GlobalMotionBlock;
 static GLuint GlobalAppearanceBlock;
@@ -51,25 +52,28 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
 {
     char* HeaderCode = R"SHADER(
     #version 430 core
+    #extension GL_ARB_bindless_texture : require
 
     #define PI 3.14159265358979323846
 
     #define OFFBEAT_FunctionConst 0
     #define OFFBEAT_FunctionLerp 1
-    #define OFFBEAT_FunctionTriangle 2
-    #define OFFBEAT_FunctionTwoTriangles 3
-    #define OFFBEAT_FunctionFourTriangles 4
-    #define OFFBEAT_FunctionStep 5
-    #define OFFBEAT_FunctionPeriodic 6
-    #define OFFBEAT_FunctionPeriodicTime 7
-    #define OFFBEAT_FunctionPeriodicSquare 8
-    #define OFFBEAT_FunctionPeriodicSquareTime 9
+    #define OFFBEAT_FunctionMaxLerp 2
+    #define OFFBEAT_FunctionTriangle 3
+    #define OFFBEAT_FunctionTwoTriangles 4
+    #define OFFBEAT_FunctionFourTriangles 5
+    #define OFFBEAT_FunctionStep 6
+    #define OFFBEAT_FunctionPeriodic 7
+    #define OFFBEAT_FunctionPeriodicTime 8
+    #define OFFBEAT_FunctionPeriodicSquare 9
+    #define OFFBEAT_FunctionPeriodicSquareTime 10
 
     #define OFFBEAT_ParameterAge 0
     #define OFFBEAT_ParameterVelocity 1
     #define OFFBEAT_ParameterID 2
     #define OFFBEAT_ParameterRandom 3
-    #define OFFBEAT_ParameterCameraDistance 4
+    #define OFFBEAT_ParameterCollisionCount 4
+    #define OFFBEAT_ParameterCameraDistance 5
 
     #define OFFBEAT_EmissionPoint 0
     #define OFFBEAT_EmissionRing 1
@@ -95,16 +99,28 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
     layout(row_major) uniform;
     layout(std430) buffer;
 
-    uniform float u_t;
-    uniform float dt;
-    uniform uint RunningParticleID;
-    uniform vec3 CameraPosition;
-    uniform uint ParticleSpawnCount;
-    uniform uint ParticleCount;
-    uniform uint OldParticleCount;
-    uniform uint RandomTableIndex;
+    layout(binding = 0) readonly buffer global_data
+    {
+        float time;
+        float dt;
 
-    layout(binding = 0) readonly buffer random
+        uint RunningParticleID;
+        uint ParticleSpawnCount;
+        uint OldParticleCount;
+        uint RandomTableIndex;
+
+        vec3 Horizontal;
+        vec3 Vertical;
+        vec3 CameraPosition;
+
+        sampler2D DepthMap;
+        sampler2D NormalMap;
+
+        mat4 View;
+        mat4 Projection;
+    };
+
+    layout(binding = 1) readonly buffer random
     {
         uint RandomTable[OFFBEAT_RANDOM_TABLE_SIZE];
     };
@@ -113,7 +129,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
     {
         vec4 PositionAge;
         vec4 VelocityDeltaAge;
-        vec4 IDRandomCamera;
+        vec4 IDRandomCollision;
     };
 
     struct ob_expr
@@ -148,6 +164,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
         ob_expr Gravity;
         ob_expr Drag;
         ob_expr Strength;
+        uint Collision;
 
         uint Primitive;
         ob_expr Position;
@@ -184,6 +201,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
         vec3 MotionPosition;
         vec3 MotionLineDirection;
         float MotionSphereRadius;
+        uint MotionCollision;
 
         vec4 AppearanceColor;
         float AppearanceSize;
@@ -238,12 +256,17 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
 
             case OFFBEAT_ParameterID:
             {
-                Result = Particle.IDRandomCamera.x;
+                Result = Particle.IDRandomCollision.x;
             } break;
 
             case OFFBEAT_ParameterRandom:
             {
-                Result = Particle.IDRandomCamera.y;
+                Result = Particle.IDRandomCollision.y;
+            } break;
+
+            case OFFBEAT_ParameterCollisionCount:
+            {
+                Result = Particle.IDRandomCollision.z;
             } break;
 
             case OFFBEAT_ParameterCameraDistance:
@@ -265,11 +288,11 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
 
         if(Function == OFFBEAT_FunctionPeriodicTime)
         {
-            return mix(Expr.Low, Expr.High, 0.5f * (sin(2.0f * PI * Float * u_t) + 1.0f));
+            return mix(Expr.Low, Expr.High, 0.5f * (sin(2.0f * PI * Float * time) + 1.0f));
         }
         else if(Function == OFFBEAT_FunctionPeriodicSquareTime)
         {
-            return mix(Expr.Low, Expr.High, step(1.0f, mod(Float * u_t, 2.0f)));
+            return mix(Expr.Low, Expr.High, step(1.0f, mod(Float * time, 2.0f)));
         }
 
         float Param = OffbeatEvaluateParameter(Parameter, Particle);
@@ -282,6 +305,11 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
 
             case OFFBEAT_FunctionLerp:
             {
+            } break;
+
+            case OFFBEAT_FunctionMaxLerp:
+            {
+                Param = clamp(Param / Float, 0.0f, 1.0f);
             } break;
 
             case OFFBEAT_FunctionTriangle:
@@ -413,7 +441,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
     )SHADER";
 
     char* SpawnCode = R"SHADER(
-    layout(binding = 1) writeonly buffer particle_buffer
+    layout(binding = 2) writeonly buffer particle_buffer
     {
         ob_particle Particles[];
     };
@@ -541,48 +569,50 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
     main()
     {
         Index = gl_GlobalInvocationID.x;
-        if(Index < ParticleSpawnCount)
+        if(Index >= ParticleSpawnCount)
         {
-            Offset = 0;
-            UID = RunningParticleID + Index;
-
-            float ID = float(UID);
-            float Random = ObRandom();
-
-            ob_particle ZeroP = ob_particle(vec4(0.0f), vec4(0.0f), vec4(ID, Random, 0.0f, 0.0f));
-
-            Globals.EmissionLocation = OffbeatEvaluateExpression(Emission.Location, ZeroP).xyz;
-            Globals.EmissionParticleLifetime = OffbeatEvaluateExpression(Emission.ParticleLifetime, ZeroP).x;
-            Globals.EmissionShape = Emission.Shape;
-            Globals.EmissionRadius = OffbeatEvaluateExpression(Emission.EmissionRadius, ZeroP).x;
-            Globals.EmissionNormal = OffbeatEvaluateExpression(Emission.EmissionNormal, ZeroP).xyz;
-            Globals.EmissionInitialVelocity = OffbeatEvaluateExpression(Emission.InitialVelocityScale, ZeroP).x;
-            Globals.EmissionVelocityType = Emission.VelocityType;
-            Globals.EmissionConeHeight = OffbeatEvaluateExpression(Emission.ConeHeight, ZeroP).x;
-            Globals.EmissionConeRadius = OffbeatEvaluateExpression(Emission.ConeRadius, ZeroP).x;
-            Globals.EmissionConeDirection = OffbeatEvaluateExpression(Emission.ConeDirection, ZeroP).xyz;
-            OffbeatUpdateRotationMatrices();
-
-            vec3 Position = OffbeatParticleInitialPosition();
-            vec3 Velocity = OffbeatParticleInitialVelocity();
-            float dAge = 1.0f / Globals.EmissionParticleLifetime;
-            ob_particle Particle = ob_particle(
-                                   vec4(Position, 0.0f),
-                                   vec4(Velocity, dAge),
-                                   vec4(ID, Random, 0.0f, 0.0f));
-            Particles[Index] = Particle;
+            return;
         }
+
+        Offset = 0;
+        UID = RunningParticleID + Index;
+
+        float ID = float(UID);
+        float Random = ObRandom();
+
+        ob_particle ZeroP = ob_particle(vec4(0.0f), vec4(0.0f), vec4(ID, Random, 0.0f, 0.0f));
+
+        Globals.EmissionLocation = OffbeatEvaluateExpression(Emission.Location, ZeroP).xyz;
+        Globals.EmissionParticleLifetime = OffbeatEvaluateExpression(Emission.ParticleLifetime, ZeroP).x;
+        Globals.EmissionShape = Emission.Shape;
+        Globals.EmissionRadius = OffbeatEvaluateExpression(Emission.EmissionRadius, ZeroP).x;
+        Globals.EmissionNormal = OffbeatEvaluateExpression(Emission.EmissionNormal, ZeroP).xyz;
+        Globals.EmissionInitialVelocity = OffbeatEvaluateExpression(Emission.InitialVelocityScale, ZeroP).x;
+        Globals.EmissionVelocityType = Emission.VelocityType;
+        Globals.EmissionConeHeight = OffbeatEvaluateExpression(Emission.ConeHeight, ZeroP).x;
+        Globals.EmissionConeRadius = OffbeatEvaluateExpression(Emission.ConeRadius, ZeroP).x;
+        Globals.EmissionConeDirection = OffbeatEvaluateExpression(Emission.ConeDirection, ZeroP).xyz;
+        OffbeatUpdateRotationMatrices();
+
+        vec3 Position = OffbeatParticleInitialPosition();
+        vec3 Velocity = OffbeatParticleInitialVelocity();
+        float dAge = 1.0f / Globals.EmissionParticleLifetime;
+        ob_particle Particle = ob_particle(
+                               vec4(Position, 0.0f),
+                               vec4(Velocity, dAge),
+                               vec4(ID, Random, 0.0f, 0.0f));
+        Particles[Index] = Particle;
     }
     )SHADER";
 
     char* UpdateCode = R"SHADER(
     layout(binding = 0) uniform atomic_uint UpdatedParticleCount;
-    layout(binding = 2) readonly buffer particle_input_buffer
+    layout(binding = 3) readonly buffer particle_input_buffer
     {
         ob_particle InputParticles[];
     };
 
-    layout(binding = 1) writeonly buffer particle_output_buffer
+    layout(binding = 2) writeonly buffer particle_output_buffer
     {
         ob_particle OutputParticles[];
     };
@@ -628,48 +658,66 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
     main()
     {
         Index = gl_GlobalInvocationID.x;
-        if(Index < OldParticleCount)
+        if(Index >= OldParticleCount)
         {
-            ob_particle Particle = InputParticles[Index];
+            return;
+        }
 
-            Particle.PositionAge.w += dt * Particle.VelocityDeltaAge.w;
+        ob_particle Particle = InputParticles[Index];
 
-            if(Particle.PositionAge.w < 1.0f)
+        Particle.PositionAge.w += dt * Particle.VelocityDeltaAge.w;
+
+        if(Particle.PositionAge.w >= 1.0f)
+        {
+            return;
+        }
+
+        Globals.MotionCollision = Motion.Collision;
+        Globals.MotionGravity = OffbeatEvaluateExpression(Motion.Gravity, Particle).xyz;
+        Globals.MotionDrag = OffbeatEvaluateExpression(Motion.Drag, Particle).x;
+        Globals.MotionStrength = OffbeatEvaluateExpression(Motion.Strength, Particle).x;
+        Globals.MotionPrimitive = Motion.Primitive;
+        Globals.MotionPosition = OffbeatEvaluateExpression(Motion.Position, Particle).xyz;
+        Globals.MotionLineDirection = OffbeatEvaluateExpression(Motion.LineDirection, Particle).xyz;
+        Globals.MotionSphereRadius = OffbeatEvaluateExpression(Motion.SphereRadius, Particle).x;
+
+        if(Globals.MotionCollision == 1)
+        {
+            vec3 LastPosition = Particle.PositionAge.xyz;
+            vec3 XformedLastPosition = (Projection * View * vec4(LastPosition, 1.0f)).xyz;
+            float LastFrameDepthSample = texture(DepthMap, XformedLastPosition.xy).r;
+
+            if(LastFrameDepthSample > XformedLastPosition.z)
             {
-                Globals.MotionGravity = OffbeatEvaluateExpression(Motion.Gravity, Particle).xyz;
-                Globals.MotionDrag = OffbeatEvaluateExpression(Motion.Drag, Particle).x;
-                Globals.MotionStrength = OffbeatEvaluateExpression(Motion.Strength, Particle).x;
-                Globals.MotionPrimitive = Motion.Primitive;
-                Globals.MotionPosition = OffbeatEvaluateExpression(Motion.Position, Particle).xyz;
-                Globals.MotionLineDirection = OffbeatEvaluateExpression(Motion.LineDirection, Particle).xyz;
-                Globals.MotionSphereRadius = OffbeatEvaluateExpression(Motion.SphereRadius, Particle).x;
-
-                vec3 Acceleration = OffbeatUpdateParticleAcceleration(Particle);
-                vec3 Position = Particle.PositionAge.xyz + 0.5f * dt * dt * Acceleration +
-                                dt * Particle.VelocityDeltaAge.xyz;
-                vec3 Velocity = Particle.VelocityDeltaAge.xyz + dt * Acceleration;
-
-                uint NewIndex = ParticleSpawnCount + atomicCounterIncrement(UpdatedParticleCount);
-                OutputParticles[NewIndex] = ob_particle(
-                                            vec4(Position, Particle.PositionAge.w),
-                                            vec4(Velocity, Particle.VelocityDeltaAge.w),
-                                            Particle.IDRandomCamera);
+            }
+            else
+            {
             }
         }
+
+        vec3 Acceleration = OffbeatUpdateParticleAcceleration(Particle);
+        vec3 Position = Particle.PositionAge.xyz + 0.5f * dt * dt * Acceleration +
+                        dt * Particle.VelocityDeltaAge.xyz;
+        vec3 Velocity = Particle.VelocityDeltaAge.xyz + dt * Acceleration;
+
+        uint NewIndex = ParticleSpawnCount + atomicCounterIncrement(UpdatedParticleCount);
+        OutputParticles[NewIndex] = ob_particle(
+                                    vec4(Position, Particle.PositionAge.w),
+                                    vec4(Velocity, Particle.VelocityDeltaAge.w),
+                                    Particle.IDRandomCollision);
     }
     )SHADER";
 
     // TODO(rytis): Figure out why does stateless evaluation take so much time.
     char* StatelessEvaluationCode = R"SHADER(
-    uniform vec3 Horizontal;
-    uniform vec3 Vertical;
+    uniform uint ParticleCount;
 
-    layout(binding = 1) readonly buffer particles
+    layout(binding = 2) readonly buffer particles
     {
         ob_particle Particles[];
     };
 
-    layout(binding = 3) writeonly buffer indices
+    layout(binding = 4) writeonly buffer indices
     {
         uint Indices[];
     };
@@ -682,7 +730,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
         vec4 Color;
     };
 
-    layout(binding = 4) writeonly buffer vertices
+    layout(binding = 5) writeonly buffer vertices
     {
         ob_draw_vertex Vertices[];
     };
@@ -691,60 +739,62 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
     main()
     {
         Index = gl_GlobalInvocationID.x;
-        if(Index < ParticleCount)
+        if(Index >= ParticleCount)
         {
-            ob_particle Particle = Particles[Index];
-
-            Globals.AppearanceColor = OffbeatEvaluateExpression(Appearance.Color, Particle);
-            Globals.AppearanceSize = OffbeatEvaluateExpression(Appearance.Size, Particle).x;
-
-            // NOTE(rytis): Vertices (facing the camera plane)
-            vec3 BottomLeft = Particle.PositionAge.xyz +
-                              0.5f * Globals.AppearanceSize * (-Horizontal - Vertical);
-            vec3 BottomRight = Particle.PositionAge.xyz +
-                               0.5f * Globals.AppearanceSize * (Horizontal - Vertical);
-            vec3 TopRight = Particle.PositionAge.xyz +
-                            0.5f * Globals.AppearanceSize * (Horizontal + Vertical);
-            vec3 TopLeft = Particle.PositionAge.xyz +
-                           0.5f * Globals.AppearanceSize * (-Horizontal + Vertical);
-
-            // NOTE(rytis): UVs
-            vec2 BottomLeftUV = vec2(0.0f, 0.0f);
-            vec2 BottomRightUV = vec2(1.0f, 0.0f);
-            vec2 TopRightUV = vec2(1.0f, 1.0f);
-            vec2 TopLeftUV = vec2(0.0f, 1.0f);
-
-            uint VertexIndex0 = 4 * Index;
-            uint VertexIndex1 = 4 * Index + 1;
-            uint VertexIndex2 = 4 * Index + 2;
-            uint VertexIndex3 = 4 * Index + 3;
-            // NOTE(rytis): Updating draw list vertex array
-            float TextureIndex = uintBitsToFloat(Appearance.TextureIndex);
-            Vertices[VertexIndex0] = ob_draw_vertex(BottomLeft, TextureIndex, BottomLeftUV,
-                                                    Globals.AppearanceColor);
-            Vertices[VertexIndex1] = ob_draw_vertex(BottomRight, TextureIndex, BottomRightUV,
-                                                    Globals.AppearanceColor);
-            Vertices[VertexIndex2] = ob_draw_vertex(TopRight, TextureIndex, TopRightUV,
-                                                    Globals.AppearanceColor);
-            Vertices[VertexIndex3] = ob_draw_vertex(TopLeft, TextureIndex, TopLeftUV,
-                                                    Globals.AppearanceColor);
-
-            // NOTE(rytis): Updating draw list index array
-            uint Index0 = 6 * Index;
-            uint Index1 = 6 * Index + 1;
-            uint Index2 = 6 * Index + 2;
-            uint Index3 = 6 * Index + 3;
-            uint Index4 = 6 * Index + 4;
-            uint Index5 = 6 * Index + 5;
-            // NOTE(rytis): CCW bottom right triangle
-            Indices[Index0] = VertexIndex0;
-            Indices[Index1] = VertexIndex1;
-            Indices[Index2] = VertexIndex2;
-            // NOTE(rytis): CCW top left triangle
-            Indices[Index3] = VertexIndex0;
-            Indices[Index4] = VertexIndex2;
-            Indices[Index5] = VertexIndex3;
+            return;
         }
+
+        ob_particle Particle = Particles[Index];
+
+        Globals.AppearanceColor = OffbeatEvaluateExpression(Appearance.Color, Particle);
+        Globals.AppearanceSize = OffbeatEvaluateExpression(Appearance.Size, Particle).x;
+
+        // NOTE(rytis): Vertices (facing the camera plane)
+        vec3 BottomLeft = Particle.PositionAge.xyz +
+                          0.5f * Globals.AppearanceSize * (-Horizontal - Vertical);
+        vec3 BottomRight = Particle.PositionAge.xyz +
+                           0.5f * Globals.AppearanceSize * (Horizontal - Vertical);
+        vec3 TopRight = Particle.PositionAge.xyz +
+                        0.5f * Globals.AppearanceSize * (Horizontal + Vertical);
+        vec3 TopLeft = Particle.PositionAge.xyz +
+                       0.5f * Globals.AppearanceSize * (-Horizontal + Vertical);
+
+        // NOTE(rytis): UVs
+        vec2 BottomLeftUV = vec2(0.0f, 0.0f);
+        vec2 BottomRightUV = vec2(1.0f, 0.0f);
+        vec2 TopRightUV = vec2(1.0f, 1.0f);
+        vec2 TopLeftUV = vec2(0.0f, 1.0f);
+
+        uint VertexIndex0 = 4 * Index;
+        uint VertexIndex1 = 4 * Index + 1;
+        uint VertexIndex2 = 4 * Index + 2;
+        uint VertexIndex3 = 4 * Index + 3;
+        // NOTE(rytis): Updating draw list vertex array
+        float TextureIndex = uintBitsToFloat(Appearance.TextureIndex);
+        Vertices[VertexIndex0] = ob_draw_vertex(BottomLeft, TextureIndex, BottomLeftUV,
+                                                Globals.AppearanceColor);
+        Vertices[VertexIndex1] = ob_draw_vertex(BottomRight, TextureIndex, BottomRightUV,
+                                                Globals.AppearanceColor);
+        Vertices[VertexIndex2] = ob_draw_vertex(TopRight, TextureIndex, TopRightUV,
+                                                Globals.AppearanceColor);
+        Vertices[VertexIndex3] = ob_draw_vertex(TopLeft, TextureIndex, TopLeftUV,
+                                                Globals.AppearanceColor);
+
+        // NOTE(rytis): Updating draw list index array
+        uint Index0 = 6 * Index;
+        uint Index1 = 6 * Index + 1;
+        uint Index2 = 6 * Index + 2;
+        uint Index3 = 6 * Index + 3;
+        uint Index4 = 6 * Index + 4;
+        uint Index5 = 6 * Index + 5;
+        // NOTE(rytis): CCW bottom right triangle
+        Indices[Index0] = VertexIndex0;
+        Indices[Index1] = VertexIndex1;
+        Indices[Index2] = VertexIndex2;
+        // NOTE(rytis): CCW top left triangle
+        Indices[Index3] = VertexIndex0;
+        Indices[Index4] = VertexIndex2;
+        Indices[Index5] = VertexIndex3;
     }
     )SHADER";
 
@@ -780,17 +830,49 @@ OffbeatComputeInit()
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
     glBindBufferBase(GL_UNIFORM_BUFFER, 2, GlobalAppearanceBlock);
 
+    glGenBuffers(1, &GlobalDataBlock);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, GlobalDataBlock);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(ob_global_data_aligned), 0, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, GlobalDataBlock);
+
     glGenBuffers(1, &GlobalRandomTable);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, GlobalRandomTable);
     glBufferData(GL_SHADER_STORAGE_BUFFER, 4096 * sizeof(u32), ObGetRandomNumberTable(),
                  GL_STATIC_DRAW);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, GlobalRandomTable);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, GlobalRandomTable);
 
-    GlobalUpdatedParticleBinding = 1;
-    GlobalOldParticleBinding = 2;
+    GlobalUpdatedParticleBinding = 2;
+    GlobalOldParticleBinding = 3;
 
     // NOTE(rytis): Texture buffer is bound in OffbeatInitBindlessTextures() function.
+}
+
+static ob_global_data_aligned
+OffbeatTranslateGlobalData(ob_particle_system* ParticleSystem)
+{
+    ob_global_data_aligned Result = {};
+
+    Result.t = OffbeatState->t;
+    Result.dt = OffbeatState->dt;
+
+    Result.RunningParticleID = OffbeatState->RunningParticleID;
+    Result.ParticleSpawnCount = ParticleSystem->ParticleSpawnCount;
+    Result.OldParticleCount = ParticleSystem->ParticleCount - ParticleSystem->ParticleSpawnCount;
+    Result.RandomTableIndex = ObRandomNextRandomUInt32(&OffbeatState->EffectsEntropy);
+
+    Result.Horizontal = OffbeatState->QuadData.Horizontal;
+    Result.Vertical = OffbeatState->QuadData.Vertical;
+    Result.CameraPosition = OffbeatState->CameraPosition;
+
+    Result.DepthMap = OffbeatState->DepthMapHandle;
+    Result.NormalMap = OffbeatState->NormalMapHandle;
+
+    Result.ViewMatrix = OffbeatState->ViewMatrix;
+    Result.ProjectionMatrix = OffbeatState->ProjectionMatrix;
+
+    return Result;
 }
 
 static ob_emission_uniform_aligned
@@ -887,9 +969,14 @@ OffbeatComputeSwapBuffers(ob_particle_system* ParticleSystem)
     }
 
     u32 Zero = 0;
+    ob_global_data_aligned GlobalData = OffbeatTranslateGlobalData(ParticleSystem);
     ob_emission_uniform_aligned Emission = OffbeatTranslateEmission(&ParticleSystem->Emission);
     ob_motion_uniform_aligned Motion = OffbeatTranslateMotion(&ParticleSystem->Motion);
     ob_appearance_uniform_aligned Appearance = OffbeatTranslateAppearance(&ParticleSystem->Appearance);
+
+    glBindBuffer(GL_UNIFORM_BUFFER, GlobalDataBlock);
+    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(ob_global_data_aligned), &GlobalData);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
     glBindBuffer(GL_UNIFORM_BUFFER, GlobalEmissionBlock);
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(ob_emission_uniform_aligned), &Emission);
@@ -917,13 +1004,6 @@ OffbeatComputeSpawnParticles(ob_particle_system* ParticleSystem)
     ob_program SpawnProgramID = OffbeatState->SpawnProgramID;
     glUseProgram(SpawnProgramID);
 
-    glUniform1f(glGetUniformLocation(SpawnProgramID, "u_t"), OffbeatState->t);
-    glUniform1f(glGetUniformLocation(SpawnProgramID, "dt"), OffbeatState->dt);
-    glUniform1ui(glGetUniformLocation(SpawnProgramID, "RunningParticleID"), OffbeatState->RunningParticleID);
-    glUniform3fv(glGetUniformLocation(SpawnProgramID, "CameraPosition"), 1, (float*)OffbeatState->CameraPosition.E);
-    glUniform1ui(glGetUniformLocation(SpawnProgramID, "ParticleSpawnCount"), ParticleSystem->ParticleSpawnCount);
-    glUniform1ui(glGetUniformLocation(SpawnProgramID, "RandomTableIndex"), ObRandomNextRandomUInt32(&OffbeatState->EffectsEntropy));
-
     glDispatchCompute(ParticleSystem->ParticleSpawnCount / OFFBEAT_WORKGROUP_SIZE + 1, 1, 1);
     OffbeatState->RunningParticleID += ParticleSystem->ParticleSpawnCount;
 }
@@ -941,14 +1021,6 @@ OffbeatComputeUpdateParticles(ob_particle_system* ParticleSystem)
     GLenum ErrorCode = glGetError();
     ob_program UpdateProgramID = OffbeatState->UpdateProgramID;
     glUseProgram(UpdateProgramID);
-
-    glUniform1f(glGetUniformLocation(UpdateProgramID, "u_t"), OffbeatState->t);
-    glUniform1f(glGetUniformLocation(UpdateProgramID, "dt"), OffbeatState->dt);
-    glUniform1ui(glGetUniformLocation(UpdateProgramID, "RunningParticleID"), OffbeatState->RunningParticleID);
-    glUniform3fv(glGetUniformLocation(UpdateProgramID, "CameraPosition"), 1, (float*)OffbeatState->CameraPosition.E);
-    glUniform1ui(glGetUniformLocation(UpdateProgramID, "ParticleSpawnCount"), ParticleSystem->ParticleSpawnCount);
-    glUniform1ui(glGetUniformLocation(UpdateProgramID, "OldParticleCount"), OldParticleCount);
-    glUniform1ui(glGetUniformLocation(UpdateProgramID, "RandomTableIndex"), ObRandomNextRandomUInt32(&OffbeatState->EffectsEntropy));
 
     glDispatchCompute(OldParticleCount / OFFBEAT_WORKGROUP_SIZE + 1, 1, 1);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
@@ -969,26 +1041,18 @@ OffbeatComputeStatelessEvaluation(ob_draw_list* DrawList, ob_particle_system* Pa
     ob_program StatelessEvaluationProgramID = OffbeatState->StatelessEvaluationProgramID;
     glUseProgram(StatelessEvaluationProgramID);
 
-    glUniform1f(glGetUniformLocation(StatelessEvaluationProgramID, "u_t"), OffbeatState->t);
-    glUniform1f(glGetUniformLocation(StatelessEvaluationProgramID, "dt"), OffbeatState->dt);
-    glUniform1ui(glGetUniformLocation(StatelessEvaluationProgramID, "RunningParticleID"), OffbeatState->RunningParticleID);
-    glUniform3fv(glGetUniformLocation(StatelessEvaluationProgramID, "CameraPosition"), 1, (float*)OffbeatState->CameraPosition.E);
-    glUniform1ui(glGetUniformLocation(StatelessEvaluationProgramID, "ParticleSpawnCount"), ParticleSystem->ParticleSpawnCount);
     glUniform1ui(glGetUniformLocation(StatelessEvaluationProgramID, "ParticleCount"), ParticleSystem->ParticleCount);
-    glUniform1ui(glGetUniformLocation(StatelessEvaluationProgramID, "RandomTableIndex"), ObRandomNextRandomUInt32(&OffbeatState->EffectsEntropy));
-    glUniform3fv(glGetUniformLocation(StatelessEvaluationProgramID, "Horizontal"), 1, OffbeatState->QuadData.Horizontal.E);
-    glUniform3fv(glGetUniformLocation(StatelessEvaluationProgramID, "Vertical"), 1, OffbeatState->QuadData.Vertical.E);
 
     // NOTE(rytis): Draw list stuff.
     DrawList->IndexCount = 6 * ParticleSystem->ParticleCount;
 
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, DrawList->EBO);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, DrawList->EBO);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, DrawList->EBO);
     glBufferData(GL_SHADER_STORAGE_BUFFER, 6 * ParticleSystem->ParticleCount * sizeof(u32),
                  0, GL_STATIC_COPY);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, DrawList->VBO);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, DrawList->VBO);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, DrawList->VBO);
     glBufferData(GL_SHADER_STORAGE_BUFFER,
                  4 * ParticleSystem->ParticleCount * sizeof(ob_draw_vertex_aligned),
@@ -1023,6 +1087,11 @@ static void
 OffbeatInitBindlessTextures()
 {
     OffbeatAssert(glGetTextureHandleARB != 0);
+    if(OffbeatState->TexturesLoaded)
+    {
+        return;
+    }
+
     u64 TextureHandle;
     for(u32 i = 0; i < OffbeatState->TextureCount; ++i)
     {
@@ -1047,7 +1116,7 @@ OffbeatInitBindlessTextures()
                  (OffbeatState->TextureCount + OffbeatState->AdditionalTextureCount) *
                  sizeof(u64), OffbeatState->TextureHandles, GL_STATIC_DRAW);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, GlobalTextureBlock);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, GlobalTextureBlock);
 }
 
 static GLuint
@@ -1138,7 +1207,7 @@ OffbeatCreateRenderProgram()
         vec4 Color;
     } VertexOutput;
 
-    layout(std430, binding = 5) readonly buffer samplers
+    layout(std430, binding = 6) readonly buffer samplers
     {
         sampler2D Textures[];
     };

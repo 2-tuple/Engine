@@ -448,6 +448,7 @@ SetGameStatePODFields(game_state* GameState)
         OffbeatGUIAddTexture(&GameState->Resources, Name, CurrentPath);
       }
     }
+    OffbeatInitGeometryTextures(GameState->R.GBufferDepthTexID, GameState->R.GBufferNormalTexID);
     OffbeatInit();
   }
 

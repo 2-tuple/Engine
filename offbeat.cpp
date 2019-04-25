@@ -237,10 +237,15 @@ EvaluateParameter(ob_parameter Parameter, ob_particle* Particle)
             Result = Particle->Random;
         } break;
 
-        // TODO(rytis): Use global camera data to calculate camera distance.
+        // NOTE(rytis): No collision count when using CPU.
+        case OFFBEAT_ParameterCollisionCount:
+        {
+            Result = 0;
+        } break;
+
         case OFFBEAT_ParameterCameraDistance:
         {
-            Result = Particle->CameraDistance;
+            Result = ObLength(Particle->P - OffbeatState->CameraPosition);
         } break;
 
         default:
@@ -282,6 +287,11 @@ OffbeatEvaluateExpression(ob_expr* Expr, ob_particle* Particle = 0)
 
         case OFFBEAT_FunctionLerp:
         {
+        } break;
+
+        case OFFBEAT_FunctionMaxLerp:
+        {
+            Param = ObClamp01(Param / Expr->Float);
         } break;
 
         case OFFBEAT_FunctionTriangle:
@@ -1204,8 +1214,21 @@ OffbeatUpdateProjectionMatrix(f32 RowMajorMatrix[16])
 }
 
 void
-OffbeatUpdateGeometryTextures(ob_texture DepthMap, ob_texture NormalMap)
+OffbeatInitGeometryTextures(ob_texture DepthMap, ob_texture NormalMap)
 {
+    OffbeatAssert(glGetTextureHandleARB != 0);
+    if(OffbeatState->GeometryTexturesLoaded)
+    {
+        return;
+    }
+
+    OffbeatState->DepthMapHandle = glGetTextureHandleARB(DepthMap);
+    glMakeTextureHandleResidentARB(OffbeatState->DepthMapHandle);
+
+    OffbeatState->NormalMapHandle = glGetTextureHandleARB(NormalMap);
+    glMakeTextureHandleResidentARB(OffbeatState->NormalMapHandle);
+
+    OffbeatState->GeometryTexturesLoaded = true;
 }
 
 void

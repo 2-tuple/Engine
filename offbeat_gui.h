@@ -31,6 +31,7 @@ static char* g_MotionPrimitiveStrings[OFFBEAT_MotionCount] = {
 static char* g_FunctionStrings[OFFBEAT_FunctionCount] = {
     "Const",
     "Lerp",
+    "Max Lerp",
     "Triangle",
     "Two Triangles",
     "Four Triangles",
@@ -46,6 +47,7 @@ static char* g_ParameterStrings[OFFBEAT_ParameterCount] = {
     "Velocity",
     "ID",
     "Random",
+    "CollisionCount",
     "CameraDistance",
 };
 
@@ -179,7 +181,11 @@ OffbeatDragOV4(const char* Label, ov4* Value, float MinValue, float MaxValue, fl
             }\
             else\
             {\
-                if(Expression->Function == OFFBEAT_FunctionPeriodic ||\
+                if(Expression->Function ==OFFBEAT_FunctionMaxLerp)\
+                {\
+                    UI::DragFloat(MaxValName, &Expression->Float, 0.0f, INFINITY, 10.0f);\
+                }\
+                else if(Expression->Function == OFFBEAT_FunctionPeriodic ||\
                    Expression->Function == OFFBEAT_FunctionPeriodicSquare)\
                 {\
                     UI::DragFloat(FreqName, &Expression->Float, -INFINITY, INFINITY, 5.0f);\
@@ -409,6 +415,9 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
                                     &s_OffbeatMotionGravity, false, 10.0f);
             OffbeatGUIExpressionF32("Drag Strength", &ParticleSystem->Motion.Drag,
                                     &s_OffbeatMotionDrag, false, 1.0f);
+            OffbeatGUIExpressionF32("Strength", &ParticleSystem->Motion.Strength,
+                                    &s_OffbeatMotionStrength, false);
+            UI::Checkbox("Collision Detection", (bool*)&ParticleSystem->Motion.Collision);
 
             ob_motion_primitive* CurrentPrimitive = &ParticleSystem->Motion.Primitive;
             UI::Combo("Motion Primitive", (int*)CurrentPrimitive, g_MotionPrimitiveStrings, OFFBEAT_MotionCount, UI::StringArrayToString);
@@ -417,16 +426,12 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
             {
                 case OFFBEAT_MotionPoint:
                 {
-                    OffbeatGUIExpressionF32("Strength", &ParticleSystem->Motion.Strength,
-                                            &s_OffbeatMotionStrength, false);
                     OffbeatGUIExpressionOV3("Position", &ParticleSystem->Motion.Position,
                                             &s_OffbeatMotionPosition, false, 10.0f);
                 } break;
 
                 case OFFBEAT_MotionLine:
                 {
-                    OffbeatGUIExpressionF32("Strength", &ParticleSystem->Motion.Strength,
-                                            &s_OffbeatMotionStrength, false);
                     OffbeatGUIExpressionOV3("Position", &ParticleSystem->Motion.Position,
                                             &s_OffbeatMotionPosition, false, 10.0f);
                     OffbeatGUIExpressionOV3("Direction", &ParticleSystem->Motion.LineDirection,
@@ -435,8 +440,6 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
 
                 case OFFBEAT_MotionSphere:
                 {
-                    OffbeatGUIExpressionF32("Strength", &ParticleSystem->Motion.Strength,
-                                            &s_OffbeatMotionStrength, false);
                     OffbeatGUIExpressionOV3("Position", &ParticleSystem->Motion.Position,
                                             &s_OffbeatMotionPosition, false, 10.0f);
                     OffbeatGUIExpressionF32("Radius", &ParticleSystem->Motion.SphereRadius,
