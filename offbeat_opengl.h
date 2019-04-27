@@ -654,13 +654,17 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
         return Result;
     }
 
-    vec3
+    float
     OffbeatSampleDepthMap(vec3 Position)
     {
         vec4 XformedPosition = Projection * View * vec4(Position, 1.0f);
         XformedPosition /= XformedPosition.w;
         vec2 SampleCoord = 0.5f * (XformedPosition.xy + 1.0f);
-        return texture(DepthMap, SampleCoord).xyz;
+        float Depth = texture(DepthMap, SampleCoord).r * 2.0f - 1.0f;
+        vec4 ClipPosition = vec4(XformedPosition.xy, Depth, 1.0f);
+        vec4 ViewPosition = inverse(Projection) * ClipPosition;
+        ViewPosition /= ViewPosition.w;
+        return ViewPosition.z;
     }
 
     vec3
@@ -713,8 +717,8 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
             vec4 ViewLastPosition = View * vec4(LastPosition, 1.0f);
             vec4 ViewPosition = View * vec4(Position, 1.0f);
 
-            float LastDepthSample = OffbeatSampleDepthMap(LastPosition).z;
-            float DepthSample = OffbeatSampleDepthMap(Position).z;
+            float LastDepthSample = OffbeatSampleDepthMap(LastPosition);
+            float DepthSample = OffbeatSampleDepthMap(Position);
 
             float LastDepthDiff = ViewLastPosition.z - LastDepthSample;
             float CurrentDepthDiff = ViewPosition.z - DepthSample;
