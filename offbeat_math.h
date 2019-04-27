@@ -537,13 +537,21 @@ operator*(om3 A, ov3 B)
 }
 
 inline om3
-ObIdentity()
+ObIdentity3()
 {
     om3 Result = {};
     Result._11 = 1.0f;
     Result._22 = 1.0f;
     Result._33 = 1.0f;
     return Result;
+}
+
+inline f32
+ObDeterminant(om3 M)
+{
+    return M._11 * (M._22 * M._33 - M._23 * M._32) -
+           M._12 * (M._21 * M._33 - M._23 * M._31) +
+           M._13 * (M._21 * M._32 - M._22 * M._31);
 }
 
 // NOTE(rytis): Credit goes to Inigo Quilez:
@@ -553,7 +561,7 @@ ObRotationAlign(ov3 Start, ov3 Destination)
 {
     if((ObLength(Start) == 0.0f) || (ObLength(Destination) == 0.0f))
     {
-        return ObIdentity();
+        return ObIdentity3();
     }
 
     // IMPORTANT(rytis): We assume that Start and Destination are normalized already.
@@ -579,6 +587,128 @@ ObRotationAlign(ov3 Start, ov3 Destination)
     Result._31 = Axis.x * Axis.z * K - Axis.y;
     Result._32 = Axis.y * Axis.z * K + Axis.x;
     Result._33 = Axis.z * Axis.z * K + CosTheta;
+
+    return Result;
+}
+
+// NOTE(rytis): m4 operations
+
+inline om4
+ObIdentity4()
+{
+    om4 Result = {};
+    Result._11 = 1.0f;
+    Result._22 = 1.0f;
+    Result._33 = 1.0f;
+    Result._44 = 1.0f;
+    return Result;
+}
+
+inline f32
+ObDeterminant(om4 M)
+{
+    return M._11 * (
+                   M._22 * (M._33 * M._44 - M._34 * M._43) -
+                   M._23 * (M._32 * M._44 - M._34 * M._42) +
+                   M._24 * (M._32 * M._43 - M._33 * M._42)
+                   ) -
+           M._12 * (
+                   M._21 * (M._33 * M._44 - M._34 * M._43) -
+                   M._23 * (M._31 * M._44 - M._34 * M._41) +
+                   M._24 * (M._31 * M._43 - M._33 * M._41)
+                   ) +
+           M._13 * (
+                   M._21 * (M._32 * M._44 - M._34 * M._42) -
+                   M._22 * (M._31 * M._44 - M._34 * M._41) +
+                   M._24 * (M._31 * M._42 - M._32 * M._41)
+                   ) -
+           M._14 * (
+                   M._21 * (M._32 * M._43 - M._33 * M._42) -
+                   M._22 * (M._31 * M._43 - M._33 * M._41) +
+                   M._23 * (M._31 * M._42 - M._32 * M._41)
+                   );
+}
+
+static om4
+ObInverse(om4 M)
+{
+    f32 Determinant = ObDeterminant(M);
+    if(Determinant == 0.0f)
+    {
+        return ObIdentity4();
+    }
+
+    f32 ID = 1.0f / Determinant;
+
+    om4 Result = {};
+
+    Result._11 = ID * (
+                 M._22 * (M._33 * M._44 - M._34 * M._43) -
+                 M._23 * (M._32 * M._44 - M._34 * M._42) +
+                 M._24 * (M._32 * M._43 - M._33 * M._42));
+    Result._12 = -ID * (
+                 M._12 * (M._33 * M._44 - M._34 * M._43) -
+                 M._13 * (M._32 * M._44 - M._34 * M._42) +
+                 M._14 * (M._32 * M._43 - M._33 * M._42));
+    Result._13 = ID * (
+                 M._12 * (M._23 * M._44 - M._24 * M._43) -
+                 M._13 * (M._22 * M._44 - M._24 * M._42) +
+                 M._14 * (M._22 * M._43 - M._23 * M._42));
+    Result._14 = -ID * (
+                 M._12 * (M._23 * M._34 - M._24 * M._33) -
+                 M._13 * (M._22 * M._34 - M._24 * M._32) +
+                 M._14 * (M._22 * M._33 - M._23 * M._32));
+
+    Result._21 = -ID * (
+                 M._21 * (M._33 * M._44 - M._34 * M._43) -
+                 M._23 * (M._31 * M._44 - M._34 * M._41) +
+                 M._24 * (M._31 * M._43 - M._33 * M._41));
+    Result._22 = ID * (
+                 M._11 * (M._33 * M._44 - M._34 * M._43) -
+                 M._13 * (M._31 * M._44 - M._34 * M._41) +
+                 M._14 * (M._31 * M._43 - M._33 * M._41));
+    Result._23 = -ID * (
+                 M._11 * (M._23 * M._44 - M._24 * M._43) -
+                 M._13 * (M._21 * M._44 - M._24 * M._41) +
+                 M._14 * (M._21 * M._43 - M._23 * M._41));
+    Result._24 = ID * (
+                 M._11 * (M._23 * M._34 - M._24 * M._33) -
+                 M._13 * (M._21 * M._34 - M._24 * M._31) +
+                 M._14 * (M._21 * M._33 - M._23 * M._31));
+
+    Result._31 = ID * (
+                 M._21 * (M._32 * M._44 - M._34 * M._42) -
+                 M._22 * (M._31 * M._44 - M._34 * M._41) +
+                 M._24 * (M._31 * M._42 - M._32 * M._41));
+    Result._32 = -ID * (
+                 M._11 * (M._32 * M._44 - M._34 * M._42) -
+                 M._12 * (M._31 * M._44 - M._34 * M._41) +
+                 M._14 * (M._31 * M._42 - M._32 * M._41));
+    Result._33 = ID * (
+                 M._11 * (M._22 * M._44 - M._24 * M._42) -
+                 M._12 * (M._21 * M._44 - M._24 * M._41) +
+                 M._14 * (M._21 * M._42 - M._22 * M._41));
+    Result._34 = -ID * (
+                 M._11 * (M._22 * M._34 - M._24 * M._32) -
+                 M._12 * (M._21 * M._34 - M._24 * M._31) +
+                 M._14 * (M._21 * M._32 - M._22 * M._31));
+
+    Result._41 = -ID * (
+                 M._21 * (M._32 * M._43 - M._33 * M._42) -
+                 M._22 * (M._31 * M._43 - M._33 * M._41) +
+                 M._23 * (M._31 * M._42 - M._32 * M._41));
+    Result._42 = ID * (
+                 M._11 * (M._32 * M._43 - M._33 * M._42) -
+                 M._12 * (M._31 * M._43 - M._33 * M._41) +
+                 M._13 * (M._31 * M._42 - M._32 * M._41));
+    Result._43 = -ID * (
+                 M._11 * (M._22 * M._43 - M._23 * M._42) -
+                 M._12 * (M._21 * M._43 - M._23 * M._41) +
+                 M._13 * (M._21 * M._42 - M._22 * M._41));
+    Result._44 = ID * (
+                 M._11 * (M._22 * M._33 - M._23 * M._32) -
+                 M._12 * (M._21 * M._33 - M._23 * M._31) +
+                 M._13 * (M._21 * M._32 - M._22 * M._31));
 
     return Result;
 }

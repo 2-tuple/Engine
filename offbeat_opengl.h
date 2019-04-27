@@ -118,6 +118,8 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
 
         mat4 View;
         mat4 Projection;
+        mat4 InverseView;
+        mat4 InverseProjection;
     };
 
     layout(binding = 1) readonly buffer random
@@ -662,7 +664,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
         vec2 SampleCoord = 0.5f * (XformedPosition.xy + 1.0f);
         float Depth = texture(DepthMap, SampleCoord).r * 2.0f - 1.0f;
         vec4 ClipPosition = vec4(XformedPosition.xy, Depth, 1.0f);
-        vec4 ViewPosition = inverse(Projection) * ClipPosition;
+        vec4 ViewPosition = InverseProjection * ClipPosition;
         ViewPosition /= ViewPosition.w;
         return ViewPosition.z;
     }
@@ -674,7 +676,7 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
         XformedPosition /= XformedPosition.w;
         vec2 SampleCoord = 0.5f * (XformedPosition.xy + 1.0f);
         vec3 Sample = texture(NormalMap, SampleCoord).xyz;
-        vec4 Normal = inverse(View) * vec4(Sample, 0.0f);
+        vec4 Normal = InverseView * vec4(Sample, 0.0f);
         return Normal.xyz;
     }
 
@@ -723,7 +725,6 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
             float LastDepthDiff = ViewLastPosition.z - LastDepthSample;
             float CurrentDepthDiff = ViewPosition.z - DepthSample;
 
-            // TODO(rytis): Fix bug related to empty depth buffer.
             if((LastDepthDiff > 0.0f) && (CurrentDepthDiff < 0.0f))
             {
                 Particle.IDRandomCollision.x = 0.0f;
@@ -922,8 +923,11 @@ OffbeatTranslateGlobalData(ob_particle_system* ParticleSystem)
     Result.DepthMap = OffbeatState->DepthMapHandle;
     Result.NormalMap = OffbeatState->NormalMapHandle;
 
-    Result.ViewMatrix = OffbeatState->ViewMatrix;
-    Result.ProjectionMatrix = OffbeatState->ProjectionMatrix;
+    Result.View = OffbeatState->ViewMatrix;
+    Result.Projection = OffbeatState->ProjectionMatrix;
+
+    Result.InverseView = ObInverse(OffbeatState->ViewMatrix);
+    Result.InverseProjection = ObInverse(OffbeatState->ProjectionMatrix);
 
     return Result;
 }

@@ -237,8 +237,10 @@ struct ob_global_data_aligned
     ov3 Vertical; f32 P2;
     ov3 CameraPosition; f32 P3;
     u64 DepthMap; u64 NormalMap;
-    om4 ViewMatrix;
-    om4 ProjectionMatrix;
+    om4 View;
+    om4 Projection;
+    om4 InverseView;
+    om4 InverseProjection;
 };
 
 struct ob_emission_uniform_aligned
