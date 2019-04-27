@@ -6,8 +6,6 @@ out vec4 FragColor;
 
 in vec2 TexCoords;
 
-uniform float cameraNearPlane;
-uniform float cameraFarPlane;
 uniform float density;
 uniform float gradient;
 uniform float fogColor;

@@ -437,10 +437,6 @@ PerformPostProcessing(game_state* GameState)
   {
     GLuint RenderNormalMapShaderID = GameState->Resources.GetShader(GameState->R.RenderNormalMap);
     glUseProgram(RenderNormalMapShaderID);
-    glUniform1f(glGetUniformLocation(RenderNormalMapShaderID, "cameraNearPlane"),
-                GameState->Camera.NearClipPlane);
-    glUniform1f(glGetUniformLocation(RenderNormalMapShaderID, "cameraFarPlane"),
-                GameState->Camera.FarClipPlane);
     BindNextFramebuffer(GameState->R.ScreenFBOs, &GameState->R.CurrentFramebuffer);
 
     // Need this to keep current framebuffer and texture in sync

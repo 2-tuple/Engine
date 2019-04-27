@@ -654,6 +654,26 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
         return Result;
     }
 
+    vec3
+    OffbeatSampleDepthMap(vec3 Position)
+    {
+        vec4 XformedPosition = Projection * View * vec4(Position, 1.0f);
+        XformedPosition /= XformedPosition.w;
+        vec2 SampleCoord = 0.5f * (XformedPosition.xy + 1.0f);
+        return texture(DepthMap, SampleCoord).xyz;
+    }
+
+    vec3
+    OffbeatSampleNormalMap(vec3 Position)
+    {
+        vec4 XformedPosition = Projection * View * vec4(Position, 1.0f);
+        XformedPosition /= XformedPosition.w;
+        vec2 SampleCoord = 0.5f * (XformedPosition.xy + 1.0f);
+        vec3 Sample = texture(NormalMap, SampleCoord).xyz;
+        vec4 Normal = inverse(View) * vec4(Sample, 0.0f);
+        return Normal.xyz;
+    }
+
     void
     main()
     {
@@ -681,24 +701,53 @@ OffbeatCreateComputePrograms(GLuint* SpawnProgram, GLuint* UpdateProgram, GLuint
         Globals.MotionLineDirection = OffbeatEvaluateExpression(Motion.LineDirection, Particle).xyz;
         Globals.MotionSphereRadius = OffbeatEvaluateExpression(Motion.SphereRadius, Particle).x;
 
-        if(Globals.MotionCollision == 1)
-        {
-            vec3 LastPosition = Particle.PositionAge.xyz;
-            vec3 XformedLastPosition = (Projection * View * vec4(LastPosition, 1.0f)).xyz;
-            float LastFrameDepthSample = texture(DepthMap, XformedLastPosition.xy).r;
-
-            if(LastFrameDepthSample > XformedLastPosition.z)
-            {
-            }
-            else
-            {
-            }
-        }
-
         vec3 Acceleration = OffbeatUpdateParticleAcceleration(Particle);
         vec3 Position = Particle.PositionAge.xyz + 0.5f * dt * dt * Acceleration +
                         dt * Particle.VelocityDeltaAge.xyz;
         vec3 Velocity = Particle.VelocityDeltaAge.xyz + dt * Acceleration;
+
+#if 1
+        if(Globals.MotionCollision == 1)
+        {
+            vec3 LastPosition = Particle.PositionAge.xyz;
+            vec4 ViewLastPosition = View * vec4(LastPosition, 1.0f);
+            vec4 ViewPosition = View * vec4(Position, 1.0f);
+
+            float LastDepthSample = OffbeatSampleDepthMap(LastPosition).z;
+            float DepthSample = OffbeatSampleDepthMap(Position).z;
+
+            float LastDepthDiff = ViewLastPosition.z - LastDepthSample;
+            float CurrentDepthDiff = ViewPosition.z - DepthSample;
+
+            // TODO(rytis): Fix bug related to empty depth buffer.
+            if((LastDepthDiff > 0.0f) && (CurrentDepthDiff < 0.0f))
+            {
+                Particle.IDRandomCollision.x = 0.0f;
+                CurrentDepthDiff = -CurrentDepthDiff;
+
+                // TODO(rytis): Test if depth is of the same/similar surface. Return if it isn't.
+                vec3 PositionDiff = Position - LastPosition;
+
+                // TODO(rytis): Verify that this is correct. Or fix it.
+                float Numer = length(PositionDiff) - CurrentDepthDiff / LastDepthDiff;
+                float Denom = 1.0f + 1.0f / LastDepthDiff;
+                float t = Numer / Denom;
+
+                vec3 CollisionPoint = LastPosition + PositionDiff * t;
+                vec3 CollisionNormal = normalize(OffbeatSampleNormalMap(CollisionPoint));
+                vec3 ReflectedVelocity = reflect(Velocity, CollisionNormal);
+
+                // TODO(rytis): Maybe simulate the remaining time. (dt *= 1.0f - t)?.
+                Position = CollisionPoint;
+                Velocity = ReflectedVelocity;
+                Particle.IDRandomCollision.z += 1.0f;
+            }
+            else if((LastDepthDiff <= 0.0f) && (CurrentDepthDiff >= 0.0f))
+            {
+                return;
+            }
+        }
+#endif
 
         uint NewIndex = ParticleSpawnCount + atomicCounterIncrement(UpdatedParticleCount);
         OutputParticles[NewIndex] = ob_particle(
@@ -927,6 +976,7 @@ OffbeatTranslateMotion(ob_motion* Motion)
     Result.Gravity = Motion->Gravity;
     Result.Drag = Motion->Drag;
     Result.Strength = Motion->Strength;
+    Result.Collision = Motion->Collision;
 
     Result.Primitive = Motion->Primitive;
     Result.Position = Motion->Position;

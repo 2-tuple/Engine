@@ -22,7 +22,9 @@ typedef double f64;
 typedef uintptr_t umm;
 
 /* TODO(rytis):
+ * Change over to SOA for faster processing.
  *
+ * PROBABLY NOT NECESSARY:
  * Add memory alignment (16 byte, preferably changeable with macro or function parameter)
  * in OffbeatInit and memory manager.
  *
@@ -81,8 +83,7 @@ struct ob_particle
     f32 dAge;
     f32 ID;
     f32 Random;
-    f32 CameraDistance;
-    f32 Padding[1];
+    f32 Padding[2];
 };
 
 enum ob_function
@@ -414,6 +415,7 @@ OFFBEAT_API void OffbeatSetTextureFunction(ob_texture (*TextureFunction)(void*, 
 
 // NOTE(rytis): Init.
 OFFBEAT_API ob_state* OffbeatAllocate(void* Memory, u64 MemorySize);
+// NOTE(rytis): View space maps.
 OFFBEAT_API void OffbeatInitGeometryTextures(ob_texture DepthMap, ob_texture NormalMap);
 OFFBEAT_API void OffbeatAddTexture(ob_texture Texture);
 OFFBEAT_API void OffbeatGenerateTextureArray();

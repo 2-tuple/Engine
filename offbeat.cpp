@@ -989,7 +989,6 @@ OffbeatSpawnParticles(ob_particle* Particles, ob_particle_system* ParticleSystem
         ob_particle* Particle = Particles + ParticleIndex;
 
         Particle->Random = ObRandomUnilateral(Entropy);
-        Particle->CameraDistance = ObLength(*CameraPosition - Particle->P);
         Particle->ID = (f32)(*RunningParticleID)++;
 
         Particle->P = OffbeatParticleInitialPosition(Entropy, Emission, Particle);
@@ -1070,7 +1069,6 @@ OffbeatUpdateParticleSystem(ob_particle* Particles, ob_particle_system* Particle
 
         UpdatedParticle->P += 0.5f * ObSquare(dt) * ddP + dt * UpdatedParticle->dP;
         UpdatedParticle->dP += dt * ddP;
-        UpdatedParticle->CameraDistance = ObLength(*CameraPosition - UpdatedParticle->P);
         ++UpdatedParticle;
     }
 
