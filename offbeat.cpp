@@ -133,7 +133,7 @@ OffbeatAddTexture(u32 Texture)
 }
 
 ob_file_data
-OffbeatPackParticleSystem(u32 ParticleSystemIndex)
+OffbeatPackParticleSystemBytes(u32 ParticleSystemIndex)
 {
     OffbeatAssert(ParticleSystemIndex < OFFBEAT_PARTICLE_SYSTEM_COUNT);
     ob_file_data Result = {};
@@ -163,15 +163,15 @@ OffbeatPackParticleSystem(u32 ParticleSystemIndex)
 }
 
 ob_file_data
-OffbeatPackCurrentParticleSystem()
+OffbeatPackCurrentParticleSystemBytes()
 {
-    return OffbeatPackParticleSystem(OffbeatState->CurrentParticleSystem);
+    return OffbeatPackParticleSystemBytes(OffbeatState->CurrentParticleSystem);
 }
 
 b32
-OffbeatUnpackParticleSystem(ob_particle_system* Result, void* PackedMemory)
+OffbeatUnpackParticleSystem(ob_particle_system* Result, void* PackedBytes)
 {
-    u32* U32Memory = (u32*)PackedMemory;
+    u32* U32Memory = (u32*)PackedBytes;
     if((U32Memory[0] != 0x0F) &&
        (U32Memory[1] != 0xFB) &&
        (U32Memory[2] != 0xEA) &&
@@ -195,6 +195,57 @@ OffbeatUnpackParticleSystem(ob_particle_system* Result, void* PackedMemory)
     ob_appearance* AppearanceMemory = (ob_appearance*)MotionMemory;
     Result->Appearance = *AppearanceMemory;
     ++AppearanceMemory;
+
+    // TODO(rytis): Avoid this somehow???
+#ifdef OFFBEAT_OPENGL_COMPUTE
+    glGenBuffers(1, &Result->ParticleSSBO);
+    glGenBuffers(1, &Result->OldParticleSSBO);
+#endif
+
+    return true;
+}
+
+ob_packed_particle_system
+OffbeatPackParticleSystemStruct(u32 ParticleSystemIndex)
+{
+    OffbeatAssert(ParticleSystemIndex < OFFBEAT_PARTICLE_SYSTEM_COUNT);
+    ob_packed_particle_system Result = {};
+
+    ob_particle_system* ParticleSystem = &OffbeatState->ParticleSystems[ParticleSystemIndex];
+
+    Result.Header[0] = 0x0F;
+    Result.Header[1] = 0xFB;
+    Result.Header[2] = 0xEA;
+    Result.Header[3] = 0x70;
+    Result.UseGPU = ParticleSystem->UseGPU;
+    Result.Emission = ParticleSystem->Emission;
+    Result.Motion = ParticleSystem->Motion;
+    Result.Appearance = ParticleSystem->Appearance;
+
+    return Result;
+}
+
+ob_packed_particle_system
+OffbeatPackCurrentParticleSystemStruct()
+{
+    return OffbeatPackParticleSystemStruct(OffbeatState->CurrentParticleSystem);
+}
+
+b32
+OffbeatUnpackParticleSystem(ob_particle_system* Result, ob_packed_particle_system* PackedStruct)
+{
+    if((PackedStruct->Header[0] != 0x0F) &&
+       (PackedStruct->Header[1] != 0xFB) &&
+       (PackedStruct->Header[2] != 0xEA) &&
+       (PackedStruct->Header[3] != 0x70))
+    {
+        return false;
+    }
+
+    Result->UseGPU = PackedStruct->UseGPU;
+    Result->Emission = PackedStruct->Emission;
+    Result->Motion = PackedStruct->Motion;
+    Result->Appearance = PackedStruct->Appearance;
 
     // TODO(rytis): Avoid this somehow???
 #ifdef OFFBEAT_OPENGL_COMPUTE
@@ -692,7 +743,9 @@ OffbeatNewParticleSystem(u32* Index)
 void
 OffbeatAddParticleSystem(ob_particle_system* NewParticleSystem)
 {
+    OffbeatAssert(OffbeatState->ParticleSystemCount + 1 <= OFFBEAT_PARTICLE_SYSTEM_COUNT);
     OffbeatState->CurrentParticleSystem = OffbeatState->ParticleSystemCount;
+    OffbeatState->ParticleSystems[OffbeatState->ParticleSystemCount] = {};
     OffbeatState->ParticleSystems[OffbeatState->ParticleSystemCount++] = *NewParticleSystem;
 
     ob_draw_list NewDrawList;
@@ -703,6 +756,10 @@ OffbeatAddParticleSystem(ob_particle_system* NewParticleSystem)
 void
 OffbeatRemoveParticleSystem(u32 Index)
 {
+    if(OffbeatState->ParticleSystemCount == 0)
+    {
+        return;
+    }
     OffbeatCleanupParticleSystem(&OffbeatState->ParticleSystems[Index]);
     OffbeatCleanupDrawList(&OffbeatState->DrawData.DrawLists[Index]);
     for(u32 i = Index; i < OffbeatState->ParticleSystemCount - 1; ++i)
@@ -722,6 +779,19 @@ void
 OffbeatRemoveCurrentParticleSystem()
 {
     OffbeatRemoveParticleSystem(OffbeatState->CurrentParticleSystem);
+}
+
+void
+OffbeatRemoveAllParticleSystems()
+{
+    for(u32 i = 0; i < OffbeatState->ParticleSystemCount; ++i)
+    {
+        OffbeatCleanupParticleSystem(&OffbeatState->ParticleSystems[i]);
+        OffbeatCleanupDrawList(&OffbeatState->DrawData.DrawLists[i]);
+    }
+    OffbeatState->ParticleSystemCount = 0;
+    OffbeatState->DrawData.DrawListCount = 0;
+    OffbeatState->CurrentParticleSystem = 0;
 }
 
 ob_particle_system*

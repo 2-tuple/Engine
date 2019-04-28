@@ -97,7 +97,7 @@ OffbeatGUIAddFrameInfo(uint32_t TotalParticleCount, int64_t CycleCount, float Mi
 void
 OffbeatExportCurrentParticleSystem(char* Path)
 {
-    ob_file_data FileData = OffbeatPackCurrentParticleSystem();
+    ob_file_data FileData = OffbeatPackCurrentParticleSystemBytes();
     Platform::WriteEntireFile(Path, FileData.Size, FileData.Data);
 }
 
@@ -221,7 +221,7 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
 {
     ob_state* OffbeatState = GameState->OffbeatState;
     // TODO(rytis): Handle the case when ParticleSystemCount is zero.
-    static ob_particle_system* ParticleSystem = &OffbeatState->ParticleSystems[0];
+    ob_particle_system* ParticleSystem = OffbeatGetCurrentParticleSystem();
     UI::BeginWindow("Offbeat Window", {25, 25}, {500, 800});
     {
         static u32 s_OffbeatCurrentParticleSystem = 0;

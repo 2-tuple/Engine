@@ -71,8 +71,8 @@ typedef u32 ob_program;
 
 struct ob_file_data
 {
-    void* Data;
     u64 Size;
+    void* Data;
 };
 
 struct ob_particle
@@ -226,6 +226,15 @@ struct ob_particle_system
     GLuint ParticleSSBO;
     GLuint OldParticleSSBO;
 #endif
+};
+
+struct ob_packed_particle_system
+{
+    u32 Header[4];
+    b32 UseGPU;
+    ob_emission Emission;
+    ob_motion Motion;
+    ob_appearance Appearance;
 };
 
 // NOTE(rytis): Aligned vvv
@@ -428,6 +437,7 @@ OFFBEAT_API ob_particle_system* OffbeatNewParticleSystem(u32* Index = 0);
 OFFBEAT_API void OffbeatRemoveParticleSystem(u32 Index);
 OFFBEAT_API void OffbeatAddParticleSystem(ob_particle_system* NewParticleSystem);
 OFFBEAT_API void OffbeatRemoveCurrentParticleSystem();
+OFFBEAT_API void OffbeatRemoveAllParticleSystems();
 OFFBEAT_API ob_particle_system* OffbeatGetCurrentParticleSystem();
 OFFBEAT_API ob_particle_system* OffbeatPreviousParticleSystem();
 OFFBEAT_API ob_particle_system* OffbeatNextParticleSystem();
@@ -444,7 +454,12 @@ OFFBEAT_API ob_draw_data* OffbeatGetDrawData();
 OFFBEAT_API ob_draw_data_debug* OffbeatGetDebugDrawData();
 OFFBEAT_API void OffbeatRenderParticles();
 
-// NOTE(rytis): Particle system pack/unpack.
-OFFBEAT_API ob_file_data OffbeatPackParticleSystem(u32 ParticleSystemIndex);
-OFFBEAT_API ob_file_data OffbeatPackCurrentParticleSystem();
-OFFBEAT_API b32 OffbeatUnpackParticleSystem(ob_particle_system* Result, void* PackedMemory);
+// NOTE(rytis): Particle system pack/unpack as bytes.
+OFFBEAT_API ob_file_data OffbeatPackParticleSystemBytes(u32 ParticleSystemIndex);
+OFFBEAT_API ob_file_data OffbeatPackCurrentParticleSystemBytes();
+OFFBEAT_API b32 OffbeatUnpackParticleSystem(ob_particle_system* Result, void* PackedBytes);
+
+// NOTE(rytis): Particle system pack/unpack as struct.
+OFFBEAT_API ob_packed_particle_system OffbeatPackParticleSystemStruct(u32 ParticleSystemIndex);
+OFFBEAT_API ob_packed_particle_system OffbeatPackCurrentParticleSystemStruct();
+OFFBEAT_API b32 OffbeatUnpackParticleSystem(ob_particle_system* Result, ob_packed_particle_system* PackedStruct);
