@@ -425,9 +425,8 @@ OFFBEAT_API void OffbeatSetAllocatorFunctions(void* (*Malloc)(u64), void (*Free)
 OFFBEAT_API void OffbeatSetTextureFunction(ob_texture (*TextureFunction)(void*, u32, u32));
 
 // NOTE(rytis): Init.
-OFFBEAT_API ob_state* OffbeatAllocate(void* Memory, u64 MemorySize);
-// NOTE(rytis): View space maps.
-OFFBEAT_API void OffbeatInitGeometryTextures(ob_texture DepthMap, ob_texture NormalMap);
+OFFBEAT_API ob_state* OffbeatSetupMemory(void* Memory, u64 MemorySize);
+OFFBEAT_API void OffbeatInitGeometryTextures(ob_texture ViewSpaceDepthMap, ob_texture ViewSpaceNormalMap);
 OFFBEAT_API void OffbeatAddTexture(ob_texture Texture);
 OFFBEAT_API void OffbeatGenerateTextureArray();
 OFFBEAT_API void OffbeatInit();

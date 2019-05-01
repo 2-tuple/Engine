@@ -533,7 +533,7 @@ OffbeatGetDebugDrawData()
 #endif
 
 ob_state*
-OffbeatAllocate(void* Memory, u64 MemorySize)
+OffbeatSetupMemory(void* Memory, u64 MemorySize)
 {
     u64 StateSize = sizeof(ob_state);
     OffbeatAssert(MemorySize >= StateSize);
@@ -797,6 +797,7 @@ OffbeatRemoveAllParticleSystems()
 ob_particle_system*
 OffbeatGetCurrentParticleSystem()
 {
+    // TODO(rytis): Return 0 if there are no particle systems?
     return &OffbeatState->ParticleSystems[OffbeatState->CurrentParticleSystem];
 }
 
@@ -1282,7 +1283,7 @@ OffbeatUpdateProjectionMatrix(f32 RowMajorMatrix[16])
 }
 
 void
-OffbeatInitGeometryTextures(ob_texture DepthMap, ob_texture NormalMap)
+OffbeatInitGeometryTextures(ob_texture ViewSpaceDepthMap, ob_texture ViewSpaceNormalMap)
 {
     OffbeatAssert(glGetTextureHandleARB != 0);
     if(OffbeatState->GeometryTexturesLoaded)
@@ -1290,10 +1291,10 @@ OffbeatInitGeometryTextures(ob_texture DepthMap, ob_texture NormalMap)
         return;
     }
 
-    OffbeatState->DepthMapHandle = glGetTextureHandleARB(DepthMap);
+    OffbeatState->DepthMapHandle = glGetTextureHandleARB(ViewSpaceDepthMap);
     glMakeTextureHandleResidentARB(OffbeatState->DepthMapHandle);
 
-    OffbeatState->NormalMapHandle = glGetTextureHandleARB(NormalMap);
+    OffbeatState->NormalMapHandle = glGetTextureHandleARB(ViewSpaceNormalMap);
     glMakeTextureHandleResidentARB(OffbeatState->NormalMapHandle);
 
     OffbeatState->GeometryTexturesLoaded = true;

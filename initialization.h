@@ -430,8 +430,8 @@ SetGameStatePODFields(game_state* GameState)
 
     GameState->OffbeatMemorySize = Mibibytes(50);
     GameState->OffbeatState =
-      OffbeatAllocate(GameState->PersistentMemStack->Alloc(GameState->OffbeatMemorySize),
-                      GameState->OffbeatMemorySize);
+      OffbeatSetupMemory(GameState->PersistentMemStack->Alloc(GameState->OffbeatMemorySize),
+                         GameState->OffbeatMemorySize);
 
     char PathStart[] = "data/textures/particle_";
     int PathStartLength = strlen(PathStart);

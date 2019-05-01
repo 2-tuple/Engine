@@ -212,6 +212,7 @@ ImportScene(game_state* GameState, const char* Path)
   // Apply saved rid and path pairings to resource manager
   GameState->Resources.WipeAllModelData();
   GameState->Resources.WipeAllAnimationData();
+  // TODO(rytis): Uncomment this and solve the Offbeat texture problem.
   // GameState->Resources.WipeAllTextureData();
   GameState->Resources.WipeAllMaterialData();
   OffbeatRemoveAllParticleSystems();
