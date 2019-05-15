@@ -300,13 +300,6 @@ struct ob_draw_vertex_aligned
 };
 // NOTE(rytis): Aligned ^^^
 
-struct ob_camera
-{
-    ov3 Position;
-    ov3 Forward;
-    ov3 Right;
-};
-
 struct ob_quad_data
 {
     ov3 Horizontal;

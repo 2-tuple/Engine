@@ -568,9 +568,13 @@ OffbeatSetupMemory(void* Memory, u64 MemorySize)
     return OffbeatState;
 }
 
+// TODO(rytis): Remove the tests.
+#include "offbeat_tests.h"
+
 void
 OffbeatInit()
 {
+    OffbeatRunTests();
     // NOTE(rytis): Additional texture generation.
     {
         u32 Width = 1000;

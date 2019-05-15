@@ -22,7 +22,7 @@ union ov2
         f32 u, v;
     };
 
-    float E[2];
+    f32 E[2];
 };
 
 union ov3
@@ -32,7 +32,7 @@ union ov3
         f32 x, y, z;
     };
 
-    float E[3];
+    f32 E[3];
 };
 
 union ov4
@@ -56,7 +56,7 @@ union ov4
         f32 r, g, b, a;
     };
 
-    float E[4];
+    f32 E[4];
 };
 
 // NOTE(rytis): Matrices are ROW MAJOR (E[ROW][COLUMN])!!!
@@ -537,12 +537,12 @@ operator*(om3 A, ov3 B)
 }
 
 inline om3
-ObIdentity3()
+ObIdentity3(f32 Scale = 1.0f)
 {
     om3 Result = {};
-    Result._11 = 1.0f;
-    Result._22 = 1.0f;
-    Result._33 = 1.0f;
+    Result._11 = Scale;
+    Result._22 = Scale;
+    Result._33 = Scale;
     return Result;
 }
 
@@ -594,13 +594,13 @@ ObRotationAlign(ov3 Start, ov3 Destination)
 // NOTE(rytis): m4 operations
 
 inline om4
-ObIdentity4()
+ObIdentity4(f32 Scale = 1.0f)
 {
     om4 Result = {};
-    Result._11 = 1.0f;
-    Result._22 = 1.0f;
-    Result._33 = 1.0f;
-    Result._44 = 1.0f;
+    Result._11 = Scale;
+    Result._22 = Scale;
+    Result._33 = Scale;
+    Result._44 = Scale;
     return Result;
 }
 

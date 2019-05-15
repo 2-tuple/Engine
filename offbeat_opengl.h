@@ -1337,7 +1337,7 @@ OffbeatRenderParticles()
 #ifdef OFFBEAT_DEBUG
     // NOTE(rytis): Draw debug data.
     ob_draw_data_debug* DebugDrawData = OffbeatGetDebugDrawData();
-    for(int i = 0; i < DebugDrawData->DrawListCount; ++i)
+    for(u32 i = 0; i < DebugDrawData->DrawListCount; ++i)
     {
         glBufferData(GL_ARRAY_BUFFER,
                      DebugDrawData->DrawLists[i].VertexCount * sizeof(ob_draw_vertex),
@@ -1356,7 +1356,7 @@ OffbeatRenderParticles()
     // NOTE(rytis): Draw particles.
     glDepthMask(GL_FALSE);
     ob_draw_data* DrawData = &OffbeatState->DrawData;
-    for(int i = 0; i < DrawData->DrawListCount; ++i)
+    for(u32 i = 0; i < DrawData->DrawListCount; ++i)
     {
         ob_draw_list* DrawList = DrawData->DrawLists + i;
 
