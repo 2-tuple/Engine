@@ -762,6 +762,7 @@ OffbeatRemoveParticleSystem(u32 Index)
 {
     if(OffbeatState->ParticleSystemCount == 0)
     {
+        OffbeatState->CurrentParticleSystem = 0;
         return;
     }
     OffbeatCleanupParticleSystem(&OffbeatState->ParticleSystems[Index]);
@@ -775,7 +776,14 @@ OffbeatRemoveParticleSystem(u32 Index)
     --OffbeatState->DrawData.DrawListCount;
     if(OffbeatState->CurrentParticleSystem >= OffbeatState->ParticleSystemCount)
     {
-        --OffbeatState->CurrentParticleSystem;
+        if(OffbeatState->ParticleSystemCount == 0)
+        {
+            OffbeatState->CurrentParticleSystem = 0;
+        }
+        else
+        {
+            --OffbeatState->CurrentParticleSystem;
+        }
     }
 }
 

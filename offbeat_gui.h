@@ -340,6 +340,10 @@ OffbeatWindow(game_state* GameState, const game_input* Input)
             OffbeatExportCurrentParticleSystem(Path);
         }
 
+        bool DrawDebugData = OffbeatState->DrawDebugData;
+        UI::Checkbox("Draw Debug", &DrawDebugData);
+        OffbeatState->DrawDebugData = DrawDebugData;
+
         bool UseGPU = ParticleSystem->UseGPU;
         UI::Checkbox("Use GPU", &UseGPU);
         if(UseGPU != (bool)ParticleSystem->UseGPU)

@@ -1335,21 +1335,24 @@ OffbeatRenderParticles()
     }
 
 #ifdef OFFBEAT_DEBUG
-    // NOTE(rytis): Draw debug data.
-    ob_draw_data_debug* DebugDrawData = OffbeatGetDebugDrawData();
-    for(u32 i = 0; i < DebugDrawData->DrawListCount; ++i)
+    if(OffbeatState->DrawDebugData)
     {
-        glBufferData(GL_ARRAY_BUFFER,
-                     DebugDrawData->DrawLists[i].VertexCount * sizeof(ob_draw_vertex),
-                     DebugDrawData->DrawLists[i].Vertices,
-                     GL_STATIC_DRAW);
+        // NOTE(rytis): Draw debug data.
+        ob_draw_data_debug* DebugDrawData = OffbeatGetDebugDrawData();
+        for(u32 i = 0; i < DebugDrawData->DrawListCount; ++i)
+        {
+            glBufferData(GL_ARRAY_BUFFER,
+                         DebugDrawData->DrawLists[i].VertexCount * sizeof(ob_draw_vertex),
+                         DebugDrawData->DrawLists[i].Vertices,
+                         GL_STATIC_DRAW);
 
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                     DebugDrawData->DrawLists[i].IndexCount * sizeof(uint32_t),
-                     DebugDrawData->DrawLists[i].Indices,
-                     GL_STATIC_DRAW);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                         DebugDrawData->DrawLists[i].IndexCount * sizeof(uint32_t),
+                         DebugDrawData->DrawLists[i].Indices,
+                         GL_STATIC_DRAW);
 
-        glDrawElements(GL_TRIANGLES, DebugDrawData->DrawLists[i].IndexCount, GL_UNSIGNED_INT, 0);
+            glDrawElements(GL_TRIANGLES, DebugDrawData->DrawLists[i].IndexCount, GL_UNSIGNED_INT, 0);
+        }
     }
 #endif
 

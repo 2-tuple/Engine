@@ -22,18 +22,18 @@
 #define BCYAN    "\x1B[96m"
 #define BWHITE   "\x1B[97m"
 
-struct string
+struct test_string
 {
     char S[300];
 };
 
-u32 GTotalTestCount;
-u32 GTotalPassedCount;
-u32 GCurrentTestCount;
-u32 GPassedTestCount;
+static u32 GTotalTestCount;
+static u32 GTotalPassedCount;
+static u32 GCurrentTestCount;
+static u32 GPassedTestCount;
 
-u32 GFailedTestCount;
-string GFailedTests[100];
+static u32 GFailedTestCount;
+static test_string GFailedTests[100];
 
 #define OffbeatTest(FunctionPointer, ExpectedResult, ...) OffbeatTest_(#FunctionPointer, #__VA_ARGS__, ExpectedResult, FunctionPointer(##__VA_ARGS__))
 void
