@@ -129,10 +129,27 @@ main()
     }
   }
   // --------SHADOW--------
-  float shadow = ShadowCalculation(frag.position,  cascadeIndex, normal,
-        (cascadeIndex == 0) ? shadowMap_0 :
-                             (cascadeIndex == 1) ? shadowMap_1 :
-			                           (cascadeIndex == 2) ? shadowMap_2 : shadowMap_3);
+  float shadow;
+  switch(cascadeIndex)
+  {
+      default:
+      {
+          shadow = ShadowCalculation(frag.position, cascadeIndex, normal, shadowMap_0);
+      } break;
+      case 1:
+      {
+          shadow = ShadowCalculation(frag.position, cascadeIndex, normal, shadowMap_1);
+      } break;
+      case 2:
+      {
+          shadow = ShadowCalculation(frag.position, cascadeIndex, normal, shadowMap_2);
+      } break;
+      case 3:
+      {
+          shadow = ShadowCalculation(frag.position, cascadeIndex, normal, shadowMap_3);
+      } break;
+  }
+
   float lighting = 1.0f - shadow;
 
   vec3 point_half_vector = normalize(lightDir + viewDir);
