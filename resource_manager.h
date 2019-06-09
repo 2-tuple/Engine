@@ -50,6 +50,7 @@ namespace Resource
     int32_t DiffedShaderCount;
     int32_t DiffedMMParamCount;
     int32_t DiffedMMControllerCount;
+    int32_t DiffedParticleSystemCount;
 
     file_stat ModelStats[RESOURCE_MAX_COUNT];
     file_stat TextureStats[RESOURCE_MAX_COUNT];
@@ -59,6 +60,7 @@ namespace Resource
     file_stat ShaderStats[RESOURCE_MAX_COUNT];
     file_stat MMParamStats[RESOURCE_MAX_COUNT];
     file_stat MMControllerStats[RESOURCE_MAX_COUNT];
+    file_stat ParticleSystemStats[RESOURCE_MAX_COUNT];
 
     bool LoadModel(rid RID);
     bool LoadTexture(rid RID);
@@ -96,6 +98,7 @@ namespace Resource
     path ScenePaths[RESOURCE_MAX_COUNT];
     path MMParamPaths[RESOURCE_MAX_COUNT];
     path MMControllerPaths[RESOURCE_MAX_COUNT];
+    path ParticleSystemPaths[RESOURCE_MAX_COUNT];
 
     int32_t ModelPathCount;
     int32_t TexturePathCount;
@@ -105,6 +108,7 @@ namespace Resource
     int32_t ScenePathCount;
     int32_t MMParamPathCount;
     int32_t MMControllerPathCount;
+    int32_t ParticleSystemPathCount;
 
     rid UpdateOrCreateMMController(mm_controller_data* ControllerData, size_t Size,
                                    const char* Path);

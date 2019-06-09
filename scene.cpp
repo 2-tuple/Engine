@@ -36,6 +36,9 @@ struct scene
   int32_t        MMControllerCount;
   rid_path_pair* MMControllerIDPaths;
 
+  int32_t                    ParticleSystemCount;
+  ob_packed_particle_system* PackedParticleSystems;
+
   // AuxillaryElements
   mm_entity_data MMEntityData;
   spline_system  SplineSystem;
@@ -179,17 +182,32 @@ ExportScene(game_state* GameState, const char* Path)
   memcpy(&Scene->MMEntityData, &GameState->MMEntityData, sizeof(mm_entity_data));
   memcpy(&Scene->SplineSystem, &GameState->SplineSystem, sizeof(spline_system));
 
+  Scene->ParticleSystemCount = GameState->OffbeatState->ParticleSystemCount;
+  Scene->PackedParticleSystems = (ob_packed_particle_system*)GameState->TemporaryMemStack->GetMarker().Address;
+  for(int i = 0; i < Scene->ParticleSystemCount; ++i)
+  {
+    ob_packed_particle_system* PackedParticleSystem = PushStruct(GameState->TemporaryMemStack,
+                                                                 ob_packed_particle_system);
+    *PackedParticleSystem = OffbeatPackParticleSystemStruct(i);
+  }
+
+  if(!Scene->ParticleSystemCount)
+  {
+    Scene->PackedParticleSystems = NULL;
+  }
+
   // Saving camera and light parameters
   Scene->Camera              = GameState->Camera;
   Scene->LightPosition       = GameState->R.LightPosition;
   Scene->SelectedEntityIndex = GameState->SelectedEntityIndex;
 
-  Scene->Entities            = (entity*)((uint64_t)Scene->Entities - AssetBase);
-  Scene->AnimPlayers         = (Anim::animation_player*)((uint64_t)Scene->AnimPlayers - AssetBase);
-  Scene->ModelIDPaths        = (rid_path_pair*)((uint64_t)Scene->ModelIDPaths - AssetBase);
-  Scene->AnimationIDPaths    = (rid_path_pair*)((uint64_t)Scene->AnimationIDPaths - AssetBase);
-  Scene->MaterialIDPaths     = (rid_path_pair*)((uint64_t)Scene->MaterialIDPaths - AssetBase);
-  Scene->MMControllerIDPaths = (rid_path_pair*)((uint64_t)Scene->MMControllerIDPaths - AssetBase);
+  Scene->Entities              = (entity*)((uint64_t)Scene->Entities - AssetBase);
+  Scene->AnimPlayers           = (Anim::animation_player*)((uint64_t)Scene->AnimPlayers - AssetBase);
+  Scene->ModelIDPaths          = (rid_path_pair*)((uint64_t)Scene->ModelIDPaths - AssetBase);
+  Scene->AnimationIDPaths      = (rid_path_pair*)((uint64_t)Scene->AnimationIDPaths - AssetBase);
+  Scene->MaterialIDPaths       = (rid_path_pair*)((uint64_t)Scene->MaterialIDPaths - AssetBase);
+  Scene->MMControllerIDPaths   = (rid_path_pair*)((uint64_t)Scene->MMControllerIDPaths - AssetBase);
+  Scene->PackedParticleSystems = (ob_packed_particle_system*)((uint64_t)Scene->PackedParticleSystems - AssetBase);
 
   uint32_t TotalSize = GameState->TemporaryMemStack->GetUsedSize();
 
@@ -224,20 +242,23 @@ ImportScene(game_state* GameState, const char* Path)
     Scene->Entities[e].MaterialIDs = (rid*)((uint64_t)Scene->Entities[e].MaterialIDs + AssetBase);
   }
 
-  Scene->AnimPlayers         = (Anim::animation_player*)((uint64_t)Scene->AnimPlayers + AssetBase);
-  Scene->ModelIDPaths        = (rid_path_pair*)((uint64_t)Scene->ModelIDPaths + AssetBase);
-  Scene->AnimationIDPaths    = (rid_path_pair*)((uint64_t)Scene->AnimationIDPaths + AssetBase);
-  Scene->MaterialIDPaths     = (rid_path_pair*)((uint64_t)Scene->MaterialIDPaths + AssetBase);
-  Scene->MMControllerIDPaths = (rid_path_pair*)((uint64_t)Scene->MMControllerIDPaths + AssetBase);
+  Scene->AnimPlayers           = (Anim::animation_player*)((uint64_t)Scene->AnimPlayers + AssetBase);
+  Scene->ModelIDPaths          = (rid_path_pair*)((uint64_t)Scene->ModelIDPaths + AssetBase);
+  Scene->AnimationIDPaths      = (rid_path_pair*)((uint64_t)Scene->AnimationIDPaths + AssetBase);
+  Scene->MaterialIDPaths       = (rid_path_pair*)((uint64_t)Scene->MaterialIDPaths + AssetBase);
+  Scene->MMControllerIDPaths   = (rid_path_pair*)((uint64_t)Scene->MMControllerIDPaths + AssetBase);
+  Scene->PackedParticleSystems = (ob_packed_particle_system*)((uint64_t)Scene->PackedParticleSystems + AssetBase);
 
   // Apply saved rid and path pairings to resource manager
   GameState->Resources.WipeAllModelData();
-  GameState->Resources.WipeAllTextureData();
+  // TODO(rytis): Uncomment this and solve the Offbeat texture problem.
+  // GameState->Resources.WipeAllTextureData();
   GameState->Resources.WipeAllMaterialData();
   // NOTE(Lukas) currently all animation frees have to happen after the controller frees as they
   // remove references which results in -1 rids in animations
   GameState->Resources.WipeAllMMControllerData();
   GameState->Resources.WipeAllAnimationData();
+  OffbeatRemoveAllParticleSystems();
 
   RegisterDebugModels(GameState);
   for(int i = 0; i < Scene->ModelCount; i++)
@@ -263,6 +284,14 @@ ImportScene(game_state* GameState, const char* Path)
     assert(Scene->MMControllerIDPaths[i].RID.Value > 0);
     GameState->Resources.AssociateMMControllerIDToPath(Scene->MMControllerIDPaths[i].RID,
                                                        Scene->MMControllerIDPaths[i].Path.Name);
+  }
+  for(int i = 0; i < Scene->ParticleSystemCount; ++i)
+  {
+    ob_particle_system ParticleSystem;
+    if(OffbeatUnpackParticleSystem(&ParticleSystem, &Scene->PackedParticleSystems[i]))
+    {
+      OffbeatAddParticleSystem(&ParticleSystem);
+    }
   }
 
   // Apply loaded scene to game state

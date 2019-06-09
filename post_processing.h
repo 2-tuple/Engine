@@ -433,6 +433,22 @@ PerformPostProcessing(game_state* GameState)
     DrawTextureToFramebuffer(GameState->R.ScreenQuadVAO);
     glActiveTexture(GL_TEXTURE0);
   }
+  else if(GameState->R.DrawNormalBuffer)
+  {
+    GLuint RenderNormalMapShaderID = GameState->Resources.GetShader(GameState->R.RenderNormalMap);
+    glUseProgram(RenderNormalMapShaderID);
+    BindNextFramebuffer(GameState->R.ScreenFBOs, &GameState->R.CurrentFramebuffer);
+
+    // Need this to keep current framebuffer and texture in sync
+    GameState->R.CurrentTexture = (GameState->R.CurrentTexture + 1) % FRAMEBUFFER_MAX_COUNT;
+
+    int TexIndex = 1;
+    glActiveTexture(GL_TEXTURE0 + TexIndex);
+    glBindTexture(GL_TEXTURE_2D, GameState->R.GBufferNormalTexID);
+    glUniform1i(glGetUniformLocation(RenderNormalMapShaderID, "NormalMap"), TexIndex);
+    DrawTextureToFramebuffer(GameState->R.ScreenQuadVAO);
+    glActiveTexture(GL_TEXTURE0);
+  }
 
   if(GameState->R.DrawShadowMap)
   {

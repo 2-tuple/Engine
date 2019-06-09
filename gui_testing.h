@@ -8,6 +8,7 @@
 #include "mm_timeline_editor.h"
 #include "testing_system.h"
 #include "inttypes.h"
+#include "offbeat_gui.h"
 
 void MaterialGUI(game_state* GameState, bool& ShowMaterialEditor);
 void EntityGUI(game_state* GameState, bool& ShowEntityTools);
@@ -172,6 +173,7 @@ TestGui(game_state* GameState, const game_input* Input)
   static bool s_ShowMotionMatchingTimelineWindow = false;
   static bool s_ShowMotionMatchingWindow         = false;
   static bool s_ShowMMDebugSettingsWindow        = false;
+  static bool s_ShowOffbeatWindow                = false;
 
   MMWindows(GameState, Input, s_ShowMotionMatchingTimelineWindow, s_ShowMotionMatchingWindow,
             s_ShowMMDebugSettingsWindow);
@@ -207,6 +209,7 @@ TestGui(game_state* GameState, const game_input* Input)
       UI::Checkbox("Physics Window", &s_ShowPhysicsWindow);
       UI::SameLine(400);
       UI::Checkbox("GUI Params Window", &s_ShowDemoWindow);
+      UI::Checkbox("Offbeat Window", &s_ShowOffbeatWindow);
     }
     UI::Checkbox("Motion Matching Debug", &s_ShowMMDebugSettingsWindow);
     UI::SameLine(220);
@@ -780,6 +783,11 @@ TestGui(game_state* GameState, const game_input* Input)
     UI::DragFloat3("Extracted Translation", (float*)&ExtractedT, -INFINITY, INFINITY, 5);
   }
 #endif
+
+  if(s_ShowOffbeatWindow)
+  {
+    OffbeatWindow(GameState, Input);
+  }
 
   END_TIMED_BLOCK(GUI);
 }

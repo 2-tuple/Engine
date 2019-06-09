@@ -3,13 +3,13 @@
 #endif
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
 #include <stdio.h>
 #include <assert.h>
 
 #include "common.h"
 #include "profile.h"
+#include "load_texture.h"
 
 static bool
 ProcessInput(const game_input* OldInput, game_input* NewInput, SDL_Event* Event, SDL_Window* Window)
@@ -99,6 +99,10 @@ ProcessInput(const game_input* OldInput, game_input* NewInput, SDL_Event* Event,
         if(Event->key.keysym.sym == SDLK_p)
         {
           NewInput->p.EndedDown = true;
+        }
+        if(Event->key.keysym.sym == SDLK_q)
+        {
+          NewInput->q.EndedDown = true;
         }
         if(Event->key.keysym.sym == SDLK_r)
         {
@@ -223,6 +227,10 @@ ProcessInput(const game_input* OldInput, game_input* NewInput, SDL_Event* Event,
         if(Event->key.keysym.sym == SDLK_p)
         {
           NewInput->p.EndedDown = false;
+        }
+        if(Event->key.keysym.sym == SDLK_q)
+        {
+          NewInput->q.EndedDown = false;
         }
         if(Event->key.keysym.sym == SDLK_r)
         {
@@ -378,8 +386,8 @@ Init(SDL_Window** Window)
   }
   else
   {
-    // Set Opengl contet version to 3.3 core
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    // Set Opengl content version to 4.3 core
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 #if 1
@@ -395,9 +403,15 @@ Init(SDL_Window** Window)
     SDL_SetRelativeMouseMode(SDL_TRUE);
     // TODO(rytis): Print screen is not working correctly. Might have something to do with SDL
     // window creation or input handling.
+#ifdef FULL_SCREEN
     *Window =
       SDL_CreateWindow("ngpe - Non general-purpose engine", 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT,
                        SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN | SDL_WINDOW_ALLOW_HIGHDPI);
+#else
+    *Window =
+      SDL_CreateWindow("ngpe - Non general-purpose engine", 200, 100, SCREEN_WIDTH, SCREEN_HEIGHT,
+                       SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI);
+#endif
 
     if(!Window)
     {
@@ -445,11 +459,7 @@ main(int argc, char* argv[])
     return -1;
   }
 
-  if(IMG_Init(IMG_INIT_PNG | IMG_INIT_JPG | IMG_INIT_TIF) !=
-     (IMG_INIT_PNG | IMG_INIT_JPG | IMG_INIT_TIF))
-  {
-    printf("Image loading could not be initialized!\nError: %s\n", SDL_GetError());
-  }
+  Texture::SetTextureVerticalFlipOnLoad();
 
   // Init TrueType Font API
   if(TTF_Init() == -1)
@@ -491,16 +501,17 @@ main(int argc, char* argv[])
   ProcessInput(&OldInput, &NewInput, &Event, Window);
   OldInput = NewInput;
 
-  float LastFrameStart = Platform::GetTimeInSeconds();
+  Platform::InitPerformanceFrequency();
+  int64_t LastFrameStart = Platform::GetCurrentCounter();
   while(true)
   {
-    float CurrentFrameStart = Platform::GetTimeInSeconds();
+    int64_t CurrentFrameStart = Platform::GetCurrentCounter();
 
     if(!ProcessInput(&OldInput, &NewInput, &Event, Window))
     {
       break;
     }
-    NewInput.dt = CurrentFrameStart - LastFrameStart;
+    NewInput.dt = Platform::GetTimeInSeconds(LastFrameStart, CurrentFrameStart);
     if(NewInput.LeftCtrl.EndedDown)
     {
       NewInput.dt *= SLOW_MOTION_COEFFICIENT;
@@ -522,7 +533,6 @@ main(int argc, char* argv[])
 
   free(GameMemory.TemporaryMemory);
   free(GameMemory.PersistentMemory);
-  IMG_Quit();
   TTF_Quit();
   SDL_DestroyWindow(Window);
   SDL_Quit();

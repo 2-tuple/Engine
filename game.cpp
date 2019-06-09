@@ -91,7 +91,7 @@ RegisterDebugModels(game_state* GameState)
   GameState->Resources.Models.AddReference(GameState->UVSphereModelID);
 #if 1
   strcpy(GameState->R.Cubemap.Name, "data/textures/skybox2/SkyBox02b");
-  strcpy(GameState->R.Cubemap.Format, "tif");
+  strcpy(GameState->R.Cubemap.Format, "png");
 #else
   strcpy(GameState->R.Cubemap.Name, "data/textures/skybox/morning");
   strcpy(GameState->R.Cubemap.Format, "tga");
@@ -108,40 +108,15 @@ RegisterDebugModels(game_state* GameState)
 uint32_t
 LoadCubemap(Resource::resource_manager* Resources, rid* RIDs)
 {
-  uint32_t Texture;
-  glGenTextures(1, &Texture);
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_CUBE_MAP, Texture);
-
-  for(int i = 0; i < 6; i++)
-  {
-    SDL_Surface* ImageSurface =
-      IMG_Load(Resources->TexturePaths[Resources->GetTexturePathIndex(RIDs[i])].Name);
-    if(ImageSurface)
-    {
-      SDL_Surface* DestSurface =
-        SDL_ConvertSurfaceFormat(ImageSurface, SDL_PIXELFORMAT_ABGR8888, 0);
-      SDL_FreeSurface(ImageSurface);
-
-      glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA, DestSurface->w, DestSurface->h,
-                   0, GL_RGBA, GL_UNSIGNED_BYTE, DestSurface->pixels);
-      SDL_FreeSurface(DestSurface);
-    }
-    else
-    {
-      printf("Platform: texture load from image error: %s\n", SDL_GetError());
-      glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
-      return 0;
-    }
-  }
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
-
-  return Texture;
+  path CubemapPaths[] = {
+      Resources->TexturePaths[Resources->GetTexturePathIndex(RIDs[0])],
+      Resources->TexturePaths[Resources->GetTexturePathIndex(RIDs[1])],
+      Resources->TexturePaths[Resources->GetTexturePathIndex(RIDs[2])],
+      Resources->TexturePaths[Resources->GetTexturePathIndex(RIDs[3])],
+      Resources->TexturePaths[Resources->GetTexturePathIndex(RIDs[4])],
+      Resources->TexturePaths[Resources->GetTexturePathIndex(RIDs[5])],
+  };
+  return Texture::LoadCubemapTexture(CubemapPaths);
 }
 
 void

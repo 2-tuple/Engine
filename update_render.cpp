@@ -59,7 +59,6 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     TIMED_BLOCK(FirstInit);
     PartitionMemoryInitAllocators(&GameMemory, GameState);
     RegisterLoadInitialResources(GameState);
-    SetGameStatePODFields(GameState);
     InitializeECS(GameState->PersistentMemStack, &GameState->ECSRuntime, &GameState->ECSWorld,
                   Mibibytes(1));
 
@@ -73,6 +72,8 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
       TIMED_BLOCK(FilesystemUpdate);
       GameState->Resources.UpdateHardDriveAssetPathLists();
     }
+
+    SetGameStatePODFields(GameState);
   }
 
   BEGIN_TIMED_BLOCK(Update)
@@ -789,6 +790,60 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
   END_TIMED_BLOCK(AnimationSystem);
   END_TIMED_BLOCK(Update);
 
+  //----------GEOMETRY PRE-PASS-----------
+  BEGIN_GPU_TIMED_BLOCK(GeomPrePass);
+  RenderGBufferDataToTextures(GameState);
+  END_GPU_TIMED_BLOCK(GeomPrePass);
+
+  //---------------------PARTICLES---------------------
+  BEGIN_TIMED_BLOCK(Offbeat);
+  int64_t StartSecondCount = Platform::GetCurrentCounter();
+  if(Input->p.EndedDown && Input->p.Changed)
+  {
+    GameState->ParticleMode = !GameState->ParticleMode;
+
+    if(GameState->ParticleMode)
+    {
+        GameState->LastCameraPosition = GameState->Camera.Position;
+        GameState->Camera.Position = vec3{ 0, 1, 7 };
+        GameState->LastDrawCubemap = GameState->DrawCubemap;
+        GameState->DrawCubemap = false;
+        GameState->R.CurrentClearColor = GameState->R.ParticleSystemClearColor;
+    }
+    else
+    {
+        GameState->Camera.Position = GameState->LastCameraPosition;
+        GameState->DrawCubemap = GameState->LastDrawCubemap;
+        GameState->R.CurrentClearColor = GameState->R.DefaultClearColor;
+    }
+  }
+
+  if(Input->q.EndedDown && Input->q.Changed)
+  {
+    GameState->UpdateParticles = !GameState->UpdateParticles;
+  }
+
+  if(GameState->ParticleMode)
+  {
+    float dt = 0.0f;
+    if(GameState->UpdateParticles)
+    {
+      dt = Input->dt;
+    }
+
+    OffbeatUpdateCamera(GameState->Camera.Position.e,
+                        GameState->Camera.Forward.e,
+                        GameState->Camera.Right.e);
+    OffbeatUpdateViewMatrix(GameState->Camera.ViewMatrix.e);
+    OffbeatUpdateProjectionMatrix(GameState->Camera.ProjectionMatrix.e);
+    OffbeatUpdateParticles(dt);
+  }
+  int64_t EndSecondCount = Platform::GetCurrentCounter();
+  END_TIMED_BLOCK(Offbeat);
+  OffbeatGUIAddFrameInfo(GameState->OffbeatState->TotalParticleCount,
+                         GLOBAL_TIMER_FRAME_SUMMARY_TABLE[g_CurrentProfilerFrameIndex][TIMER_NAME_Offbeat].CycleCount,
+                         1000.0f * Platform::GetTimeInSeconds(StartSecondCount, EndSecondCount));
+
   //---------------------RENDERING----------------------------
   BEGIN_TIMED_BLOCK(Render);
 
@@ -816,10 +871,6 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
   // SHADED GIZMO SUBMISSION
   Debug::SubmitShadedBoneMeshInstances(GameState, NewPhongMaterial());
-
-  BEGIN_GPU_TIMED_BLOCK(GeomPrePass);
-  RenderGBufferDataToTextures(GameState);
-  END_GPU_TIMED_BLOCK(GeomPrePass);
 
   // Saving previous frame entity MVP matrix (USED ONLY FOR MOTION BLUR)
   {
@@ -855,10 +906,20 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
   {
     glBindFramebuffer(GL_FRAMEBUFFER, GameState->R.HdrFBOs[0]);
-    glClearColor(0.3f, 0.4f, 0.7f, 1.0f);
+    {
+        vec4 ClearColor = GameState->R.CurrentClearColor;
+        glClearColor(ClearColor.R, ClearColor.G, ClearColor.B, ClearColor.A);
+    }
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     RenderMainSceneObjects(GameState);
+
+    if(GameState->ParticleMode)
+    {
+      BEGIN_GPU_TIMED_BLOCK(Particles);
+      RenderParticleEffects(GameState);
+      END_GPU_TIMED_BLOCK(Particles);
+    }
 
     if(GameState->DrawCubemap)
     {
@@ -907,6 +968,10 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
   if(GameState->DrawDebugLines)
   {
     Debug::DrawOverlayLines(GameState);
+  }
+  if(GameState->DrawDebugSpheres)
+  {
+    Debug::DrawWireframeSpheres(GameState);
   }
   Debug::DrawQuads(GameState);
   Debug::ClearDrawArrays();

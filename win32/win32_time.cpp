@@ -1,29 +1,46 @@
 #include <windows.h>
 #include <stdint.h>
+#include <assert.h>
 #include <SDL2/SDL.h>
 
-// TODO(rytis): A temporary solution for an oddly working Windows native tick counter.
-// This is still not good enough, for sure, but will be used for a while.
-#define USE_SDL_TIMER 1
-
-int64_t g_PerformanceFrequency = 0;
+static bool g_PerformanceFrequencyInit = false;
+static int64_t g_PerformanceFrequency;
 
 namespace Platform
 {
-  float GetTimeInSeconds()
+  void
+  InitPerformanceFrequency()
   {
-#if USE_SDL_TIMER
-    return SDL_GetTicks() / 1000.0f;
-#else
-    if(g_PerformanceFrequency == 0){
+    if(!g_PerformanceFrequencyInit){
       LARGE_INTEGER PerformanceFrequencyResult;
-      QueryPerformanceFrequency(&PerformanceFrequencyResult);
+      g_PerformanceFrequencyInit = QueryPerformanceFrequency(&PerformanceFrequencyResult);
       g_PerformanceFrequency = PerformanceFrequencyResult.QuadPart;
     }
+  }
+
+  int64_t
+  GetCurrentCounter()
+  {
+    LARGE_INTEGER CurrentPerformanceCounter;
+    QueryPerformanceCounter(&CurrentPerformanceCounter);
+    return CurrentPerformanceCounter.QuadPart;
+  }
+
+  float
+  GetTimeInSeconds()
+  {
+    InitPerformanceFrequency();
 
     LARGE_INTEGER CurrentPerformanceCounter;
     QueryPerformanceCounter(&CurrentPerformanceCounter);
-    return (float)CurrentPerformanceCounter.QuadPart/(float)g_PerformanceFrequency;
-#endif
+    float Result = (float)CurrentPerformanceCounter.QuadPart / (float)g_PerformanceFrequency;
+    return Result;
+  }
+
+  float
+  GetTimeInSeconds(int64_t Start, int64_t End)
+  {
+      assert(End >= Start);
+      return (float)(End - Start) / (float)g_PerformanceFrequency;
   }
 }

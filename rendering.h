@@ -53,30 +53,6 @@ RenderGBufferDataToTextures(game_state* GameState)
   }
 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-  // RENDER DEPTH INFORMATION TO TEXTURE
-  {
-    GLuint RenderDepthMapShaderID = GameState->Resources.GetShader(GameState->R.RenderDepthMap);
-    glUseProgram(RenderDepthMapShaderID);
-    glUniform1f(glGetUniformLocation(RenderDepthMapShaderID, "cameraNearPlane"),
-                GameState->Camera.NearClipPlane);
-    glUniform1f(glGetUniformLocation(RenderDepthMapShaderID, "cameraFarPlane"),
-                GameState->Camera.FarClipPlane);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, GameState->R.DepthTextureFBO);
-    glClear(GL_DEPTH_BUFFER_BIT);
-
-    {
-      int TexIndex = 1;
-
-      glActiveTexture(GL_TEXTURE0 + TexIndex);
-      glBindTexture(GL_TEXTURE_2D, GameState->R.GBufferDepthTexID);
-      glUniform1i(glGetUniformLocation(RenderDepthMapShaderID, "DepthMap"), TexIndex);
-      DrawTextureToFramebuffer(GameState->R.ScreenQuadVAO);
-      glActiveTexture(GL_TEXTURE0);
-    }
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  }
 }
 
 // TODO(Lukas) Add blurring to ssao shader as well as a randomization kernel buffer and more
@@ -473,4 +449,10 @@ RenderMaterialPreviewToTexture(game_state* GameState)
   glBindTexture(GL_TEXTURE_2D, 0);
 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void
+RenderParticleEffects(game_state* GameState)
+{
+    OffbeatRenderParticles();
 }

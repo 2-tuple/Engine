@@ -13,6 +13,20 @@
 bool g_VisualizeContactPoints;
 bool g_VisualizeContactManifold;
 
+inline float
+Clamp(float N, float Min, float Max)
+{
+    if(N < Min)
+    {
+        return Min;
+    }
+    if(N > Max)
+    {
+        return Max;
+    }
+    return N;
+}
+
 vec3
 TransformVector(vec3 Vector, mat4 Matrix)
 {
@@ -1090,20 +1104,6 @@ CreateFaceContact(sat_contact_manifold* Manifold, face_query QueryA, const mat4 
     Manifold->Points[Manifold->PointCount].Penetration = Penetration;
     ++Manifold->PointCount;
   }
-}
-
-float
-Clamp(float N, float Min, float Max)
-{
-  if(N < Min)
-  {
-    return Min;
-  }
-  if(N > Max)
-  {
-    return Max;
-  }
-  return N;
 }
 
 void

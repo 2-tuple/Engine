@@ -25,6 +25,8 @@
 #include "blend_stack.h"
 #include "entity_animation_control.h"
 #include "testing_system.h"
+#include "load_texture.h"
+#include "offbeat.h"
 
 const int32_t ENTITY_MAX_COUNT           = 400;
 const int32_t ENTITY_SELECTION_MAX_COUNT = 400;
@@ -135,6 +137,15 @@ struct game_state
   uint32_t IndexFBO;
   uint32_t DepthRBO;
   uint32_t IDTexture;
+
+  vec3 LastCameraPosition;
+  bool LastDrawCubemap;
+
+  // Particle system test
+  bool ParticleMode;
+  bool UpdateParticles;
+  uint64_t OffbeatMemorySize;
+  ob_state* OffbeatState;
 };
 
 void GetCubemapRIDs(rid* RIDs, Resource::resource_manager* Resources,
@@ -156,8 +167,8 @@ void GenerateShadowFramebuffer(uint32_t* FBO, uint32_t* Texture);
 void BindNextFramebuffer(uint32_t* FBOs, uint32_t* CurrentFramebuffer);
 void BindTextureAndSetNext(uint32_t* Textures, uint32_t* CurrentTexture);
 void DrawTextureToFramebuffer(uint32_t VAO);
-void     DrawSkeleton(const Anim::skeleton* Skeleton, const mat4* HierarchicalModelSpaceMatrices,
-                      mat4 MatModel, float JointSphereRadius, bool UseBoneDiamonds = true);
+void DrawSkeleton(const Anim::skeleton* Skeleton, const mat4* HierarchicalModelSpaceMatrices,
+                  mat4 MatModel, float JointSphereRadius, bool UseBoneDiamonds = true);
 
 //-----------------------ENTITY RELATED UTILITY FUNCTIONS---------------------------
 

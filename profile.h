@@ -75,6 +75,8 @@ enum
   TIMER_NAME_MotionMatch,
   TIMER_NAME_BuildMotionSet,
   TIMER_NAME_UpdatePlayer,
+  TIMER_NAME_Offbeat,
+  TIMER_NAME_Particles,
   TIMER_NAME_Count,
 };
 
@@ -130,7 +132,9 @@ const char TIMER_NAME_TABLE[][TIMER_NAME_Count] = {
   "HotReloadAssets",
   "MotionMatch",
   "BuildMotionSet",
-	"UpdatePlayer",
+  "UpdatePlayer",
+  "Offbeat",
+  "Particles",
 };
 
 const float TIMER_UI_COLOR_TABLE[TIMER_NAME_Count][3] =
@@ -146,7 +150,8 @@ const float TIMER_UI_COLOR_TABLE[TIMER_NAME_Count][3] =
     { 1, 0.6f, 0.6f },    { 1, 0.6f, 0 },       { 0.5f, 1, 0.5f },    { 0.2f, 0.7f, 0.5f },
     { 0, 0, 1 },          { 0.1f, 0.8f, 0.2f }, { 0, 0, 1 },          { 1, 1, 0 },
     { 0.5f, 0.2f, 0.5f }, { 0.6f, 0.5f, 0.3f }, { 1, 0.2f, 0.3f },    { 0.6f, 0.5f, 0.3f },
-    { 1, 0.2f, 0.3f },    { 1, 0.2f, 0.2f },    { 0.2f, 0.4f, 0.6f } };
+    { 1, 0.2f, 0.3f },    { 1, 0.2f, 0.2f },    { 0.2f, 0.4f, 0.6f }, { 0, 0.5f, 1 },
+    { 0, 0.5f, 1 } };
 
 struct frame_endpoints
 {
@@ -308,7 +313,7 @@ struct gpu_timer_event_autoclose_wrapper
     EndCycleCount##ID;                                                                             \
   GLOBAL_TIMER_FRAME_SUMMARY_TABLE[g_CurrentProfilerFrameIndex][TIMER_NAME_##ID].CycleCount +=     \
     EndCycleCount##ID -                                                                            \
-    GLOBAL_FRAME_TIMER_EVENT_TABLE[g_CurrentProfilerFrameIndex][FrameEventIndex##ID]          \
+    GLOBAL_FRAME_TIMER_EVENT_TABLE[g_CurrentProfilerFrameIndex][FrameEventIndex##ID]               \
       .StartCycleCount;                                                                            \
   GLOBAL_TIMER_FRAME_SUMMARY_TABLE[g_CurrentProfilerFrameIndex][TIMER_NAME_##ID].Calls++;          \
   --g_CurrentTimerEventDepth;

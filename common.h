@@ -10,8 +10,14 @@
 
 #define FRAME_TIME_MS 8
 #define SLOW_MOTION_COEFFICIENT 0.2f
+#if 1
+#define FULL_SCREEN
 #define SCREEN_WIDTH 1920
 #define SCREEN_HEIGHT 1080
+#else
+#define SCREEN_WIDTH 1600
+#define SCREEN_HEIGHT 900
+#endif
 
 struct game_button_state
 {
@@ -62,6 +68,7 @@ struct game_input
       game_button_state n;
       game_button_state o;
       game_button_state p;
+      game_button_state q;
       game_button_state r;
       game_button_state s;
       game_button_state t;

@@ -608,6 +608,10 @@ namespace Resource
                           RESOURCE_MAX_COUNT, &this->MMParamPathCount, "data/controllers",
                           NULL);
 
+    this->DiffedParticleSystemCount =
+      Platform::ReadPaths(this->DiffedMaterials, this->ParticleSystemPaths, this->ParticleSystemStats,
+                          RESOURCE_MAX_COUNT, &this->ParticleSystemPathCount, "data/offbeat", "obp");
+
     this->SortAllAssetDiffsPathsStats();
   }
 	struct diff_path_stat

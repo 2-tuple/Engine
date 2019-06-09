@@ -8,4 +8,8 @@ msvs_build
 msvc_build
 .exrc
 *.swp
+<<<<<<< HEAD
 core
+=======
+stb_*
+>>>>>>> particle_system

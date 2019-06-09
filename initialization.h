@@ -105,8 +105,9 @@ RegisterLoadInitialResources(game_state* GameState)
     GameState->R.PostNightVision = GameState->Resources.RegisterShader("shaders/post_night_vision");
     GameState->R.PostBlurH = GameState->Resources.RegisterShader("shaders/post_blur_horizontal");
     GameState->R.PostBlurV = GameState->Resources.RegisterShader("shaders/post_blur_vertical");
-    GameState->R.RenderDepthMap  = GameState->Resources.RegisterShader("shaders/render_depth_map");
-    GameState->R.RenderShadowMap = GameState->Resources.RegisterShader("shaders/render_shadow_map");
+    GameState->R.RenderDepthMap   = GameState->Resources.RegisterShader("shaders/render_depth_map");
+    GameState->R.RenderNormalMap  = GameState->Resources.RegisterShader("shaders/render_normal_map");
+    GameState->R.RenderShadowMap  = GameState->Resources.RegisterShader("shaders/render_shadow_map");
     GameState->R.PostDepthOfField = GameState->Resources.RegisterShader("shaders/depth_of_field");
     GameState->R.PostMotionBlur   = GameState->Resources.RegisterShader("shaders/motion_blur");
     GameState->R.PostEdgeOutline  = GameState->Resources.RegisterShader("shaders/edge_outline");
@@ -122,6 +123,8 @@ RegisterLoadInitialResources(game_state* GameState)
 
     GameState->R.ShaderGeomPreePass = GameState->Resources.RegisterShader("shaders/geom_pre_pass");
     GameState->R.ShaderSunDepth     = GameState->Resources.RegisterShader("shaders/sun_depth");
+
+    GameState->R.ShaderOffbeat = GameState->Resources.RegisterShader("shaders/offbeat_quad");
 
     GLuint MissingShaderID =
       Shader::CheckedLoadCompileFreeShader(GameState->TemporaryMemStack, "shaders/missing_default");
@@ -279,8 +282,6 @@ RegisterLoadInitialResources(game_state* GameState)
     // FRAMEBUFFER CREATION FOR DEPTH BUFFER RENDERING AND EDGE OUTLINE
     {
       GameState->R.DrawDepthBuffer = false;
-      GenerateFramebuffer(&GameState->R.DepthTextureFBO, &GameState->R.DepthTextureRBO,
-                          &GameState->R.DepthTexture, 2 * SCREEN_WIDTH, 2 * SCREEN_HEIGHT);
       GenerateFramebuffer(&GameState->R.EdgeOutlineFBO, &GameState->R.EdgeOutlineRBO,
                           &GameState->R.EdgeOutlineTexture);
     }
@@ -338,7 +339,6 @@ RegisterLoadInitialResources(game_state* GameState)
   // SET MISC GL STATE
   {
     glEnable(GL_DEPTH_TEST);
-    glClearColor(0.3f, 0.4f, 0.7f, 1.0f);
     glEnable(GL_CULL_FACE);
     glDepthFunc(GL_LEQUAL);
   }
@@ -444,6 +444,13 @@ SetGameStatePODFields(game_state* GameState)
       GameState->R.FogGradient = 3.0f;
       GameState->R.FogColor    = 0.5f;
     }
+
+    // Clear Color
+    {
+        GameState->R.DefaultClearColor = vec4{0.3f, 0.4f, 0.7f, 1.0f};
+        GameState->R.ParticleSystemClearColor = vec4{0.0f, 0.0f, 0.0f, 1.0f};
+        GameState->R.CurrentClearColor = GameState->R.DefaultClearColor;
+    }
   }
 
   // Trajectory system
@@ -470,6 +477,7 @@ SetGameStatePODFields(game_state* GameState)
   GameState->DrawTrajectoryWaypoints  = true;
   GameState->DrawTrajectoryLines      = true;
   GameState->DrawTrajectorySplines    = true;
+  GameState->ShowDebugFeatures        = true;
   GameState->BoneSphereRadius         = 0.005f;
 
   GameState->PreviewAnimationsInRootSpace = false;
@@ -503,6 +511,44 @@ SetGameStatePODFields(game_state* GameState)
 
     // Testing system
     // Default constructed :(
+  }
+
+  // PARTICLE SYSTEM INITIALIZATION
+  {
+    GameState->ParticleMode = false;
+    GameState->UpdateParticles = true;
+
+    GameState->OffbeatMemorySize = Mibibytes(50);
+    GameState->OffbeatState =
+      OffbeatSetupMemory(GameState->PersistentMemStack->Alloc(GameState->OffbeatMemorySize),
+                         GameState->OffbeatMemorySize);
+
+    char PathStart[] = "data/textures/particle_";
+    int PathStartLength = strlen(PathStart);
+    for(int i = 0; i < GameState->Resources.TexturePathCount; ++i)
+    {
+      char* CurrentPath = GameState->Resources.TexturePaths[i].Name;
+      if(strncmp(CurrentPath, PathStart, PathStartLength) == 0)
+      {
+        char* CurrentPathOffset = CurrentPath + PathStartLength;
+        char Name[50];
+        int NameLength = (int)(strrchr(CurrentPathOffset, '.') - CurrentPathOffset);
+        strncpy(Name, CurrentPathOffset, NameLength);
+        Name[NameLength] = 0;
+        OffbeatGUIAddTexture(&GameState->Resources, Name, CurrentPath);
+      }
+    }
+    OffbeatInitGeometryTextures(GameState->R.GBufferDepthTexID, GameState->R.GBufferNormalTexID);
+    OffbeatInit();
+  }
+
+  if(GameState->ParticleMode)
+  {
+    GameState->LastCameraPosition = GameState->Camera.Position;
+    GameState->Camera.Position = vec3{ 0, 1, 7 };
+    GameState->LastDrawCubemap = GameState->DrawCubemap;
+    GameState->DrawCubemap = false;
+    GameState->R.CurrentClearColor = GameState->R.ParticleSystemClearColor;
   }
 
   GameState->Physics.Params.Beta                       = (1.0f / (FRAME_TIME_MS / 1000.0f)) / 2.0f;
