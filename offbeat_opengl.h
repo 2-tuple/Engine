@@ -1293,6 +1293,7 @@ OffbeatCreateRenderProgram()
 void
 OffbeatRenderParticles()
 {
+#if !(defined(__linux__) || defined(LINUX))
     glEnable(GL_BLEND);
 
     GLuint RenderProgramID = OffbeatState->RenderProgramID;
@@ -1413,4 +1414,5 @@ OffbeatRenderParticles()
     // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
+#endif
 }

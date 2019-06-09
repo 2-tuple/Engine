@@ -582,7 +582,7 @@ OffbeatSetupMemory(void* Memory, u64 MemorySize)
 void
 OffbeatInit()
 {
-    OffbeatRunTests();
+    // OffbeatRunTests();
     // NOTE(rytis): Additional texture generation.
     {
         u32 Width = 1000;
@@ -653,7 +653,9 @@ OffbeatInit()
     {
         OffbeatState->t = 0.0f;
 
+#if !(defined(__linux__) || defined(LINUX))
         OffbeatState->RenderProgramID = OffbeatCreateRenderProgram();
+#endif
         OffbeatState->EffectsEntropy = ObRandomSeed(1234);
     }
 
