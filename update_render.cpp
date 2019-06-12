@@ -1,3 +1,5 @@
+#include "imgui.h"
+
 #include "load_shader.h"
 
 #include "linear_math/matrix.h"
@@ -77,6 +79,8 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
   }
 
   BEGIN_TIMED_BLOCK(Update)
+  ImGui::NewFrame();
+  ImGui::ShowDemoWindow();
   {
     TIMED_BLOCK(FilesystemUpdate);
     if(GameState->UpdatePathList)
@@ -975,6 +979,9 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
   }
   Debug::DrawQuads(GameState);
   Debug::ClearDrawArrays();
+  ImGui::EndFrame();
+  ImGui::Render();
+  RenderImGui(GameState, ImGui::GetDrawData());
   END_TIMED_BLOCK(DebugDrawingSubmission);
   Text::ClearTextRequestCounts();
 

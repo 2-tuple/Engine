@@ -380,7 +380,7 @@ struct render_data
   rid ShaderLightWave;
   rid ShaderVolumetricScattering;
 
-  rid ShaderOffbeat;
+  rid ShaderImGui;
 
   // Post-processing shaders
   rid PostDefaultShader;

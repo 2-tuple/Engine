@@ -36,6 +36,24 @@ namespace Texture
   }
 
   uint32_t
+  LoadTexture(uint8_t* Data, int32_t Width, int32_t Height)
+  {
+    BEGIN_TIMED_BLOCK(LoadTexture);
+
+    uint32_t Texture;
+    glGenTextures(1, &Texture);
+    glBindTexture(GL_TEXTURE_2D, Texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Width, Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, Data);
+    // glGenerateMipmap(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    END_TIMED_BLOCK(LoadTexture);
+    return Texture;
+  }
+
+  uint32_t
   LoadCubemapTexture(path* FilePaths)
   {
     uint32_t Texture;

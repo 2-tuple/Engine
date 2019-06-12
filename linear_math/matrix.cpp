@@ -346,11 +346,10 @@ namespace Math
   }
 
   mat4
-  Mat4Orthogonal(float Left, float Right, float Bottom, float Top, float Near, float Far)
+  Mat4Orthographic(float Left, float Right, float Bottom, float Top, float Near, float Far)
   {
     assert(Far - Near > 0.0f);
     assert(Right > Left);
-    assert(Top > Bottom);
 
     mat4 Result = {};
     Result._11  = 2.0f / (Right - Left);

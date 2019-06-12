@@ -124,7 +124,7 @@ RegisterLoadInitialResources(game_state* GameState)
     GameState->R.ShaderGeomPreePass = GameState->Resources.RegisterShader("shaders/geom_pre_pass");
     GameState->R.ShaderSunDepth     = GameState->Resources.RegisterShader("shaders/sun_depth");
 
-    GameState->R.ShaderOffbeat = GameState->Resources.RegisterShader("shaders/offbeat_quad");
+    GameState->R.ShaderImGui = GameState->Resources.RegisterShader("shaders/imgui_quad");
 
     GLuint MissingShaderID =
       Shader::CheckedLoadCompileFreeShader(GameState->TemporaryMemStack, "shaders/missing_default");

@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include "imgui.h"
+
 #include "common.h"
 #include "profile.h"
 #include "load_texture.h"
@@ -14,6 +16,8 @@
 static bool
 ProcessInput(const game_input* OldInput, game_input* NewInput, SDL_Event* Event, SDL_Window* Window)
 {
+  ImGuiIO& IO = ImGui::GetIO();
+
   *NewInput               = *OldInput;
   NewInput->dMouseScreenX = 0;
   NewInput->dMouseScreenY = 0;
@@ -26,300 +30,194 @@ ProcessInput(const game_input* OldInput, game_input* NewInput, SDL_Event* Event,
         return false;
       }
       case SDL_KEYDOWN:
+      case SDL_KEYUP:
       {
+        bool IsDown = (Event->type == SDL_KEYDOWN);
+        // NOTE(rytis): Dear Imgui
+        {
+          int Key = Event->key.keysym.scancode;
+          IM_ASSERT(Key >= 0 && Key < IM_ARRAYSIZE(IO.KeysDown));
+          IO.KeysDown[Key] = IsDown;
+          IO.KeyShift = !!(SDL_GetModState() & KMOD_SHIFT);
+          IO.KeyCtrl  = !!(SDL_GetModState() & KMOD_CTRL);
+          IO.KeyAlt   = !!(SDL_GetModState() & KMOD_ALT);
+          IO.KeySuper = !!(SDL_GetModState() & KMOD_GUI);
+        }
+
         if(Event->key.keysym.sym == SDLK_ESCAPE)
         {
-          NewInput->Escape.EndedDown = true;
+          NewInput->Escape.EndedDown = IsDown;
           return false;
         }
         if(Event->key.keysym.sym == SDLK_SPACE)
         {
-          NewInput->Space.EndedDown = true;
+          NewInput->Space.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_TAB)
         {
-          NewInput->Tab.EndedDown = true;
+          NewInput->Tab.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_DELETE)
         {
-          NewInput->Delete.EndedDown = true;
+          NewInput->Delete.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_LCTRL)
         {
-          NewInput->LeftCtrl.EndedDown = true;
+          NewInput->LeftCtrl.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_LSHIFT)
         {
-          NewInput->LeftShift.EndedDown = true;
+          NewInput->LeftShift.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_a)
         {
-          NewInput->a.EndedDown = true;
+          NewInput->a.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_b)
         {
-          NewInput->b.EndedDown = true;
+          NewInput->b.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_c)
         {
-          NewInput->c.EndedDown = true;
+          NewInput->c.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_d)
         {
-          NewInput->d.EndedDown = true;
+          NewInput->d.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_e)
         {
-          NewInput->e.EndedDown = true;
+          NewInput->e.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_f)
         {
-          NewInput->f.EndedDown = true;
+          NewInput->f.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_g)
         {
-          NewInput->g.EndedDown = true;
+          NewInput->g.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_h)
         {
-          NewInput->h.EndedDown = true;
+          NewInput->h.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_i)
         {
-          NewInput->i.EndedDown = true;
+          NewInput->i.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_j)
         {
-          NewInput->j.EndedDown = true;
+          NewInput->j.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_k)
         {
-          NewInput->k.EndedDown = true;
+          NewInput->k.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_p)
         {
-          NewInput->p.EndedDown = true;
+          NewInput->p.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_q)
         {
-          NewInput->q.EndedDown = true;
+          NewInput->q.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_r)
         {
-          NewInput->r.EndedDown = true;
+          NewInput->r.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_s)
         {
-          NewInput->s.EndedDown = true;
+          NewInput->s.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_t)
         {
-          NewInput->t.EndedDown = true;
+          NewInput->t.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_m)
         {
-          NewInput->m.EndedDown = true;
+          NewInput->m.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_n)
         {
-          NewInput->n.EndedDown = true;
+          NewInput->n.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_o)
         {
-          NewInput->o.EndedDown = true;
+          NewInput->o.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_v)
         {
-          NewInput->v.EndedDown = true;
+          NewInput->v.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_w)
         {
-          NewInput->w.EndedDown = true;
+          NewInput->w.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_x)
         {
-          NewInput->x.EndedDown = true;
+          NewInput->x.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_UP)
         {
-          NewInput->ArrowUp.EndedDown = true;
+          NewInput->ArrowUp.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_DOWN)
         {
-          NewInput->ArrowDown.EndedDown = true;
+          NewInput->ArrowDown.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_RIGHT)
         {
-          NewInput->ArrowRight.EndedDown = true;
+          NewInput->ArrowRight.EndedDown = IsDown;
         }
         if(Event->key.keysym.sym == SDLK_LEFT)
         {
-          NewInput->ArrowLeft.EndedDown = true;
-        }
-        break;
-      }
-      case SDL_KEYUP:
-      {
-        if(Event->key.keysym.sym == SDLK_SPACE)
-        {
-          NewInput->Space.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_TAB)
-        {
-          NewInput->Tab.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_DELETE)
-        {
-          NewInput->Delete.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_LCTRL)
-        {
-          NewInput->LeftCtrl.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_LSHIFT)
-        {
-          NewInput->LeftShift.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_a)
-        {
-          NewInput->a.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_b)
-        {
-          NewInput->b.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_c)
-        {
-          NewInput->c.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_d)
-        {
-          NewInput->d.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_e)
-        {
-          NewInput->e.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_f)
-        {
-          NewInput->f.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_g)
-        {
-          NewInput->g.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_h)
-        {
-          NewInput->h.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_i)
-        {
-          NewInput->i.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_j)
-        {
-          NewInput->j.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_k)
-        {
-          NewInput->k.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_p)
-        {
-          NewInput->p.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_q)
-        {
-          NewInput->q.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_r)
-        {
-          NewInput->r.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_s)
-        {
-          NewInput->s.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_t)
-        {
-          NewInput->t.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_m)
-        {
-          NewInput->m.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_n)
-        {
-          NewInput->n.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_o)
-        {
-          NewInput->o.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_v)
-        {
-          NewInput->v.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_w)
-        {
-          NewInput->w.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_x)
-        {
-          NewInput->x.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_UP)
-        {
-          NewInput->ArrowUp.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_DOWN)
-        {
-          NewInput->ArrowDown.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_RIGHT)
-        {
-          NewInput->ArrowRight.EndedDown = false;
-        }
-        if(Event->key.keysym.sym == SDLK_LEFT)
-        {
-          NewInput->ArrowLeft.EndedDown = false;
+          NewInput->ArrowLeft.EndedDown = IsDown;
         }
         break;
       }
       case SDL_MOUSEBUTTONDOWN:
-      {
-        if(Event->button.button == SDL_BUTTON_LEFT)
-        {
-          NewInput->MouseLeft.EndedDown = true;
-        }
-        if(Event->button.button == SDL_BUTTON_RIGHT)
-        {
-          NewInput->MouseRight.EndedDown = true;
-        }
-        if(Event->button.button == SDL_BUTTON_MIDDLE)
-        {
-          NewInput->MouseMiddle.EndedDown = true;
-        }
-        break;
-      }
       case SDL_MOUSEBUTTONUP:
       {
+        bool IsDown = (Event->type == SDL_MOUSEBUTTONDOWN);
         if(Event->button.button == SDL_BUTTON_LEFT)
         {
-          NewInput->MouseLeft.EndedDown = false;
+          NewInput->MouseLeft.EndedDown = IsDown;
+          IO.MouseDown[0] = IsDown;
         }
         if(Event->button.button == SDL_BUTTON_RIGHT)
         {
-          NewInput->MouseRight.EndedDown = false;
+          NewInput->MouseRight.EndedDown = IsDown;
+          IO.MouseDown[1] = IsDown;
         }
         if(Event->button.button == SDL_BUTTON_MIDDLE)
         {
-          NewInput->MouseMiddle.EndedDown = false;
+          NewInput->MouseMiddle.EndedDown = IsDown;
+          IO.MouseDown[3] = IsDown;
         }
         break;
       }
       case SDL_MOUSEWHEEL:
       {
+        // NOTE(rytis): Dear ImGui.
+        {
+            if(Event->wheel.x > 0)
+            {
+                IO.MouseWheelH += 1;
+            }
+            else if(Event->wheel.x < 0)
+            {
+                IO.MouseWheelH -= 1;
+            }
+            if(Event->wheel.y > 0)
+            {
+                IO.MouseWheel += 1;
+            }
+            else if(Event->wheel.y < 0)
+            {
+                IO.MouseWheel -= 1;
+            }
+        }
+
         if(Event->wheel.direction == SDL_MOUSEWHEEL_NORMAL)
         {
           NewInput->MouseWheelScreen -= Event->wheel.y;
@@ -336,6 +234,11 @@ ProcessInput(const game_input* OldInput, game_input* NewInput, SDL_Event* Event,
         NewInput->MouseScreenY = Event->motion.y;
         NewInput->dMouseScreenX += Event->motion.xrel;
         NewInput->dMouseScreenY += Event->motion.yrel;
+        break;
+      }
+      case SDL_TEXTINPUT:
+      {
+        IO.AddInputCharactersUTF8(Event->text.text);
         break;
       }
     }
@@ -369,6 +272,8 @@ ProcessInput(const game_input* OldInput, game_input* NewInput, SDL_Event* Event,
   NewInput->NormMouseY  = (float)NewInput->MouseY / (float)(SCREEN_HEIGHT);
   NewInput->NormdMouseX = (float)NewInput->dMouseX / (float)(SCREEN_WIDTH);
   NewInput->NormdMouseY = (float)NewInput->dMouseY / (float)(SCREEN_HEIGHT);
+
+  IO.MousePos = ImVec2(float(NewInput->MouseScreenX), float(NewInput->MouseScreenY));
 
   NewInput->dMouseWheelScreen = NewInput->MouseWheelScreen - OldInput->MouseWheelScreen;
 
@@ -445,6 +350,47 @@ Init(SDL_Window** Window)
       }
     }
   }
+
+  // NOTE(rytis): Dear Imgui setup.
+  {
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& IO = ImGui::GetIO();
+    IO.IniFilename = 0;
+    IO.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    ImGui::StyleColorsDark();
+
+    int32_t Width, Height;
+    uint8_t* Pixels = 0;
+    IO.Fonts->GetTexDataAsRGBA32(&Pixels, &Width, &Height);
+    GLuint FontAtlas = Texture::LoadTexture(Pixels, Width, Height);
+    IO.Fonts->TexID = (ImTextureID)(uintptr_t)FontAtlas;
+
+    IO.KeyMap[ImGuiKey_Tab] = SDL_SCANCODE_TAB;
+    IO.KeyMap[ImGuiKey_LeftArrow] = SDL_SCANCODE_LEFT;
+    IO.KeyMap[ImGuiKey_RightArrow] = SDL_SCANCODE_RIGHT;
+    IO.KeyMap[ImGuiKey_UpArrow] = SDL_SCANCODE_UP;
+    IO.KeyMap[ImGuiKey_DownArrow] = SDL_SCANCODE_DOWN;
+    IO.KeyMap[ImGuiKey_PageUp] = SDL_SCANCODE_PAGEUP;
+    IO.KeyMap[ImGuiKey_PageDown] = SDL_SCANCODE_PAGEDOWN;
+    IO.KeyMap[ImGuiKey_Home] = SDL_SCANCODE_HOME;
+    IO.KeyMap[ImGuiKey_End] = SDL_SCANCODE_END;
+    IO.KeyMap[ImGuiKey_Insert] = SDL_SCANCODE_INSERT;
+    IO.KeyMap[ImGuiKey_Delete] = SDL_SCANCODE_DELETE;
+    IO.KeyMap[ImGuiKey_Backspace] = SDL_SCANCODE_BACKSPACE;
+    IO.KeyMap[ImGuiKey_Space] = SDL_SCANCODE_SPACE;
+    IO.KeyMap[ImGuiKey_Enter] = SDL_SCANCODE_RETURN;
+    IO.KeyMap[ImGuiKey_Escape] = SDL_SCANCODE_ESCAPE;
+    IO.KeyMap[ImGuiKey_A] = SDL_SCANCODE_A;
+    IO.KeyMap[ImGuiKey_C] = SDL_SCANCODE_C;
+    IO.KeyMap[ImGuiKey_V] = SDL_SCANCODE_V;
+    IO.KeyMap[ImGuiKey_X] = SDL_SCANCODE_X;
+    IO.KeyMap[ImGuiKey_Y] = SDL_SCANCODE_Y;
+    IO.KeyMap[ImGuiKey_Z] = SDL_SCANCODE_Z;
+
+    // TODO(rytis): Clipboard, cursors.
+  }
+
   return Success;
 }
 
@@ -491,6 +437,7 @@ main(int argc, char* argv[])
 
   SDL_Event Event;
 
+  ImGuiIO& IO = ImGui::GetIO();
   game_input OldInput = {};
   game_input NewInput = {};
   if(!NewInput.IsMouseInEditorMode)
@@ -519,6 +466,9 @@ main(int argc, char* argv[])
 #if 0
     NewInput.dt = 1.0f/240;
 #endif
+    IO.DeltaTime = NewInput.dt;
+    IO.DisplaySize.x = SCREEN_WIDTH;
+    IO.DisplaySize.y = SCREEN_HEIGHT;
 
     GameUpdateAndRender(GameMemory, &NewInput);
 
@@ -531,6 +481,7 @@ main(int argc, char* argv[])
     LastFrameStart = CurrentFrameStart;
   }
 
+  ImGui::DestroyContext();
   free(GameMemory.TemporaryMemory);
   free(GameMemory.PersistentMemory);
   TTF_Quit();

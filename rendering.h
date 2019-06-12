@@ -1,6 +1,8 @@
 // Note(Lukas): All rendering functions should leave the GL state in a usable condition fefore
 // returning
 
+#include "imgui.h"
+
 void
 DrawDebugBoxMesh(box_mesh BoxMesh, vec4 Color = { 0, 0, 1, 1 })
 {
@@ -145,8 +147,8 @@ RenderShadowmapCascadesToTextures(game_state* GameState)
           }
 
           mat4 ProjectionMatrix =
-            Math::Mat4Orthogonal(-OBB.HalfWidth, OBB.HalfWidth, -OBB.HalfHeight, OBB.HalfHeight,
-                                 -ClampFloat(20, Frustum.Far, 20), OBB.NearFarDist);
+            Math::Mat4Orthographic(-OBB.HalfWidth, OBB.HalfWidth, -OBB.HalfHeight, OBB.HalfHeight,
+                                   -ClampFloat(20, Frustum.Far, 20), OBB.NearFarDist);
           mat4 ViewMatrix =
             Math::Mat4Camera(OBB.NearCenter, GameState->R.Sun.Direction, vec3{ 0.0f, 1.0f, 0.0f });
           GameState->R.Sun.CascadeVP[i] = Math::MulMat4(ProjectionMatrix, ViewMatrix);
@@ -455,4 +457,174 @@ void
 RenderParticleEffects(game_state* GameState)
 {
     OffbeatRenderParticles();
+}
+
+// NOTE(rytis): ImGui globals.
+static GLuint g_ImGuiVAO;
+static GLuint g_ImGuiVBO;
+static GLuint g_ImGuiEBO;
+
+static void
+SetupImGuiState(game_state* GameState, ImDrawData* DrawData, int FBWidth, int FBHeight)
+{
+    glEnable(GL_BLEND);
+    glBlendEquation(GL_FUNC_ADD);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_SCISSOR_TEST);
+
+    // Our visible imgui space lies from DrawData->DisplayPos (top left) to DrawData->DisplayPos+data_data->DisplaySize (bottom right). DisplayPos is (0,0) for single viewport apps.
+    glViewport(0, 0, (GLsizei)FBWidth, (GLsizei)FBHeight);
+    float L = DrawData->DisplayPos.x;
+    float R = DrawData->DisplayPos.x + DrawData->DisplaySize.x;
+    float T = DrawData->DisplayPos.y;
+    float B = DrawData->DisplayPos.y + DrawData->DisplaySize.y;
+    const float Ortho[4][4] =
+    {
+        { 2.0f/(R-L),   0.0f,         0.0f,   0.0f },
+        { 0.0f,         2.0f/(T-B),   0.0f,   0.0f },
+        { 0.0f,         0.0f,        -1.0f,   0.0f },
+        { (R+L)/(L-R),  (T+B)/(B-T),  0.0f,   1.0f },
+    };
+
+    GLuint ImGuiShader = GameState->Resources.GetShader(GameState->R.ShaderImGui);
+    glUseProgram(ImGuiShader);
+    glUniform1i(glGetUniformLocation(ImGuiShader, "Texture"), 0);
+    glUniformMatrix4fv(glGetUniformLocation(ImGuiShader, "Projection"), 1, GL_FALSE, &Ortho[0][0]);
+
+    // Bind vertex/index buffers and setup attributes for ImDrawVert
+    if(!g_ImGuiVAO)
+    {
+        glGenVertexArrays(1, &g_ImGuiVAO);
+        glGenBuffers(1, &g_ImGuiVBO);
+        glGenBuffers(1, &g_ImGuiEBO);
+        glBindVertexArray(g_ImGuiVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, g_ImGuiVBO);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_ImGuiEBO);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(ImDrawVert), (GLvoid*)IM_OFFSETOF(ImDrawVert, pos));
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(ImDrawVert), (GLvoid*)IM_OFFSETOF(ImDrawVert, uv));
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE,  sizeof(ImDrawVert), (GLvoid*)IM_OFFSETOF(ImDrawVert, col));
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
+    }
+}
+
+void
+RenderImGui(game_state* GameState, ImDrawData* DrawData)
+{
+    int FBWidth = (int)(DrawData->DisplaySize.x * DrawData->FramebufferScale.x);
+    int FBHeight = (int)(DrawData->DisplaySize.y * DrawData->FramebufferScale.y);
+    if ((FBWidth <= 0) || (FBHeight <= 0))
+    {
+        return;
+    }
+
+    // Backup GL state
+    glActiveTexture(GL_TEXTURE0);
+    GLint LastViewport[4]; glGetIntegerv(GL_VIEWPORT, LastViewport);
+    GLint LastScissorBox[4]; glGetIntegerv(GL_SCISSOR_BOX, LastScissorBox);
+    GLenum LastBlendSRCRGB; glGetIntegerv(GL_BLEND_SRC_RGB, (GLint*)&LastBlendSRCRGB);
+    GLenum LastBlendDSTRGB; glGetIntegerv(GL_BLEND_DST_RGB, (GLint*)&LastBlendDSTRGB);
+    GLenum LastBlendSRCAlpha; glGetIntegerv(GL_BLEND_SRC_ALPHA, (GLint*)&LastBlendSRCAlpha);
+    GLenum LastBlendDSTAlpha; glGetIntegerv(GL_BLEND_DST_ALPHA, (GLint*)&LastBlendDSTAlpha);
+    GLenum LastBlendEquationRGB; glGetIntegerv(GL_BLEND_EQUATION_RGB, (GLint*)&LastBlendEquationRGB);
+    GLenum LastBlendEquationAlpha; glGetIntegerv(GL_BLEND_EQUATION_ALPHA, (GLint*)&LastBlendEquationAlpha);
+    GLboolean LastEnableBlend = glIsEnabled(GL_BLEND);
+    GLboolean LastEnableCullFace = glIsEnabled(GL_CULL_FACE);
+    GLboolean LastEnableDepthTest = glIsEnabled(GL_DEPTH_TEST);
+    GLboolean LastEnableScissorTest = glIsEnabled(GL_SCISSOR_TEST);
+    bool ClipOriginLowerLeft = true;
+    GLenum LastClipOrigin = 0; glGetIntegerv(GL_CLIP_ORIGIN, (GLint*)&LastClipOrigin); // Support for GL 4.5's glClipControl(GL_UPPER_LEFT)
+    if(LastClipOrigin == GL_UPPER_LEFT)
+    {
+        ClipOriginLowerLeft = false;
+    }
+
+    SetupImGuiState(GameState, DrawData, FBWidth, FBHeight);
+
+    // Will project scissor/clipping rectangles into framebuffer space
+    ImVec2 ClipOff = DrawData->DisplayPos;         // (0,0) unless using multi-viewports
+    ImVec2 ClipScale = DrawData->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
+
+    glBindVertexArray(g_ImGuiVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, g_ImGuiVBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_ImGuiEBO);
+
+    // Render command lists
+    for(int CommandListIndex = 0; CommandListIndex < DrawData->CmdListsCount; ++CommandListIndex)
+    {
+        const ImDrawList* CommandList = DrawData->CmdLists[CommandListIndex];
+
+        // Upload vertex/index buffers
+        glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)CommandList->VtxBuffer.Size * sizeof(ImDrawVert), (const GLvoid*)CommandList->VtxBuffer.Data, GL_STREAM_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr)CommandList->IdxBuffer.Size * sizeof(ImDrawIdx), (const GLvoid*)CommandList->IdxBuffer.Data, GL_STREAM_DRAW);
+
+        for(int CommandIndex = 0; CommandIndex < CommandList->CmdBuffer.Size; ++CommandIndex)
+        {
+            const ImDrawCmd* Command = &CommandList->CmdBuffer[CommandIndex];
+            if(Command->UserCallback)
+            {
+                // User callback, registered via ImDrawList::AddCallback()
+                // (ImDrawCallback_ResetRenderState is a special callback value used by the user to request the renderer to reset render state.)
+                if(Command->UserCallback == ImDrawCallback_ResetRenderState)
+                {
+                    SetupImGuiState(GameState, DrawData, FBWidth, FBHeight);
+                }
+                else
+                {
+                    Command->UserCallback(CommandList, Command);
+                }
+            }
+            else
+            {
+                // Project scissor/clipping rectangles into framebuffer space
+                ImVec4 ClipRect;
+                ClipRect.x = (Command->ClipRect.x - ClipOff.x) * ClipScale.x;
+                ClipRect.y = (Command->ClipRect.y - ClipOff.y) * ClipScale.y;
+                ClipRect.z = (Command->ClipRect.z - ClipOff.x) * ClipScale.x;
+                ClipRect.w = (Command->ClipRect.w - ClipOff.y) * ClipScale.y;
+
+                if((ClipRect.x < FBWidth) && (ClipRect.y < FBHeight) &&
+                   (ClipRect.z >= 0.0f) && (ClipRect.w >= 0.0f))
+                {
+                    // Apply scissor/clipping rectangle
+                    if(ClipOriginLowerLeft)
+                    {
+                        glScissor((int)ClipRect.x, (int)(FBHeight - ClipRect.w), (int)(ClipRect.z - ClipRect.x), (int)(ClipRect.w - ClipRect.y));
+                    }
+                    else
+                    {
+                        glScissor((int)ClipRect.x, (int)ClipRect.y, (int)ClipRect.z, (int)ClipRect.w); // Support for GL 4.5 rarely used glClipControl(GL_UPPER_LEFT)
+                    }
+
+                    // Bind texture, Draw
+                    glBindTexture(GL_TEXTURE_2D, (GLuint)(intptr_t)Command->TextureId);
+                    glDrawElements(GL_TRIANGLES, (GLsizei)Command->ElemCount,
+                        (sizeof(ImDrawIdx) == 2) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT,
+                        (void*)(intptr_t)(Command->IdxOffset * sizeof(ImDrawIdx)));
+                }
+            }
+        }
+    }
+
+    // Restore modified GL state
+    glUseProgram(0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glBlendEquationSeparate(LastBlendEquationRGB, LastBlendEquationAlpha);
+    glBlendFuncSeparate(LastBlendSRCRGB, LastBlendDSTRGB, LastBlendSRCAlpha, LastBlendDSTAlpha);
+    if(LastEnableBlend) glEnable(GL_BLEND); else glDisable(GL_BLEND);
+    if(LastEnableCullFace) glEnable(GL_CULL_FACE); else glDisable(GL_CULL_FACE);
+    if(LastEnableDepthTest) glEnable(GL_DEPTH_TEST); else glDisable(GL_DEPTH_TEST);
+    if(LastEnableScissorTest) glEnable(GL_SCISSOR_TEST); else glDisable(GL_SCISSOR_TEST);
+    glViewport(LastViewport[0], LastViewport[1], (GLsizei)LastViewport[2], (GLsizei)LastViewport[3]);
+    glScissor(LastScissorBox[0], LastScissorBox[1], (GLsizei)LastScissorBox[2], (GLsizei)LastScissorBox[3]);
 }

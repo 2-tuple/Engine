@@ -10,7 +10,7 @@
 
 #define FRAME_TIME_MS 8
 #define SLOW_MOTION_COEFFICIENT 0.2f
-#if 1
+#if 0
 #define FULL_SCREEN
 #define SCREEN_WIDTH 1920
 #define SCREEN_HEIGHT 1080
