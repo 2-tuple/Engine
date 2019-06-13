@@ -44,6 +44,11 @@ ProcessInput(const game_input* OldInput, game_input* NewInput, SDL_Event* Event,
           IO.KeySuper = !!(SDL_GetModState() & KMOD_GUI);
         }
 
+        if(IO.WantTextInput)
+        {
+          break;
+        }
+
         if(Event->key.keysym.sym == SDLK_ESCAPE)
         {
           NewInput->Escape.EndedDown = IsDown;
@@ -179,21 +184,16 @@ ProcessInput(const game_input* OldInput, game_input* NewInput, SDL_Event* Event,
       case SDL_MOUSEBUTTONUP:
       {
         bool IsDown = (Event->type == SDL_MOUSEBUTTONDOWN);
-        if(Event->button.button == SDL_BUTTON_LEFT)
+        IO.MouseDown[0] = IsDown && (Event->button.button == SDL_BUTTON_LEFT);
+        IO.MouseDown[1] = IsDown && (Event->button.button == SDL_BUTTON_RIGHT);
+        IO.MouseDown[2] = IsDown && (Event->button.button == SDL_BUTTON_MIDDLE);
+        if(IO.WantCaptureMouse)
         {
-          NewInput->MouseLeft.EndedDown = IsDown;
-          IO.MouseDown[0] = IsDown;
+          break;
         }
-        if(Event->button.button == SDL_BUTTON_RIGHT)
-        {
-          NewInput->MouseRight.EndedDown = IsDown;
-          IO.MouseDown[1] = IsDown;
-        }
-        if(Event->button.button == SDL_BUTTON_MIDDLE)
-        {
-          NewInput->MouseMiddle.EndedDown = IsDown;
-          IO.MouseDown[3] = IsDown;
-        }
+        NewInput->MouseLeft.EndedDown = IO.MouseDown[0];
+        NewInput->MouseRight.EndedDown = IO.MouseDown[1];
+        NewInput->MouseMiddle.EndedDown = IO.MouseDown[2];
         break;
       }
       case SDL_MOUSEWHEEL:
