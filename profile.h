@@ -77,6 +77,8 @@ enum
   TIMER_NAME_UpdatePlayer,
   TIMER_NAME_Offbeat,
   TIMER_NAME_Particles,
+  TIMER_NAME_ImGuiDemo,
+  TIMER_NAME_RenderImGui,
   TIMER_NAME_Count,
 };
 
@@ -135,6 +137,8 @@ const char TIMER_NAME_TABLE[][TIMER_NAME_Count] = {
   "UpdatePlayer",
   "Offbeat",
   "Particles",
+  "ImGuiDemo",
+  "RenderImGui",
 };
 
 const float TIMER_UI_COLOR_TABLE[TIMER_NAME_Count][3] =
@@ -151,7 +155,7 @@ const float TIMER_UI_COLOR_TABLE[TIMER_NAME_Count][3] =
     { 0, 0, 1 },          { 0.1f, 0.8f, 0.2f }, { 0, 0, 1 },          { 1, 1, 0 },
     { 0.5f, 0.2f, 0.5f }, { 0.6f, 0.5f, 0.3f }, { 1, 0.2f, 0.3f },    { 0.6f, 0.5f, 0.3f },
     { 1, 0.2f, 0.3f },    { 1, 0.2f, 0.2f },    { 0.2f, 0.4f, 0.6f }, { 0, 0.5f, 1 },
-    { 0, 0.5f, 1 } };
+    { 0, 0.5f, 1 }, {0.5f, 0.1f, 0.3f}, {0.7f, 0.3f, 0.2f} };
 
 struct frame_endpoints
 {

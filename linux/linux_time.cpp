@@ -1,20 +1,20 @@
-<<<<<<< HEAD
+/*<<<<<<< HEAD
 #include "../common.h"
-=======
+=======*/
 #include <assert.h>
 #include <stdint.h>
->>>>>>> particle_system
+//>>>>>>> particle_system
 #include <time.h>
 
-float
-Platform::GetTimeInSeconds()
+//float
+namespace Platform//::GetTimeInSeconds()
 {
-<<<<<<< HEAD
+/*<<<<<<< HEAD
   struct timespec CurrentTime;
   clock_gettime(CLOCK_MONOTONIC_RAW, &CurrentTime);
   float Result = (float)CurrentTime.tv_sec + (float)CurrentTime.tv_nsec / 1e9f;
   return Result;
-=======
+=======*/
   void
   InitPerformanceFrequency()
   {
@@ -44,5 +44,5 @@ Platform::GetTimeInSeconds()
       assert(End >= Start);
       return (float)(End - Start) / 1000000.0f;
   }
->>>>>>> particle_system
+//>>>>>>> particle_system
 }

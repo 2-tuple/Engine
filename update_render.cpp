@@ -79,8 +79,6 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
   }
 
   BEGIN_TIMED_BLOCK(Update)
-  ImGui::NewFrame();
-  ImGui::ShowDemoWindow();
   {
     TIMED_BLOCK(FilesystemUpdate);
     if(GameState->UpdatePathList)
@@ -158,9 +156,14 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
   }
 
   // Editor
+  ImGui::NewFrame();
   if(Input->IsMouseInEditorMode)
   {
     EditWorldAndInteractWithGUI(GameState, Input);
+    {
+      TIMED_BLOCK(ImGuiDemo);
+      ImGui::ShowDemoWindow();
+    }
   }
 
   //--------------------WORLD UPDATE------------------------
@@ -980,8 +983,13 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
   Debug::DrawQuads(GameState);
   Debug::ClearDrawArrays();
   ImGui::EndFrame();
-  ImGui::Render();
-  RenderImGui(GameState, ImGui::GetDrawData());
+
+  {
+    TIMED_BLOCK(RenderImGui);
+    ImGui::Render();
+    RenderImGui(GameState, ImGui::GetDrawData());
+  }
+
   END_TIMED_BLOCK(DebugDrawingSubmission);
   Text::ClearTextRequestCounts();
 

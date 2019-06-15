@@ -9,3 +9,4 @@ msvc_build
 .exrc
 *.swp
 core
+imgui_log.txt
