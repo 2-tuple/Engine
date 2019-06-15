@@ -308,6 +308,7 @@ Init(SDL_Window** Window)
     SDL_SetRelativeMouseMode(SDL_TRUE);
     // TODO(rytis): Print screen is not working correctly. Might have something to do with SDL
     // window creation or input handling.
+#define FULL_SCREEN
 #ifdef FULL_SCREEN
     *Window =
       SDL_CreateWindow("ngpe - Non general-purpose engine", 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT,
