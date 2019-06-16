@@ -1,5 +1,5 @@
 compiler = clang++-5.0
-warning_flags = -Wall -Wconversion -Wno-missing-braces -Wno-sign-conversion -Wno-writable-strings -Wno-unused-variable -Wno-unused-function -Wno-conversion -Wno-string-conversion -Wno-switch #-Wdouble-promotion
+warning_flags = -Wall -Wconversion -Wno-missing-braces -Wno-sign-conversion -Wno-writable-strings -Wno-unused-variable -Wno-unused-function -Wno-conversion -Wno-string-conversion -Wno-switch -Wno-format-security #-Wdouble-promotion
 
 linker_flags = -lGLEW -lGL `sdl2-config --cflags --libs` -lm -lSDL2_ttf
 

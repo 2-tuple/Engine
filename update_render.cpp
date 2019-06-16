@@ -31,6 +31,7 @@
 #include "edit_mode_interaction.h"
 #include "rendering.h"
 #include "post_processing.h"
+#include "editor_ui.h"
 
 // TODO remove these globals
 extern bool g_VisualizeContactPoints;
@@ -150,10 +151,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
   if(Input->IsMouseInEditorMode)
   {
     EditWorldAndInteractWithGUI(GameState, Input);
-    {
-      TIMED_BLOCK(ImGuiDemo);
-      ImGui::ShowDemoWindow();
-    }
+    RunEditor(GameState, Input);
   }
 
   //--------------------WORLD UPDATE------------------------
