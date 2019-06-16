@@ -128,36 +128,6 @@ MMWindows(game_state* GameState, const game_input* Input, bool& s_ShowMotionMatc
       MMDebug.MatchedGoal.Overlay = OverlayGoals;
     }
     UI::Checkbox("Overlay Longerm Trajectories", &GameState->OverlaySplines);
-#if 0
-    {
-      static vec3 A          = { -1, 0, 0 };
-      static vec3 B          = {};
-      static vec3 C          = { 1, 0, 0 };
-      static vec3 D          = { 2, 0, 0 };
-      static int  PointCount = 10;
-      UI::Text("Catmull Rom Test");
-      UI::SliderInt("Spline Viz Point Count", &PointCount, 1, 30);
-      UI::DragFloat3("A", &A.X, -3, 3, 6);
-      UI::DragFloat3("B", &B.X, -3, 3, 6);
-      UI::DragFloat3("C", &C.X, -3, 3, 6);
-      UI::DragFloat3("D", &D.X, -3, 3, 6);
-
-      Debug::PushWireframeSphere(A, 0.1f, { 0, 1, 0, 0.1f });
-      Debug::PushLine(A, B, { 1, 0, 0, 1 });
-      Debug::PushWireframeSphere(B, 0.1f, { 0, 1, 1, 0.3f });
-      Debug::PushWireframeSphere(C, 0.1f, { 0, 0, 0, 0.7f });
-      Debug::PushLine(C, D, { 1, 0, 0, 1 });
-      Debug::PushWireframeSphere(D, 0.1f, { 1, 1, 0, 1 });
-
-      for(int i = 0; i < PointCount && PointCount > 1; i++)
-      {
-        float t = float(i) / float(PointCount - 1);
-
-        vec3 CatmullRomPoint = GetCatmullRomPoint(A, B, C, D, t);
-        Debug::PushWireframeSphere(CatmullRomPoint, 0.05f, { 1, 0.2f, 0.2f, 1 });
-      }
-    }
-#endif
     UI::EndWindow();
   }
 }

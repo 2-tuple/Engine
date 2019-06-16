@@ -46,17 +46,6 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
   // GAME STATE INITIALIZATION (ONLY RUN ON FIRST FRAME)
   if(GameState->MagicChecksum != 123456)
   {
-    /*printf("sizeof(Anim::skeleton)            : %ld\n", sizeof(Anim::skeleton));
-    printf("sizeof(mm_frame_info)             : %ld\n", sizeof(mm_frame_info));
-    printf("sizeof(mm_controller_data)        : %ld\n", sizeof(mm_controller_data));
-    printf("sizeof(mm_entity_data)            : %ld\n", sizeof(mm_entity_data));
-    printf("sizeof(mm_aos_entity_data)        : %ld\n", sizeof(mm_aos_entity_data));
-    printf("sizeof(blend_stack)               : %ld\n", sizeof(blend_stack));
-    printf("sizeof(Anim::animation_player): %ld\n", sizeof(Anim::animation_player));
-    printf("sizeof(transform)                 : %ld\n", sizeof(transform));
-    printf("sizeof(pose_transform)            : %ld\n", sizeof(trajectory_transform));
-    printf("alignof(pose_transform)           : %ld\n\n", alignof(trajectory_transform));*/
-
     INIT_GPU_TIMERS();
     TIMED_BLOCK(FirstInit);
     PartitionMemoryInitAllocators(&GameMemory, GameState);
@@ -131,6 +120,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		}
   }
 
+  // Camera update
   {
     if(Input->f.EndedDown && Input->f.Changed)
     {
@@ -276,7 +266,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                        InactiveControllerCount, Entities, DebugEntityCount);
   }
   // TODO(Lukas) this late camera update invalidates the debug gizmos drawn between here and the
-  // first camera update. Make the gizmos use the VP matrix, when submitting the drawing primitives
+  // first camera update. Make the gizmos use the VP matrix when submitting the drawing primitives
   // at the end of the frame.
   {
     entity* SelectedEntity = {};
@@ -980,15 +970,18 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
   {
     Debug::DrawWireframeSpheres(GameState);
   }
-  Debug::DrawQuads(GameState);
-  Debug::ClearDrawArrays();
-  ImGui::EndFrame();
 
   {
-    TIMED_BLOCK(RenderImGui);
-    ImGui::Render();
-    RenderImGui(GameState, ImGui::GetDrawData());
+    ImGui::EndFrame();
+    {
+      TIMED_BLOCK(RenderImGui);
+      ImGui::Render();
+      RenderImGui(GameState, ImGui::GetDrawData());
+    }
   }
+
+  Debug::DrawQuads(GameState);
+  Debug::ClearDrawArrays();
 
   END_TIMED_BLOCK(DebugDrawingSubmission);
   Text::ClearTextRequestCounts();

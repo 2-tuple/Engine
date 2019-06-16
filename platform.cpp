@@ -38,10 +38,10 @@ ProcessInput(const game_input* OldInput, game_input* NewInput, SDL_Event* Event,
           int Key = Event->key.keysym.scancode;
           IM_ASSERT(Key >= 0 && Key < IM_ARRAYSIZE(IO.KeysDown));
           IO.KeysDown[Key] = IsDown;
-          IO.KeyShift = !!(SDL_GetModState() & KMOD_SHIFT);
-          IO.KeyCtrl  = !!(SDL_GetModState() & KMOD_CTRL);
-          IO.KeyAlt   = !!(SDL_GetModState() & KMOD_ALT);
-          IO.KeySuper = !!(SDL_GetModState() & KMOD_GUI);
+          IO.KeyShift      = !!(SDL_GetModState() & KMOD_SHIFT);
+          IO.KeyCtrl       = !!(SDL_GetModState() & KMOD_CTRL);
+          IO.KeyAlt        = !!(SDL_GetModState() & KMOD_ALT);
+          IO.KeySuper      = !!(SDL_GetModState() & KMOD_GUI);
         }
 
         if(IO.WantTextInput)
@@ -183,16 +183,19 @@ ProcessInput(const game_input* OldInput, game_input* NewInput, SDL_Event* Event,
       case SDL_MOUSEBUTTONDOWN:
       case SDL_MOUSEBUTTONUP:
       {
-        bool IsDown = (Event->type == SDL_MOUSEBUTTONDOWN);
+        bool IsDown     = (Event->type == SDL_MOUSEBUTTONDOWN);
         IO.MouseDown[0] = IsDown && (Event->button.button == SDL_BUTTON_LEFT);
         IO.MouseDown[1] = IsDown && (Event->button.button == SDL_BUTTON_RIGHT);
         IO.MouseDown[2] = IsDown && (Event->button.button == SDL_BUTTON_MIDDLE);
+				//TODO: Reenable this after finishing transition to ImGui
+#if 0
         if(IO.WantCaptureMouse)
         {
           break;
         }
-        NewInput->MouseLeft.EndedDown = IO.MouseDown[0];
-        NewInput->MouseRight.EndedDown = IO.MouseDown[1];
+#endif
+        NewInput->MouseLeft.EndedDown   = IO.MouseDown[0];
+        NewInput->MouseRight.EndedDown  = IO.MouseDown[1];
         NewInput->MouseMiddle.EndedDown = IO.MouseDown[2];
         break;
       }
@@ -200,22 +203,22 @@ ProcessInput(const game_input* OldInput, game_input* NewInput, SDL_Event* Event,
       {
         // NOTE(rytis): Dear ImGui.
         {
-            if(Event->wheel.x > 0)
-            {
-                IO.MouseWheelH += 1;
-            }
-            else if(Event->wheel.x < 0)
-            {
-                IO.MouseWheelH -= 1;
-            }
-            if(Event->wheel.y > 0)
-            {
-                IO.MouseWheel += 1;
-            }
-            else if(Event->wheel.y < 0)
-            {
-                IO.MouseWheel -= 1;
-            }
+          if(Event->wheel.x > 0)
+          {
+            IO.MouseWheelH += 1;
+          }
+          else if(Event->wheel.x < 0)
+          {
+            IO.MouseWheelH -= 1;
+          }
+          if(Event->wheel.y > 0)
+          {
+            IO.MouseWheel += 1;
+          }
+          else if(Event->wheel.y < 0)
+          {
+            IO.MouseWheel -= 1;
+          }
         }
 
         if(Event->wheel.direction == SDL_MOUSEWHEEL_NORMAL)
